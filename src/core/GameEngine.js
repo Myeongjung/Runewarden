@@ -1,0 +1,2029 @@
+// Runewarden — GameEngine
+import { MapRenderer, isPlaceableCell, hexToPixel } from '../rendering/MapRenderer.js';
+import { EnemySystem } from '../systems/EnemySystem.js';
+import { TowerSystem } from '../systems/TowerSystem.js';
+import { CardSystem }  from '../systems/CardSystem.js';
+import { ShopUI }      from '../ui/ShopUI.js';
+import { NodeSelectionUI, EventUI, RestUI, pickRandomCards } from '../ui/NodeUI.js';
+import { MetaSystem, CODEX_UNLOCKS, xpForLevel, MAX_RANK } from '../systems/MetaSystem.js';
+import { RunSummaryUI } from '../ui/RunSummaryUI.js';
+import { buildStarterDeck, CARD_DEFS } from '../data/cards.js';
+import { WARDEN_DEFS, getWardenById, PASSIVES } from '../data/wardens.js';
+import { TOWER_DEFS } from '../data/towers.js';
+import { SteamSystem, STEAM_STATS } from '../systems/SteamSystem.js';
+import { TutorialUI }   from '../ui/TutorialUI.js';
+import { audio, music }  from '../systems/AudioSystem.js';
+import { i18n }          from '../i18n/i18n.js';
+import { RelicUI }       from '../ui/RelicUI.js';
+import { pickRandomRelics, RELIC_DEFS } from '../data/relics.js';
+import { pickRandomMap, getMapById }   from '../data/maps.js';
+import { setActiveMap }     from '../rendering/MapRenderer.js';
+import { DIFFICULTY_DEFS, getDifficultyById } from '../data/difficulty.js';
+import { ASCENSION_DEFS, getAscensionMods }   from '../data/ascension.js';
+
+const HEX_W = 34 * 2;
+function rangeToPixel(hexRange) { return hexRange * HEX_W * 0.75; }
+
+// ── 상수 ──────────────────────────────────────────────
+const MAX_WAVES   = 15;  // Act 1(5) + Act 2(5) + Act 3(5)
+const ACT_SIZE    = 5;   // 액트당 웨이브 수
+const NEXUS_HP    = 3;
+const START_GOLD  = 25;
+const WAVE_GOLD   = 8;
+const BOSS_WAVES  = new Set([5, 10, 15]);  // 보스 등장 웨이브
+
+// ── DOM 참조 ───────────────────────────────────────────
+const $ = id => document.getElementById(id);
+const screens = {
+  menu:     $('screen-menu'),
+  game:     $('screen-game'),
+  howto:    $('screen-howto'),
+  gameover: $('screen-gameover'),
+};
+
+// ── 게임 상태 ─────────────────────────────────────────
+let state = null;        // 현재 런 상태
+let renderer = null;
+let enemySystem = null;
+let towerSystem = null;
+let cardSystem = null;
+let shopUI      = null;
+let nodeUI      = null;
+let eventUI     = null;
+let restUI      = null;
+let summaryUI   = null;
+let relicUI     = null;
+
+// 싱글턴 시스템 — 앱 로드 시 한 번만 생성
+const meta     = new MetaSystem();
+const steam    = new SteamSystem();
+
+// 현재 선택된 Warden (기본: Iron)
+let selectedWarden = WARDEN_DEFS[0];
+// 현재 선택된 난이도 (기본: Standard)
+let selectedDifficulty = getDifficultyById('standard');
+// 현재 선택된 Ascension 레벨 (0 = 일반)
+let selectedAscension = 0;
+
+// 자동저장 복원 데이터 (Continue 버튼으로 런 재개 시 세팅)
+let _savedRunData = null;
+
+// 튜토리얼 (런 시작 후 생성)
+let tutorial   = null;
+let rafId = null;
+let lastTime = 0;
+
+// ── 일시정지 / 재개 ───────────────────────────────────
+function pauseGame() {
+  if (!state || state.phase === 'over' || state.phase === 'paused') return;
+  if (!screens.game.classList.contains('active')) return;
+
+  state._prevPhase = state.phase;
+  state.phase = 'paused';
+
+  if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+
+  // BGM 볼륨 절반으로 낮춤 (AudioContext는 suspend하지 않음 — SFX 유지)
+  music.setVolume(0.08);
+  $('screen-pause').classList.remove('hidden');
+}
+
+function resumeGame() {
+  if (!state || state.phase !== 'paused') return;
+
+  state.phase = state._prevPhase ?? 'pre';
+  delete state._prevPhase;
+
+  music.setVolume(0.28);   // BGM 볼륨 복원
+  $('screen-pause').classList.add('hidden');
+
+  lastTime = performance.now();
+  rafId = requestAnimationFrame(gameLoop);
+}
+
+// ── 화면 전환 ─────────────────────────────────────────
+function showScreen(name) {
+  Object.values(screens).forEach(s => { if (s) { s.classList.remove('active'); s.style.display = ''; } });
+  // 모든 오버레이 닫기
+  ['screen-howto','screen-gameover','screen-summary',
+   'screen-node','screen-shop','screen-event','screen-rest','screen-pause',
+   'screen-relic','screen-difficulty'
+  ].forEach(id => $(id)?.classList.add('hidden'));
+
+  if (name === 'menu')  {
+    screens.menu.classList.add('active');
+    screens.menu.style.display = 'flex';
+    updateMenuRank();
+    music.crossfadeTo('menu');
+  }
+  if (name === 'game')  { screens.game.classList.add('active'); screens.game.style.display = 'flex'; }
+  if (name === 'howto') { $('screen-howto').classList.remove('hidden'); }
+  if (name === 'gameover') { screens.gameover.classList.remove('hidden'); music.crossfadeTo('menu'); }
+}
+
+// ── Warden 선택 화면 ──────────────────────────────────
+function openWardenSelect() {
+  const overlay = $('screen-warden-select');
+  const row     = $('warden-cards-row');
+  overlay.classList.remove('hidden');
+  row.innerHTML = '';
+
+  for (const w of WARDEN_DEFS) {
+    const isLocked   = meta.rank < w.unlockRank;
+    const isSelected = selectedWarden.id === w.id;
+
+    const card = document.createElement('div');
+    card.className = `warden-card${isLocked ? ' locked' : ''}${isSelected ? ' selected' : ''}`;
+    card.style.setProperty('--warden-color', w.color);
+    card.style.setProperty('--warden-bg', w.accentBg);
+
+    const deckSize = w.buildDeck().length;
+    const btnLabel = isLocked
+      ? i18n.t('warden_locked', w.unlockRank)
+      : isSelected ? i18n.t('warden_selected') : i18n.t('warden_select_btn');
+
+    card.innerHTML = `
+      ${isLocked ? `<div class="warden-lock-badge">🔒 Rank ${w.unlockRank}</div>` : ''}
+
+      <div class="warden-card-head">
+        <div class="warden-icon">${w.icon}</div>
+        <div class="warden-head-text">
+          <div class="warden-name">${w.name}</div>
+          <div class="warden-title">${w.title}</div>
+        </div>
+      </div>
+
+      <div class="warden-tagline">${w.tagline}</div>
+      <div class="warden-desc">${typeof w.desc === 'object' ? (w.desc[i18n.lang] ?? w.desc.en) : w.desc}</div>
+
+      <div class="warden-stats">
+        <div class="warden-stat">🪙<span class="warden-stat-val">${w.startGold}g</span></div>
+        <div class="warden-stat">🤚<span class="warden-stat-val">${w.handSize}</span></div>
+        <div class="warden-stat">♥<span class="warden-stat-val">${w.nexusHp}HP</span></div>
+        <div class="warden-stat">🃏<span class="warden-stat-val">${deckSize}</span></div>
+      </div>
+
+      <div class="warden-passive-box">
+        <span class="warden-passive-label">${i18n.t('passive_label')}</span>
+        ${i18n.t(w.passiveKey)}
+      </div>
+
+      <button class="warden-select-btn" ${isLocked ? 'disabled' : ''}>${btnLabel}</button>
+    `;
+
+    if (!isLocked) {
+      card.querySelector('.warden-select-btn').addEventListener('click', () => {
+        selectedWarden = w;
+        overlay.classList.add('hidden');
+        openDifficultySelect();  // 워든 선택 → 난이도 선택
+      });
+    }
+
+    row.appendChild(card);
+  }
+}
+
+// ── 난이도 선택 화면 ──────────────────────────────────
+function openDifficultySelect() {
+  const overlay = $('screen-difficulty');
+  overlay.classList.remove('hidden');
+
+  const maxAsc = meta.maxSelectableAscension;  // 0 = Ascension 잠김
+
+  // Ascension 섹션 HTML (Rank 20 달성 시만 표시)
+  const ascHTML = maxAsc > 0 ? `
+    <div class="asc-section">
+      <div class="asc-section-title">${i18n.t('asc_section_title')}</div>
+      <div class="asc-section-sub">${i18n.t('asc_section_sub')}</div>
+      <div class="asc-choices">
+        <div class="asc-btn${selectedAscension === 0 ? ' selected' : ''}" data-asc="0">
+          <span class="asc-btn-icon">✕</span>
+          <span class="asc-btn-label">${i18n.t('asc_off')}</span>
+        </div>
+        ${ASCENSION_DEFS.map(a => {
+          const isAvail = a.level <= maxAsc;
+          const isSel   = selectedAscension === a.level;
+          return `<div class="asc-btn${isSel ? ' selected' : ''}${isAvail ? '' : ' locked'}" data-asc="${a.level}">
+            <span class="asc-btn-icon">${a.icon}</span>
+            <span class="asc-btn-label">${i18n.t('asc_' + a.level + '_title')}${isAvail ? '' : ' 🔒'}</span>
+          </div>`;
+        }).join('')}
+      </div>
+      <div class="asc-desc" id="asc-desc-text">
+        ${selectedAscension === 0
+          ? i18n.t('asc_off_desc')
+          : i18n.t('asc_' + selectedAscension + '_desc')}
+      </div>
+    </div>
+  ` : '';
+
+  overlay.innerHTML = `
+    <div class="difficulty-box" style="animation:shopSlideIn 0.3s cubic-bezier(0.34,1.56,0.64,1)">
+      <div class="difficulty-header">
+        <div class="difficulty-title">${i18n.t('difficulty_title')}</div>
+        <div class="difficulty-sub">${i18n.t('difficulty_sub')}</div>
+      </div>
+      <div class="difficulty-choices">
+        ${DIFFICULTY_DEFS.map(d => `
+          <div class="diff-card${d.id === selectedDifficulty.id ? ' selected' : ''}" data-id="${d.id}">
+            <div class="diff-icon">${d.icon}</div>
+            <div class="diff-body">
+              <div class="diff-name">${i18n.t('diff_' + d.id)}</div>
+              <div class="diff-desc">${i18n.t('diff_' + d.id + '_desc')}</div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+      ${ascHTML}
+      <div class="diff-footer">
+        <button class="btn-secondary" id="diff-back">${i18n.t('diff_back')}</button>
+        <button class="btn-primary"   id="diff-confirm">${i18n.t('diff_confirm')}</button>
+      </div>
+    </div>
+  `;
+
+  // 난이도 카드 클릭
+  overlay.querySelectorAll('.diff-card').forEach(el => {
+    el.addEventListener('click', () => {
+      overlay.querySelectorAll('.diff-card').forEach(c => c.classList.remove('selected'));
+      el.classList.add('selected');
+      selectedDifficulty = getDifficultyById(el.dataset.id);
+    });
+  });
+
+  // Ascension 버튼 클릭
+  overlay.querySelectorAll('.asc-btn:not(.locked)').forEach(el => {
+    el.addEventListener('click', () => {
+      overlay.querySelectorAll('.asc-btn').forEach(b => b.classList.remove('selected'));
+      el.classList.add('selected');
+      selectedAscension = parseInt(el.dataset.asc, 10);
+      const descEl = overlay.querySelector('#asc-desc-text');
+      if (descEl) {
+        descEl.textContent = selectedAscension === 0
+          ? i18n.t('asc_off_desc')
+          : i18n.t('asc_' + selectedAscension + '_desc');
+      }
+    });
+  });
+
+  $('diff-back').addEventListener('click', () => {
+    overlay.classList.add('hidden');
+    openWardenSelect();
+  });
+
+  $('diff-confirm').addEventListener('click', () => {
+    overlay.classList.add('hidden');
+    startRun();
+  });
+}
+
+// ── 메뉴 랭크 표시 업데이트 ──────────────────────────
+function updateMenuRank() {
+  const rankEl  = $('menu-rank-num');
+  const fillEl  = $('menu-xp-fill');
+  const runsEl  = $('menu-stat-runs');
+  const winsEl  = $('menu-stat-wins');
+  const killsEl = $('menu-stat-kills');
+  if (!rankEl) return;
+
+  rankEl.textContent  = meta.rank;
+  runsEl.textContent  = i18n.t('stat_runs',  meta.runsPlayed);
+  winsEl.textContent  = i18n.t('stat_wins',  meta.runsWon);
+  killsEl.textContent = i18n.t('stat_kills', meta.totalKills);
+
+  // data-i18n-n 업데이트 (DOM 자동 적용용)
+  if (runsEl.dataset.i18nN !== undefined)  runsEl.dataset.i18nN  = meta.runsPlayed;
+  if (winsEl.dataset.i18nN !== undefined)  winsEl.dataset.i18nN  = meta.runsWon;
+  if (killsEl.dataset.i18nN !== undefined) killsEl.dataset.i18nN = meta.totalKills;
+
+  const pct = meta.rank >= MAX_RANK ? 100 : meta.rankProgress * 100;
+  // 짧은 딜레이 후 XP 바 채우기 (CSS 트랜지션)
+  requestAnimationFrame(() => {
+    fillEl.style.width = pct.toFixed(1) + '%';
+  });
+
+  // Continue 버튼: 저장된 런이 있으면 표시
+  const continueBtn = $('btn-continue');
+  if (continueBtn) {
+    let saveData = null;
+    try { saveData = JSON.parse(localStorage.getItem('rw_autosave') || 'null'); } catch {}
+    if (saveData?.v && saveData.wave > 0) {
+      continueBtn.classList.remove('hidden');
+      continueBtn.textContent = i18n.t('btn_continue', saveData.wave, saveData.mapIcon ?? '🗺️', saveData.mapName ?? '');
+    } else {
+      continueBtn.classList.add('hidden');
+    }
+  }
+}
+
+// ── Codex 화면 열기 ───────────────────────────────────
+function openCodex() {
+  const container = $('screen-codex');
+  container.classList.remove('hidden');
+
+  const rank    = meta.rank;
+  const totalXP = meta.totalXP;
+  const pct     = rank >= MAX_RANK ? 100 : (meta.rankProgress * 100).toFixed(1);
+  const nextXP  = rank >= MAX_RANK ? 0 : xpForLevel(rank + 1) - totalXP;
+
+  container.innerHTML = `
+    <div class="codex-box" style="animation: shopSlideIn 0.3s cubic-bezier(0.34,1.56,0.64,1)">
+      <div class="codex-header">
+        <div class="codex-title">📖 ${i18n.t('btn_codex').replace(/^📖\s*/, '')}</div>
+        <div class="codex-rank-badge">⚜️ ${i18n.t('warden_rank')} ${rank}${rank >= MAX_RANK ? ' · MAX' : ''}</div>
+      </div>
+
+      <div class="codex-xp-section">
+        <div class="codex-xp-bar-track">
+          <div class="codex-xp-bar-fill" style="width:${pct}%"></div>
+        </div>
+        <div class="codex-xp-labels">
+          <span>${i18n.t('rank_num', rank)} · ${totalXP} XP</span>
+          <span>${rank < MAX_RANK ? i18n.t('codex_xp_to', nextXP, rank + 1) : i18n.t('codex_max_rank')}</span>
+        </div>
+      </div>
+
+      <div class="codex-stats">
+        <div class="codex-stat-item"><span>${meta.runsPlayed}</span> ${i18n.t('codex_stat_runs')}</div>
+        <div class="codex-stat-item"><span>${meta.runsWon}</span> ${i18n.t('codex_stat_wins')}</div>
+        <div class="codex-stat-item"><span>${meta.totalKills}</span> ${i18n.t('codex_stat_slain')}</div>
+        <div class="codex-stat-item"><span>${meta.runsPlayed > 0 ? ((meta.runsWon/meta.runsPlayed)*100).toFixed(0) : 0}%</span> ${i18n.t('codex_stat_winrate')}</div>
+      </div>
+
+      <div class="codex-grid">
+        ${CODEX_UNLOCKS.map(u => _buildCodexItem(u, rank)).join('')}
+      </div>
+
+      <div class="codex-footer">
+        <button class="btn-primary codex-close-btn" id="btn-codex-close">${i18n.t('howto_close')}</button>
+      </div>
+    </div>
+  `;
+
+  $('btn-codex-close').addEventListener('click', () => {
+    container.classList.add('hidden');
+  });
+}
+
+function _buildCodexItem(unlock, currentRank) {
+  const isUnlocked = currentRank >= unlock.rank;
+  return `
+    <div class="codex-item ${isUnlocked ? 'unlocked' : 'locked'}">
+      ${isUnlocked ? '<div class="codex-unlock-glow"></div>' : ''}
+      ${!isUnlocked ? '<span class="codex-lock-icon">🔒</span>' : ''}
+      <div class="codex-item-icon">${unlock.icon}</div>
+      <div class="codex-item-name">${i18n.lang === 'ko' ? (unlock.titleKo || unlock.title) : unlock.title}</div>
+      <div class="codex-item-rank ${isUnlocked ? 'unlocked-rank' : ''}">
+        ${isUnlocked ? i18n.t('codex_unlocked', unlock.rank) : i18n.t('codex_locked', unlock.rank)}
+      </div>
+      <div class="codex-item-desc">${i18n.lang === 'ko' ? (unlock.descKo || unlock.desc) : unlock.desc}</div>
+    </div>
+  `;
+}
+
+// ── 자동저장 ──────────────────────────────────────────
+function saveCheckpoint() {
+  if (!state || !cardSystem || !towerSystem || state.phase === 'over') return;
+  try {
+    const deck = [...cardSystem.drawPile, ...cardSystem.discardPile].map(c => c.id);
+    const towers = [...towerSystem.towers.values()].map(t => ({
+      col: t.col, row: t.row,
+      towerId: t.def.id,
+      augments: t.augments.map(a => JSON.parse(JSON.stringify(a))),
+    }));
+    const cp = {
+      v: 2, ts: Date.now(),
+      wardenId: state.warden.id,
+      diffId:   state.difficulty.id,
+      mapId:    state.mapId,
+      mapName:  state.mapName,
+      mapIcon:  state.mapIcon,
+      asc:      state.ascension,
+      wave:     state.wave,
+      gold:     state.gold,
+      nexusHp:  state.nexusHp,
+      maxNexusHp: state.maxNexusHp,
+      relicIds: state.relics.map(r => r.id),
+      deck, towers,
+      stats: { ...state.stats, towerTypesUsed: [...state.stats.towerTypesUsed] },
+    };
+    localStorage.setItem('rw_autosave', JSON.stringify(cp));
+  } catch(e) { console.warn('[AutoSave] Failed:', e.message); }
+}
+
+function _restoreFromSave(save) {
+  try {
+    state.wave       = save.wave;
+    state.gold       = save.gold;
+    state.nexusHp    = save.nexusHp;
+    state.maxNexusHp = save.maxNexusHp;
+    state.stats = { ...save.stats, towerTypesUsed: new Set(save.stats.towerTypesUsed) };
+
+    // 유물 복원
+    state.relics = save.relicIds.map(id => RELIC_DEFS.find(r => r.id === id)).filter(Boolean);
+    relicUI.updateHUD(state.relics);
+    for (const r of state.relics) {
+      if (r.effect.type === 'card_draw_bonus') {
+        cardSystem.bonusHandSize = (cardSystem.bonusHandSize || 0) + r.effect.amount;
+      }
+    }
+
+    // 덱 복원
+    cardSystem.drawPile = save.deck
+      .map(id => { const d = CARD_DEFS.find(c => c.id === id); return d ? { ...d, uid: Math.random() } : null; })
+      .filter(Boolean);
+    cardSystem.discardPile = [];
+    cardSystem.hand = [];
+    cardSystem.drawHand();
+    renderHand();
+
+    // 타워 복원
+    for (const t of save.towers) {
+      const tDef = TOWER_DEFS[t.towerId];
+      if (!tDef) continue;
+      towerSystem.place(t.col, t.row, tDef);
+      renderer.placeTower(t.col, t.row, tDef);
+      for (const aug of (t.augments ?? [])) towerSystem.augment(t.col, t.row, aug);
+      if (t.augments?.length > 0) renderer.markAugmented(t.col, t.row, tDef);
+    }
+
+    updateHUD();
+    log(i18n.t('autosave_loaded', save.wave), 'good');
+    audio.play('wave_clear');
+    setTimeout(() => openNodeSelection(), 600);
+  } catch(err) {
+    console.error('[AutoSave] Restore failed:', err);
+    log('⚠️ 저장 데이터 손상 — 새 런을 시작합니다.', 'bad');
+    localStorage.removeItem('rw_autosave');
+    setTimeout(() => _openRelicPicker(), 600);
+  }
+}
+
+// ── 런 초기화 ─────────────────────────────────────────
+function startRun() {
+  // 모든 오버레이 즉시 강제 닫기
+  ['screen-summary','screen-node','screen-shop',
+   'screen-event','screen-rest','screen-howto','screen-gameover','screen-pause',
+   'screen-warden-select','screen-relic','screen-difficulty',
+  ].forEach(id => $(id)?.classList.add('hidden'));
+
+  // 이전 런 정리
+  if (rafId) cancelAnimationFrame(rafId);
+
+  // Warden + 난이도 기반 시작 조건
+  const bonuses    = meta.bonuses;
+  const warden     = selectedWarden;
+  const diff       = selectedDifficulty;
+  const initGold   = Math.max(0, warden.startGold + (bonuses.startGold || 0) + diff.goldBonus);
+  const initNexus  = Math.max(1, warden.nexusHp + (bonuses.nexusHp || 0) + diff.nexusHp);
+
+  const ascMods = getAscensionMods(selectedAscension);
+
+  state = {
+    wave:        0,
+    nexusHp:     initNexus,
+    maxNexusHp:  initNexus,      // 이번 런 넥서스 최대 HP (heal 상한선)
+    gold:        initGold,
+    difficulty:  diff,           // 런 내 난이도 참조
+    ascension:   selectedAscension,  // 런 내 Ascension 레벨
+    ascMods,                     // 누적 핸디캡 mods
+    phase:       'pre',
+    selectedCard: null,
+    warden:      warden,          // 런 내 Warden 참조
+    relics:      [],              // 이번 런 보유 유물
+    _soulAnchorUsed:       false,  // Soul Anchor 1회용 사용 여부
+    _nexusHitThisWave:     false,  // 이번 웨이브 넥서스 피격 여부 (PERFECT_WAVE 업적)
+    _acceptedCurse:        false,  // cursed_gold 이벤트 수락 여부 (CURSED_WIN 업적)
+    lastSpellEffect:       null,   // Void Echo: 마지막 시전 스펠 효과 추적
+    // 런 통계
+    stats: {
+      enemiesKilled:     0,
+      goldEarned:        initGold,
+      cardsPlayed:       0,
+      eliteKills:        0,
+      bossKilled:        false,
+      nexusHealed:       false,
+      augmentsApplied:   0,
+      spellsThisWave:    0,
+      maxSpellsInWave:   0,
+      towerTypesUsed:    new Set(),  // 업적: 6종 타워 모두 배치
+    },
+    _runStartTime: Date.now(),
+  };
+
+  const handSizeBonus = bonuses.handSize || 0;
+  const wardenDeck    = warden.buildDeck();   // Warden별 시작 덱
+
+  // 시스템 초기화
+  const svg = $('game-svg');
+  svg.innerHTML = '';
+
+  // 맵 선택 — 자동저장 복원 시 저장된 맵 사용, 그 외 랜덤
+  const selectedMap = _savedRunData?.mapId
+    ? (getMapById(_savedRunData.mapId) ?? pickRandomMap())
+    : pickRandomMap();
+  setActiveMap(selectedMap.path);
+  state.mapId   = selectedMap.id;
+  state.mapName = selectedMap.name;
+  state.mapIcon = selectedMap.icon;
+
+  renderer  = new MapRenderer(svg, onCellClick, onCellHover);
+  cardSystem = new CardSystem(wardenDeck, warden.handSize + handSizeBonus);
+
+  enemySystem = new EnemySystem(
+    renderer.getEnemyLayer(),
+    onEnemyReachEnd,
+    onEnemyKilled,
+    onBossUpdate,
+  );
+
+  towerSystem = new TowerSystem(
+    renderer.getProjectileLayer(),
+    enemySystem,
+    (msg, cls) => log(msg, cls),
+  );
+
+  // 요약 UI (매 런마다 재생성)
+  summaryUI = new RunSummaryUI($('screen-summary'));
+
+  // 노드 UI들 초기화 (매 런마다)
+  nodeUI = new NodeSelectionUI($('screen-node'), {
+    onShop:  openShop,
+    onEvent: openEvent,
+    onRest:  openRest,
+  });
+
+  shopUI = new ShopUI($('screen-shop'), {
+    onBuy:   onShopBuy,
+    onLeave: onShopLeave,
+    onLog:   (msg, cls) => log(msg, cls),
+  });
+
+  eventUI = new EventUI($('screen-event'), {
+    onEffect: onEventEffect,
+    onClose:  onNodeClose,
+    onLog:    (msg, cls) => log(msg, cls),
+  });
+
+  restUI = new RestUI($('screen-rest'), {
+    onRemoveCard: onRestRemoveCard,
+    onGoldBonus:  onRestGoldBonus,
+    onClose:      onNodeClose,
+    onLog:        (msg, cls) => log(msg, cls),
+  });
+
+  // RelicUI 초기화 (매 런마다)
+  relicUI = new RelicUI($('screen-relic'), {
+    onPick: (relic) => _applyRelicPicked(relic),
+  });
+  relicUI.initHUD($('hud'));
+
+  // UI 초기화
+  showScreen('game');
+  updateHUD();
+  cardSystem.drawHand();
+  renderHand();
+  setWaveButton(i18n.t('btn_start_wave'), false);
+  log(`${warden.icon} ${i18n.t('log_run_start', warden.name)}`);
+  log(`${selectedMap.icon} ${selectedMap.name}  ${diff.icon} ${i18n.t('log_difficulty', i18n.t('diff_' + diff.id))}`, 'gold');
+  if (selectedAscension > 0) log(i18n.t('log_ascension', selectedAscension), 'bad');
+  log(`Passive: ${i18n.t(warden.passiveKey)}`, 'gold');
+  music.crossfadeTo('game');
+
+  // 게임 루프 시작
+  lastTime = performance.now();
+  rafId = requestAnimationFrame(gameLoop);
+
+  // ── 자동저장 복원 또는 유물 선택/튜토리얼 ─────────────
+  if (_savedRunData) {
+    const saveData = _savedRunData;
+    _savedRunData = null;
+    setTimeout(() => _restoreFromSave(saveData), 300);
+  } else if (TutorialUI.isDone()) {
+    setTimeout(() => _openRelicPicker(), 600);
+  } else {
+    if (tutorial && tutorial.isActive()) {
+      // 이미 실행 중이면 건너뜀
+    } else {
+      setTimeout(() => startTutorial(), 800);
+    }
+  }
+}
+
+// ── 유물 선택 오픈 ────────────────────────────────────
+function _openRelicPicker() {
+  const existingIds = state.relics.map(r => r.id);
+  const choices = pickRandomRelics(3, existingIds);
+  if (choices.length === 0) return;  // 모두 획득한 경우
+  relicUI.openPicker(choices);
+}
+
+// ── 유물 획득 처리 ────────────────────────────────────
+function _applyRelicPicked(relic) {
+  state.relics.push(relic);
+  relicUI.updateHUD(state.relics);
+
+  const name = i18n.t('relic_' + relic.id);
+  log(i18n.t('log_relic_picked', name), 'gold');
+  audio.play('shop_buy');
+
+  // 즉시 적용 효과
+  const e = relic.effect;
+  switch (e.type) {
+    case 'start_gold':
+      addGold(e.amount, null, true);
+      break;
+    case 'nexus_hp_bonus':
+      state.nexusHp += e.amount;
+      updateHUD();
+      break;
+    case 'card_draw_bonus':
+      // 다음 드로우부터 반영 (handSizeBonus 방식으로 CardSystem에 반영)
+      cardSystem.bonusHandSize = (cardSystem.bonusHandSize || 0) + e.amount;
+      break;
+    case 'blood_price':
+      // 넥서스 HP 1 희생, 즉시 골드 획득
+      if (state.nexusHp > 1) {
+        state.nexusHp -= e.hpCost;
+        state.maxNexusHp = Math.max(1, (state.maxNexusHp ?? 1) - e.hpCost); // 최대값도 감소
+        addGold(e.goldGain, null, true);
+        updateHUD();
+        log(i18n.t('log_blood_price', e.goldGain), 'gold');
+      } else {
+        // HP가 1이면 희생 불가 → 절반 골드만 지급
+        const halfGold = Math.floor(e.goldGain / 2);
+        addGold(halfGold, null, true);
+        log(i18n.t('log_blood_price', halfGold), 'gold');
+      }
+      break;
+  }
+
+  // 타워 버프 즉시 적용 (배치된 타워에)
+  _applyRelicToTowers(relic);
+}
+
+// ── 유물 효과: 타워/적 시스템 패치 ──────────────────────
+function _applyRelicToTowers(relic) {
+  const e = relic.effect;
+  if (towerSystem) {
+    switch (e.type) {
+      case 'tower_dmg_bonus':
+        towerSystem.addRelicDmgBonus(e.towerType, e.mult);
+        break;
+      case 'tower_range_bonus':
+        towerSystem.addRelicRangeBonus(e.towerType, e.mult);
+        break;
+      case 'tower_speed_bonus':
+        towerSystem.addRelicSpeedBonus(e.towerType, e.mult);
+        break;
+      case 'chain_bonus':
+        towerSystem.addChainBonus(e.extra);
+        break;
+      case 'druid_aura_bonus':
+        towerSystem.addDruidAuraBonus(e.extraMult);
+        break;
+      case 'siege_splash':
+        towerSystem.addSiegeSplash(e.mult);
+        break;
+      case 'fire_pact':
+        towerSystem.addFirePact(e.extraMult);
+        break;
+    }
+  }
+  if (enemySystem) {
+    if (e.type === 'slow_bonus') {
+      enemySystem.setSlowBonus(e.mult);
+    }
+    if (e.type === 'burn_bonus') {
+      enemySystem.setBurnBonus(e.extraDps, e.extraDuration);
+    }
+  }
+}
+
+// ── 유물 헬퍼: 현재 런의 특정 유물 효과 값 반환 ──────
+function getRelicEffect(type) {
+  if (!state?.relics) return null;
+  for (const r of state.relics) {
+    if (r.effect.type === type) return r.effect;
+  }
+  return null;
+}
+
+function hasRelic(id) {
+  return state?.relics?.some(r => r.id === id) ?? false;
+}
+
+// ── 넥서스 HP 회복 공통 헬퍼 ─────────────────────────
+// isSpell=true: 스팀 업적·통계 적용, 골드 보상 없음
+function _applyNexusHeal(amount, { isSpell = false, goldOnFull = 0 } = {}) {
+  const maxHp = state.maxNexusHp ?? NEXUS_HP;
+  if (state.nexusHp < maxHp) {
+    state.nexusHp = Math.min(maxHp, state.nexusHp + amount);
+    updateHUD();
+    audio.play('nexus_heal');
+    log(i18n.t(isSpell ? 'spell_nexus_heal' : 'log_nexus_healed', state.nexusHp), 'good');
+    if (isSpell) {
+      if (state?.stats) state.stats.nexusHealed = true;
+      steam?.unlockAchievement('NEXUS_HEAL');
+    }
+  } else {
+    if (goldOnFull > 0) addGold(goldOnFull, null);
+    log(i18n.t('log_nexus_full'), '');
+  }
+}
+
+// ── 이자 시스템 ───────────────────────────────────────
+function applyInterest() {
+  // Ascension II: 이자 시스템 비활성화
+  if (state.ascMods?.noInterest) return;
+  const threshold = hasRelic('lucky_coin') ? 5 : 10;
+  if (state.gold >= threshold) {
+    const bondEffect = getRelicEffect('interest_bonus');
+    const interest = 1 + (bondEffect ? bondEffect.amount : 0);
+    addGold(interest, null, true);
+    if (bondEffect) log(i18n.t('log_savings_bond', bondEffect.amount), 'gold');
+    else            log(i18n.t('log_interest', interest), 'gold');
+  }
+}
+
+// ── 튜토리얼 초기화 ───────────────────────────────────
+function startTutorial() {
+  tutorial = new TutorialUI({
+    onComplete: () => {
+      tutorial = null;
+      log(i18n.t('log_tutorial_done'), 'good');
+      // 튜토리얼 완료 후 유물 선택
+      setTimeout(() => _openRelicPicker(), 800);
+    },
+    onStepChange: (stepId) => {
+      // 특정 스텝에서 게임 상태 힌트
+      if (stepId === 'select_card') {
+        log(i18n.t('tut_hint_select'), 'gold');
+      }
+      if (stepId === 'place_tower') {
+        log(i18n.t('tut_hint_place'), 'gold');
+      }
+      if (stepId === 'start_wave') {
+        log(i18n.t('tut_hint_wave'), 'gold');
+      }
+    },
+  });
+  tutorial.start();
+}
+
+// ── 게임 루프 ─────────────────────────────────────────
+function gameLoop(now) {
+  const delta = now - lastTime;
+  lastTime = now;
+
+  if (state.phase === 'wave') {
+    enemySystem.update(delta);
+    towerSystem.update(delta);
+
+    if (enemySystem.isWaveClear()) {
+      onWaveCleared();
+    }
+  }
+
+  rafId = requestAnimationFrame(gameLoop);
+}
+
+// ── 보스 HP 바 업데이트 ───────────────────────────────
+function onBossUpdate({ hp, maxHp, hidden, name }) {
+  const wrap      = $('boss-hpbar-wrap');
+  const fill      = $('boss-hpbar-fill');
+  const text      = $('boss-hp-text');
+  const nameLabel = $('boss-name-label');
+  const iconEl    = $('boss-icon');
+  if (!wrap) return;
+
+  if (hidden || (hp === 0 && maxHp === 1)) {
+    wrap.classList.add('hidden');
+    return;
+  }
+
+  wrap.classList.remove('hidden');
+
+  // 보스 종류별 스타일
+  if (name === 'Void Titan') {
+    wrap.style.borderColor = '#9B59B6';
+    if (nameLabel) nameLabel.textContent = 'VOID TITAN';
+    if (iconEl)    iconEl.textContent    = '🌑';
+    fill.style.background = 'linear-gradient(90deg,#4A235A,#9B59B6)';
+  } else if (name === 'Abyssal Dragon') {
+    // 2페이즈 체크
+    const isPhase2 = hp <= maxHp * 0.5;
+    wrap.style.borderColor = isPhase2 ? '#FF00FF' : '#330066';
+    if (nameLabel) nameLabel.textContent = isPhase2 ? 'ABYSSAL DRAGON — PHASE 2' : 'ABYSSAL DRAGON';
+    if (iconEl)    iconEl.textContent    = isPhase2 ? '🐉' : '🌀';
+    fill.style.background = isPhase2
+      ? 'linear-gradient(90deg,#330066,#FF00FF)'
+      : 'linear-gradient(90deg,#0D0030,#5500AA)';
+  } else {
+    wrap.style.borderColor = '#B8860B';
+    if (nameLabel) nameLabel.textContent = 'IRONCLAD';
+    if (iconEl)    iconEl.textContent    = '💀';
+    if (hp / maxHp > 0.5)      fill.style.background = 'linear-gradient(90deg,#8B0000,#FFD700)';
+    else if (hp / maxHp > 0.2) fill.style.background = 'linear-gradient(90deg,#8B0000,#FF6600)';
+    else                        fill.style.background = 'linear-gradient(90deg,#8B0000,#FF0000)';
+  }
+
+  const pct = Math.max(0, (hp / maxHp) * 100).toFixed(1);
+  fill.style.width = pct + '%';
+  text.textContent = `${Math.max(0, Math.round(hp))} / ${maxHp}`;
+}
+
+// ── 웨이브 시작 ───────────────────────────────────────
+function beginWave() {
+  if (state.phase !== 'pre') return;
+
+  // Iron Fortress: 웨이브별 넥서스 피격 카운터 리셋
+  state._waveNexusDamageCount = 0;
+  // PERFECT_WAVE 업적 추적: 웨이브 시작 시 피격 여부 초기화
+  state._nexusHitThisWave = false;
+
+  // 이자 시스템 (웨이브 시작 시 골드 > 임계값이면 +1g)
+  if (state.wave > 0) applyInterest();
+
+  state.phase = 'wave';
+  state.wave++;
+  setWaveButton(i18n.t('btn_wave_in_progress'), true);
+
+  // 보스 웨이브 특별 처리
+  const isBossWave = BOSS_WAVES.has(state.wave);
+  const actNum     = Math.ceil(state.wave / ACT_SIZE);
+
+  if (isBossWave) {
+    const bossName = state.wave === 5 ? 'Ironclad' : state.wave === 10 ? 'Void Titan' : 'Abyssal Dragon';
+    log(i18n.t('log_boss_wave', bossName), 'bad');
+    showClearBanner(state.wave, true);
+    audio.play('boss_warning');
+    music.crossfadeTo('boss');
+  } else {
+    log(i18n.t('log_wave_start', state.wave, actNum), 'bad');
+    audio.play('wave_start');
+  }
+
+  // GRAVE_GOLD 패시브: 웨이브 시작 직전, 남은 핸드를 버리기 전에 골드 계산
+  if (state?.warden?.passive === PASSIVES.GRAVE_GOLD) {
+    const discardCount = cardSystem.hand.length;
+    if (discardCount > 0) {
+      addGold(discardCount, null, true);
+      log(i18n.t('passive_grave_gold_trigger', discardCount), 'gold');
+    }
+  }
+
+  // 핸드 버림
+  cardSystem.discardHand();
+  renderer.clearSelection();
+  state.selectedCard = null;
+  renderHand();
+
+  if (state?.stats) state.stats.spellsThisWave = 0;
+  // 난이도 스케일링 + 이벤트 효과 전달
+  const hpScale    = state.difficulty?.hpScale ?? 1.15;
+  const eliteBonus = state.difficulty?.eliteBonus ?? 0;
+
+  // slow_next_wave 이벤트: 적 기본 속도 감소 (예: 0.25 → 75% 속도)
+  const spawnSpeedMult = state.nextWaveSlowMult
+    ? (1 - state.nextWaveSlowMult)
+    : 1;
+  // extra_prep 이벤트: 첫 스폰 추가 지연 (ms 변환)
+  const spawnDelay = (state.extraPrepSeconds ?? 0) * 1000;
+
+  // 소모 후 초기화
+  state.nextWaveSlowMult  = 0;
+  state.extraPrepSeconds  = 0;
+
+  enemySystem.startWave(state.wave - 1, hpScale, eliteBonus, spawnDelay, spawnSpeedMult);
+  updateHUD();
+  tutorial?.triggerEvent('wave_started');
+}
+
+// ── 웨이브 클리어 ─────────────────────────────────────
+function onWaveCleared() {
+  state.phase = 'post';
+
+  // 기본 웨이브 보상 + 유물 + 난이도 보정
+  const badgeEffect    = getRelicEffect('wave_clear_gold');
+  const diffWaveBonus  = state.difficulty?.waveGoldBonus ?? 0;
+  const totalWaveGold  = WAVE_GOLD + (badgeEffect ? badgeEffect.amount : 0) + diffWaveBonus;
+  addGold(Math.max(1, totalWaveGold), null);
+
+  // Warden's Sigil: 웨이브 클리어 후 즉시 카드 추가 드로우
+  if (hasRelic('wardens_sigil') && cardSystem) {
+    const sigilEffect = getRelicEffect('wave_draw');
+    const before = cardSystem.hand.length;
+    cardSystem.drawExtra(sigilEffect.amount);
+    const drawn = cardSystem.hand.length - before;
+    if (drawn > 0) {
+      renderHand();
+      log(i18n.t('log_wave_draw', drawn), 'gold');
+    }
+  }
+
+  $('boss-hpbar-wrap')?.classList.add('hidden');
+
+  const isFinal   = state.wave >= MAX_WAVES;
+  const isActEnd  = state.wave % ACT_SIZE === 0 && !isFinal;  // 액트 클리어 (보스)
+
+  log(i18n.t('log_wave_clear', state.wave, totalWaveGold), 'good');
+  audio.play(isFinal ? 'victory' : 'wave_clear');
+  if (!isFinal) music.crossfadeTo('game');
+
+  // ── Steam 업적: 웨이브 클리어 관련 ─────────────────────
+  if (!state._nexusHitThisWave) {
+    steam?.unlockAchievement('PERFECT_WAVE');           // 넥서스 무피격 클리어
+    if (state.wave === 1) steam?.unlockAchievement('FIRST_WAVE'); // Wave 1 무피격
+  }
+
+  showClearBanner(state.wave, false, isActEnd);
+
+  if (isFinal) {
+    setTimeout(() => endGame(true), 2000);
+    return;
+  }
+
+  // 웨이브 클리어 체크포인트 저장
+  saveCheckpoint();
+
+  // Act 전환: 1.5초 추가 대기 후 다음 Act 예고
+  const delay = isActEnd ? 2500 : 1200;
+  setTimeout(() => openNodeSelection(), delay);
+}
+
+// ── 웨이브 배너 ───────────────────────────────────────
+function showClearBanner(waveNum, isBossStart = false, isActEnd = false) {
+  const existing = document.getElementById('wave-clear-banner');
+  existing?.remove();
+
+  const banner   = document.createElement('div');
+  banner.id = 'wave-clear-banner';
+  const actNum   = Math.ceil(waveNum / ACT_SIZE);
+
+  if (isBossStart) {
+    const bossName = waveNum === 5 ? i18n.t('banner_boss_ironclad')
+                   : waveNum === 10 ? i18n.t('banner_boss_titan')
+                   : i18n.t('banner_boss_dragon');
+    banner.classList.add('boss-banner');
+    banner.innerHTML = `
+      ⚔️ ${i18n.t('banner_boss_act', actNum)} ⚔️
+      <div class="banner-sub" style="color:#FFD700">${bossName}</div>
+    `;
+  } else if (waveNum >= MAX_WAVES) {
+    banner.classList.add('victory-banner');
+    banner.innerHTML = `
+      ${i18n.t('banner_victory')}
+      <div class="banner-sub">${i18n.t('banner_all_clear')}</div>
+    `;
+  } else if (isActEnd) {
+    banner.classList.add('act-clear-banner');
+    banner.innerHTML = `
+      ${i18n.t('banner_act_clear', actNum)}
+      <div class="banner-sub">${i18n.t('banner_act_next', actNum + 1)}</div>
+    `;
+  } else {
+    banner.innerHTML = `
+      ${i18n.t('banner_wave_clear', waveNum)}
+      <div class="banner-sub">${i18n.t('banner_entering_shop')}</div>
+    `;
+  }
+
+  document.body.appendChild(banner);
+  const dur = (isBossStart || isActEnd) ? 2200 : 1100;
+  setTimeout(() => banner.remove(), dur);
+}
+
+// ── 노드 선택 화면 ────────────────────────────────────
+function openNodeSelection() {
+  state.phase = 'node';
+  setWaveButton(i18n.t('btn_start_wave_n', state.wave + 1), true);
+  nodeUI.open(state.wave, state.gold);
+}
+
+// ── 상점 열기 ─────────────────────────────────────────
+function openShop() {
+  state.phase = 'shop';
+  $('screen-shop').classList.remove('hidden');
+  // MetaSystem의 언락된 카드 목록 전달
+  const unlockedIds = meta.unlockedCards;
+  // Gold Lens 유물 + 난이도 할인 합산
+  const discountEffect = getRelicEffect('shop_discount');
+  const totalDiscount  = (discountEffect?.amount ?? 0) + (state.difficulty?.shopDiscount ?? 0);
+  // Merchant's Ring: 상점 방문당 첫 리롤 무료
+  const freeRerolls = hasRelic('merchants_ring') ? 1 : 0;
+  // Ascension I: 상점 카드 2장으로 감소
+  const shopSize    = state.ascMods?.shopSize ?? 3;
+  shopUI.open(state.gold, state.wave, unlockedIds, totalDiscount, freeRerolls, shopSize);
+}
+
+// ── 이벤트 열기 ───────────────────────────────────────
+function openEvent() {
+  state.phase = 'event';
+  eventUI.open();
+}
+
+// ── 휴식 열기 ─────────────────────────────────────────
+function openRest() {
+  state.phase = 'rest';
+  // 드로우 파일 + 버림 파일 전체 = 현재 덱
+  const allCards = [...cardSystem.drawPile, ...cardSystem.discardPile];
+  restUI.open(allCards, state.gold);
+}
+
+// ── 이벤트 효과 처리 ─────────────────────────────────
+function onEventEffect(effect) {
+  switch (effect.type) {
+    case 'gold':
+      addGold(effect.amount, null);
+      break;
+    case 'cursed_gold':
+      state._acceptedCurse = true;  // CURSED_WIN 업적 추적
+      addGold(effect.amount, null);
+      state.nexusHp = Math.max(0, state.nexusHp - effect.nexusDmg);
+      updateHUD();
+      audio.play('nexus_hit');
+      if (state.nexusHp <= 0) { audio.play('defeat'); endGame(false); return; }
+      log(i18n.t('log_nexus_cursed', state.nexusHp), 'bad');
+      break;
+    case 'add_cards': {
+      const cards = pickRandomCards(effect.count, effect.rarity);
+      for (const c of cards) cardSystem.discardPile.push(c);
+      log(i18n.t('log_cards_added', effect.count, effect.rarity), 'good');
+      break;
+    }
+    case 'slow_next_wave':
+      state.nextWaveSlowMult = effect.amount;
+      log(i18n.t('log_wave_slow'), 'good');
+      break;
+    case 'extra_prep':
+      state.extraPrepSeconds = (state.extraPrepSeconds || 0) + effect.seconds;
+      log(i18n.t('log_extra_prep', effect.seconds), 'good');
+      break;
+    case 'remove_random_add_gold': {
+      const allCards = [...cardSystem.drawPile, ...cardSystem.discardPile];
+      if (allCards.length > 0) {
+        const victim = allCards[Math.floor(Math.random() * allCards.length)];
+        cardSystem.drawPile = cardSystem.drawPile.filter(c => c.uid !== victim.uid);
+        cardSystem.discardPile = cardSystem.discardPile.filter(c => c.uid !== victim.uid);
+        log(i18n.t('log_card_removed_rand', victim.name), 'good');
+      }
+      addGold(effect.amount, null);
+      break;
+    }
+    case 'heal_nexus':
+      _applyNexusHeal(effect.amount, { goldOnFull: 4 });
+      break;
+    case 'spend_for_gold':
+      // 즉시 지불 후 더 많은 골드 획득 (Debt Collector 등)
+      if (state.gold >= effect.spend) {
+        spendGold(effect.spend);
+        addGold(effect.gain, null);
+        log(i18n.t('spell_gold', effect.gain - effect.spend), 'gold');
+      } else {
+        // 골드 부족: 부분 지불 후 비례 지급
+        const partial = state.gold;
+        const partialGain = Math.round(effect.gain * (partial / effect.spend));
+        if (partial > 0) spendGold(partial);
+        if (partialGain > 0) addGold(partialGain, null);
+        log(i18n.t('spell_gold', partialGain - partial), 'gold');
+      }
+      break;
+    case 'heal_nexus_cost':
+      if (state.gold < effect.cost) {
+        log(i18n.t('log_not_enough_gold', effect.cost, state.gold), 'bad');
+      } else {
+        spendGold(effect.cost);
+        _applyNexusHeal(effect.amount);
+      }
+      break;
+    case 'nothing':
+    default:
+      log(i18n.t('log_nothing'), '');
+  }
+}
+
+// ── 휴식 콜백 ─────────────────────────────────────────
+function onRestRemoveCard(uid) {
+  cardSystem.drawPile    = cardSystem.drawPile.filter(c => c.uid !== uid);
+  cardSystem.discardPile = cardSystem.discardPile.filter(c => c.uid !== uid);
+  updateHUD();
+}
+
+function onRestGoldBonus(amount) {
+  addGold(amount, null);
+}
+
+// ── 노드 공통 종료 → 다음 웨이브 준비 ───────────────
+function onNodeClose() {
+  state.phase = 'pre';
+  cardSystem.drawHand();
+  renderHand();
+  setWaveButton(i18n.t('btn_start_wave_n', state.wave + 1), false);
+  updateHUD();
+  log(i18n.t('log_prepare_wave', state.wave + 1));
+}
+
+// ── 상점 콜백: 카드 구매 ─────────────────────────────
+function onShopBuy(card) {
+  if (card._rerollCost) {
+    spendGold(card._rerollCost);
+    shopUI.updateGold(state.gold);
+    audio.play('shop_reroll');
+    return;
+  }
+  spendGold(card.cost);
+  const newCard = { ...card, uid: Math.random() };
+  delete newCard._bought;
+  cardSystem.discardPile.push(newCard);
+  shopUI.updateGold(state.gold);
+  updateHUD();
+  audio.play('shop_buy');
+}
+
+// ── 상점 콜백: 나가기 ─────────────────────────────────
+function onShopLeave() {
+  $('screen-shop').classList.add('hidden');
+  shopUI.close();
+  log(i18n.t('log_shop_closed'));
+  onNodeClose();
+}
+
+// ── 적 처리 콜백 ──────────────────────────────────────
+function onEnemyReachEnd() {
+  state._nexusHitThisWave = true;  // PERFECT_WAVE 업적: 이번 웨이브 넥서스 피격 기록
+  // 넥서스 피격 화면 테두리 빨강 비네트
+  const _appEl = document.getElementById('app');
+  if (_appEl) {
+    _appEl.classList.remove('nexus-hit');
+    void _appEl.offsetWidth;  // reflow — 애니메이션 재시작
+    _appEl.classList.add('nexus-hit');
+    setTimeout(() => _appEl.classList.remove('nexus-hit'), 700);
+  }
+
+  // Soul Anchor: 첫 번째 넥서스 피격 1회 무효화
+  if (hasRelic('soul_anchor') && !state._soulAnchorUsed) {
+    state._soulAnchorUsed = true;
+    log(i18n.t('log_soul_anchor'), 'good');
+    audio.play('nexus_heal');
+    shakeNexus();
+    return;
+  }
+
+  // Iron Fortress: 웨이브당 넥서스 최대 1회 피격
+  if (hasRelic('iron_fortress')) {
+    if ((state._waveNexusDamageCount ?? 0) >= 1) {
+      log(i18n.t('log_iron_fortress'), 'good');
+      shakeNexus();
+      return;
+    }
+    state._waveNexusDamageCount = (state._waveNexusDamageCount ?? 0) + 1;
+  }
+
+  state.nexusHp--;
+  updateHUD();
+  shakeNexus();
+  audio.play('nexus_hit');
+  log(i18n.t('log_nexus_hit', state.nexusHp), 'bad');
+
+  // Thorn Wall: 넥서스 피격 시 가장 가까운 적에게 반사 피해
+  if (hasRelic('thorn_wall') && enemySystem) {
+    const thornEffect = getRelicEffect('thorn_wall');
+    const hit = enemySystem.dealDamageToLead(thornEffect.damage);
+    if (hit) log(i18n.t('log_thorn_wall', thornEffect.damage), 'good');
+  }
+
+  if (state.nexusHp <= 0) { audio.play('defeat'); endGame(false); }
+}
+
+function onEnemyKilled(reward) {
+  // Bloodlust 패시브: Storm Warden — 적 처치 골드 +1
+  let bonus = 0;
+  if (state?.warden?.passive === PASSIVES.BLOODLUST) {
+    bonus = reward >= 20 ? 5 : 1;  // 보스는 +5
+  }
+  // Bounty Mark 유물: 처치 시 +1g
+  const bountyEffect = getRelicEffect('kill_gold_bonus');
+  if (bountyEffect) bonus += bountyEffect.amount;
+
+  addGold(reward + bonus, null, true);
+
+  // Venom Fang: 처치 시 무작위 살아있는 적에게 독 피해
+  if (hasRelic('venom_fang') && enemySystem?.enemies?.length > 0) {
+    const venomEffect = getRelicEffect('venom_fang');
+    enemySystem.dealDamageToRandom(1, venomEffect.damage);
+    log(i18n.t('log_venom_fang', venomEffect.damage), 'good');
+  }
+
+  if (!state?.stats) return;
+  state.stats.enemiesKilled++;
+
+  // 보상 기반으로 적 종류 추론
+  if (reward >= 20) {
+    // 보스 (reward=20)
+    state.stats.bossKilled = true;
+    steam?.unlockAchievement('BOSS_KILLER');
+  } else if (reward >= 4) {
+    // 엘리트 (reward=4)
+    state.stats.eliteKills++;
+    if (state.stats.eliteKills >= 10) steam?.unlockAchievement('ELITE_HUNTER');
+  } else if (reward >= 3) {
+    // 탱크 (reward=3)
+    steam?.unlockAchievement('TANK_KILLER');
+  }
+
+  steam?.checkKillMilestone(meta.totalKills + state.stats.enemiesKilled);
+  steam?.checkDeckSize(cardSystem?.deckCount ?? 0);
+}
+
+// ── 게임 종료 → 요약 화면 ────────────────────────────
+function endGame(victory) {
+  state.phase = 'over';
+  if (rafId) cancelAnimationFrame(rafId);
+  // 런 종료 시 자동저장 클리어 (승리/패배 모두)
+  localStorage.removeItem('rw_autosave');
+
+  // 런 통계 수집
+  const runStats = {
+    victory,
+    wavesCleared:   state.wave,
+    enemiesKilled:  state.stats.enemiesKilled,
+    goldEarned:     state.stats.goldEarned,
+    cardsPlayed:    cardSystem?.totalPlayed ?? 0,
+    nexusHpLeft:    Math.max(0, state.nexusHp),
+    mapName:        state.mapName ?? state.mapId ?? '',
+    mapIcon:        state.mapIcon ?? '🗺️',
+    difficultyId:   state.difficulty?.id ?? 'standard',
+    difficultyIcon: state.difficulty?.icon ?? '⚔️',
+    difficultyName: state.difficulty ? i18n.t('diff_' + state.difficulty.id) : '',
+    ascension:      state.ascension ?? 0,
+  };
+
+  // Ascension 클리어 처리
+  if (victory && state.ascension > 0) {
+    const isNewRecord = meta.clearAscension(state.ascension);
+    if (isNewRecord) {
+      if (state.ascension < 3) {
+        log(i18n.t('log_asc_cleared', state.ascension), 'gold');
+      } else {
+        log(i18n.t('log_asc_all_clear'), 'gold');
+      }
+    }
+  }
+
+  // 메타 XP 적용
+  const rankBefore = meta.rank;
+  const xpBefore   = meta.totalXP;
+  const { xpGained, newUnlocks } = meta.applyRunResult(runStats);
+
+  // Steam 업적 체크 (풀 stat 전달)
+  const runTimeMs = Date.now() - (state._runStartTime ?? Date.now());
+  steam.checkRunStats({
+    ...runStats,
+    runTimeMs,
+    augmentsApplied:   state.stats.augmentsApplied,
+    eliteKills:        state.stats.eliteKills,
+    bossKilled:        state.stats.bossKilled,
+    nexusHealed:       state.stats.nexusHealed,
+    spellsCastThisWave: state.stats.maxSpellsInWave,
+  });
+  steam.checkKillMilestone(meta.totalKills);
+  steam.checkRankMilestone(meta.rank);
+
+  // Steam 통계 동기화
+  steam.setStat(STEAM_STATS?.TOTAL_KILLS  ?? 'stat_total_kills',  meta.totalKills);
+  steam.setStat(STEAM_STATS?.TOTAL_WINS   ?? 'stat_total_wins',   meta.runsWon);
+  steam.setStat(STEAM_STATS?.TOTAL_RUNS   ?? 'stat_total_runs',   meta.runsPlayed);
+  if (runStats.wavesCleared >= 1) steam.unlockAchievement('FIRST_RUN');
+  // 승리 시 추가 업적 체크
+  if (victory) {
+    if (state._acceptedCurse)            steam?.unlockAchievement('CURSED_WIN');
+    if (runStats.nexusHpLeft >= 3)       steam?.unlockAchievement('PERFECT_RUN');
+    if (runTimeMs < 20 * 60 * 1000)      steam?.unlockAchievement('SPEED_RUN');
+    steam?.unlockAchievement('FIRST_WIN');
+  }
+
+  const metaResult = {
+    rankBefore,
+    rankAfter:  meta.rank,
+    xpBefore,
+    xpAfter:    meta.totalXP,
+    xpGained,
+    newUnlocks,
+    totalRuns:  meta.runsPlayed,
+    totalWins:  meta.runsWon,
+    totalKills: meta.totalKills,
+  };
+
+  // 기존 게임오버 화면 대신 요약 화면 표시
+  summaryUI.show(runStats, metaResult, {
+    onContinue: () => startRun(),
+    onMenu:     () => showScreen('menu'),
+  });
+}
+
+// ── 카드 클릭 처리 ────────────────────────────────────
+function onCardClick(card) {
+  if (state.phase === 'over') return;
+
+  // 골드 부족
+  if (card.cost > state.gold) {
+    log(i18n.t('log_not_enough_gold', card.cost, state.gold), 'bad');
+    return;
+  }
+
+  // Arcane Flow 패시브: 주문 코스트 -1
+  const arcaneDiscount = (card.type === 'spell' && state?.warden?.passive === PASSIVES.ARCANE_FLOW) ? 1 : 0;
+  // 웨이브 중 추가 비용 (Ascension III: +2 instead of +1)
+  const waveSurcharge = state.phase === 'wave' ? 1 + (state.ascMods?.extraSurcharge ?? 0) : 0;
+  const cost = Math.max(0, card.cost + waveSurcharge - arcaneDiscount);
+  if (cost > state.gold) {
+    log(i18n.t('log_surcharge', cost, waveSurcharge), 'bad');
+    return;
+  }
+
+  // 주문 카드: 즉시 실행
+  if (card.type === 'spell') {
+    spendGold(cost);
+    cardSystem.playCard(card.uid);
+    audio.play('spell_cast');
+    resolveSpell(card.effect);
+    if (state?.stats) {
+      state.stats.spellsThisWave++;
+      state.stats.maxSpellsInWave = Math.max(
+        state.stats.maxSpellsInWave, state.stats.spellsThisWave
+      );
+      if (state.stats.spellsThisWave >= 5) steam?.unlockAchievement('SPELL_POWER');
+    }
+    renderHand();
+    updateHUD();
+    return;
+  }
+
+  // 소환/강화: 셀 선택 대기
+  if (state.selectedCard?.uid === card.uid) {
+    state.selectedCard = null;
+    renderer.clearSelection();
+    renderHand();
+    return;
+  }
+
+  audio.play('card_select');
+  state.selectedCard = { ...card, activeCost: cost };
+  renderHand();
+  const _cName = i18n.lang === 'ko' ? (card.nameKo || card.name) : card.name;
+  log(card.type === 'summon' ? i18n.t('log_select_summon', _cName) : i18n.t('log_select_augment', _cName));
+  tutorial?.triggerEvent('card_selected');
+}
+
+// ── 셀 hover → 사거리 미리보기 ────────────────────────
+function onCellHover(col, row, entering) {
+  if (!state.selectedCard || state.phase === 'over') {
+    // 선택 카드 없을 때: 기존 타워 사거리 표시
+    if (entering) {
+      const tower = towerSystem?.getTower(col, row);
+      if (tower) renderer.showRange(col, row, tower.range); // 픽셀 단위
+    } else {
+      renderer.hideRange();
+    }
+    return;
+  }
+
+  if (!entering) { renderer.hideRange(); return; }
+
+  if (state.selectedCard.type === 'summon') {
+    const tDef = TOWER_DEFS[state.selectedCard.tower];
+    if (tDef && isPlaceableCell(col, row) && !towerSystem.getTower(col, row)) {
+      renderer.showRange(col, row, rangeToPixel(tDef.range));
+    }
+  } else if (state.selectedCard.type === 'augment') {
+    const tower = towerSystem?.getTower(col, row);
+    if (tower) renderer.showRange(col, row, tower.range); // tower.range는 이미 픽셀
+  }
+}
+
+// ── 셀 클릭 처리 ──────────────────────────────────────
+function onCellClick(col, row, cellEl) {
+  if (!state.selectedCard) return;
+  if (state.phase === 'over') return;
+
+  const card = state.selectedCard;
+
+  if (card.type === 'summon') {
+    if (!isPlaceableCell(col, row)) { log(i18n.t('log_cannot_place'), 'bad'); return; }
+    if (towerSystem.getTower(col, row)) { log(i18n.t('log_tower_exists'), 'bad'); return; }
+
+    const tDef = TOWER_DEFS[card.tower];
+    if (!tDef) return;
+
+    spendGold(card.activeCost);
+    cardSystem.playCard(card.uid);
+    towerSystem.place(col, row, tDef);
+    renderer.placeTower(col, row, tDef);
+    audio.play('tower_place');
+    state.stats.towerTypesUsed.add(tDef.id);
+    steam?.checkAllTowers(state.stats.towerTypesUsed);
+    log(i18n.t('log_card_placed', tDef.name, col, row), 'good');
+    tutorial?.triggerEvent('tower_placed');
+
+  } else if (card.type === 'augment') {
+    const existing = towerSystem.getTower(col, row);
+    if (!existing) { log(i18n.t('log_no_tower'), 'bad'); return; }
+    if (existing.augments.length >= 2) { log(i18n.t('log_max_augments'), 'bad'); return; }
+
+    spendGold(card.activeCost);
+    cardSystem.playCard(card.uid);
+    const ok = towerSystem.augment(col, row, card.effect);
+    if (ok) {
+      renderer.markAugmented(col, row, existing.def);
+      audio.play('augment_apply');
+      state.stats.augmentsApplied++;
+    }
+  }
+
+  state.selectedCard = null;
+  renderer.clearSelection();
+  renderHand();
+  updateHUD();
+}
+
+// ── 주문 해결 ─────────────────────────────────────────
+function resolveSpell(effect) {
+  switch (effect.type) {
+    case 'gold':
+      addGold(effect.amount, null);
+      log(i18n.t('spell_gold', effect.amount), 'gold');
+      break;
+
+    case 'freeze':
+      enemySystem.freezeAll(effect.duration);
+      audio.play('spell_freeze');
+      // 5초 이상: Time Stop 메시지, 그 이하: Blizzard
+      if (effect.duration >= 4000) {
+        log(i18n.t('spell_time_stop', effect.duration / 1000), 'good');
+      } else {
+        log(i18n.t('spell_freeze'), 'good');
+      }
+      break;
+
+    case 'damage_all':
+      enemySystem.dealDamageToAll(effect.amount);
+      if (effect.amount >= 70) {
+        log(i18n.t('spell_crimson_tide', effect.amount), 'good');
+      } else {
+        log(i18n.t('spell_damage_all', effect.amount), 'good');
+      }
+      break;
+
+    case 'slow_all':
+      enemySystem.slowAll(effect.amount, effect.duration);
+      if (effect.label === 'decay') {
+        log(i18n.t('spell_decay', Math.round(effect.amount * 100), effect.duration / 1000), 'good');
+      } else if (effect.amount >= 0.65) {
+        // Quagmire (70%+)
+        log(i18n.t('spell_mass_slow', Math.round(effect.amount * 100), effect.duration / 1000), 'good');
+      } else {
+        log(i18n.t('spell_slow_all', Math.round(effect.amount * 100), effect.duration / 1000), 'good');
+      }
+      break;
+
+    case 'damage_random': {
+      enemySystem.dealDamageToRandom(effect.count, effect.amount);
+      // count ≥ 5: arcane storm 텍스트, 그 외: lightning strike
+      if (effect.count >= 5) {
+        log(i18n.t('spell_arcane_storm', effect.count, effect.amount), 'good');
+      } else if (effect.count === 1) {
+        log(i18n.t('spell_void_bolt', effect.amount), 'good');
+      } else {
+        log(i18n.t('spell_lightning', effect.count, effect.amount), 'good');
+      }
+      break;
+    }
+
+    case 'chain_damage': {
+      const lead = enemySystem.dealDamageToLead(effect.damage);
+      if (lead) {
+        const nearby = enemySystem.getEnemiesInRange(lead.x, lead.y, 120)
+          .filter(e => e.id !== lead.id)
+          .slice(0, effect.chainCount);
+        for (const e of nearby) enemySystem.dealDamage(e.id, effect.chainDmg);
+        log(i18n.t('spell_chain_bolt_hit', effect.damage, nearby.length, effect.chainDmg), 'good');
+      } else {
+        log(i18n.t('spell_chain_bolt_miss'), '');
+      }
+      break;
+    }
+
+    case 'heal_nexus':
+      _applyNexusHeal(effect.amount, { isSpell: true, goldOnFull: effect.goldOnFull ?? 0 });
+      break;
+
+    case 'draw':
+      cardSystem.drawExtra(effect.count);
+      renderHand();
+      if (effect.count >= 4) {
+        log(i18n.t('spell_warden_call', effect.count), 'good');
+      } else {
+        log(i18n.t('spell_draw', effect.count), 'good');
+      }
+      break;
+
+    case 'speed_boost_all':
+      towerSystem.applyGlobalSpeedBoost(effect.mult, effect.duration);
+      if (effect.mult <= 0.34) {
+        // 3× 속도: Overdrive
+        log(i18n.t('spell_overdrive', effect.duration / 1000), 'good');
+      } else {
+        log(i18n.t('spell_speed_boost', Math.round(1 / effect.mult), effect.duration / 1000), 'good');
+      }
+      break;
+
+    case 'damage_boost_all':
+      towerSystem.applyGlobalDamageBoost(effect.mult, effect.duration);
+      log(i18n.t('spell_dmg_boost', effect.mult, effect.duration / 1000), 'good');
+      break;
+
+    case 'nova':
+      enemySystem.dealDamageToAll(effect.damage);
+      enemySystem.slowAll(effect.slowAmt, effect.slowDuration);
+      // Ice Storm(≤20dmg), Ember Rain(≤45dmg), Arcane Nova(>45dmg)
+      if (effect.damage <= 20) {
+        log(i18n.t('spell_ice_storm', effect.damage, Math.round(effect.slowAmt * 100), effect.slowDuration / 1000), 'good');
+      } else if (effect.damage <= 45) {
+        log(i18n.t('spell_ember_rain', effect.damage, Math.round(effect.slowAmt * 100), effect.slowDuration / 1000), 'good');
+      } else {
+        log(i18n.t('spell_nova', effect.damage, Math.round(effect.slowAmt * 100), effect.slowDuration / 1000), 'good');
+      }
+      break;
+
+    // ── 신규 주문 효과 ───────────────────────────────────
+
+    case 'gold_draw':
+      addGold(effect.amount, null);
+      cardSystem.drawExtra(effect.draw);
+      renderHand();
+      if (effect.draw >= 2) {
+        log(i18n.t('spell_life_tap', effect.amount, effect.draw), 'gold');
+      } else {
+        log(i18n.t('spell_gold_draw', effect.amount, effect.draw), 'gold');
+      }
+      break;
+
+    case 'tower_rally':
+      // 모든 타워 쿨다운 즉시 리셋 → 일제 사격
+      for (const t of towerSystem.towers.values()) t.cooldown = 0;
+      log(i18n.t('spell_tower_rally'), 'good');
+      audio.play('wave_start');
+      break;
+
+    case 'gold_per_enemy': {
+      // 필드 위 적 수 × 1g
+      const count = enemySystem.enemies.length;
+      if (count > 0) {
+        addGold(count, null);
+        log(i18n.t('spell_soul_harvest', count), 'gold');
+      } else {
+        log(i18n.t('spell_no_enemies'), '');
+      }
+      break;
+    }
+
+    case 'nature_cycle':
+      // 손패 전체 버리고 5장 드로우
+      cardSystem.discardHand();
+      cardSystem.drawExtra(5);
+      renderHand();
+      log(i18n.t('spell_nature_cycle'), 'good');
+      break;
+
+    case 'rally_cry':
+      towerSystem.applyGlobalDamageBoost(effect.dmgMult, effect.duration);
+      towerSystem.applyGlobalSpeedBoost(effect.spdMult, effect.duration);
+      log(i18n.t('spell_rally_cry', Math.round((effect.dmgMult - 1) * 100), effect.duration / 1000), 'good');
+      break;
+
+    case 'freeze_damage':
+      // Cryo Wave: 전체 빙결 + 피해 동시
+      enemySystem.freezeAll(effect.duration);
+      enemySystem.dealDamageToAll(effect.damage);
+      audio.play('spell_freeze');
+      log(i18n.t('spell_cryowave', effect.damage, (effect.duration / 1000).toFixed(1)), 'good');
+      break;
+
+    case 'teleport_all':
+      // Void Rift: 모든 적을 스폰 지점으로 순간이동
+      enemySystem.teleportToStart();
+      log(i18n.t('spell_void_rift'), 'good');
+      audio.play('spell_freeze');
+      break;
+
+    // ── v1.2 Shadow Warden 주문 효과 ───────────────────
+
+    case 'damage_all_gold_kill': {
+      const beforeCount = enemySystem.enemies.length;
+      enemySystem.dealDamageToAll(effect.amount);
+      const killed = beforeCount - enemySystem.enemies.length;
+      if (killed > 0) addGold(killed, null, true);
+      log(i18n.t('spell_soul_drain', effect.amount, killed), killed > 0 ? 'gold' : 'good');
+      break;
+    }
+
+    case 'recall_discard': {
+      const available = cardSystem.discardPile.length;
+      const count = Math.min(effect.count, available);
+      if (count > 0) {
+        const recalled = cardSystem.discardPile.splice(-count);
+        cardSystem.hand.push(...recalled);
+        renderHand();
+        log(i18n.t('spell_grave_call', count), 'good');
+      } else {
+        log(i18n.t('spell_no_discard'), '');
+      }
+      break;
+    }
+
+    case 'percent_hp_damage': {
+      const enemies = [...enemySystem.enemies];
+      let totalDmg = 0;
+      for (const e of enemies) {
+        const dmg = Math.max(1, Math.ceil(e.hp * effect.percent));
+        enemySystem.dealDamage(e.id, dmg);
+        totalDmg += dmg;
+      }
+      log(i18n.t('spell_entropy', Math.round(effect.percent * 100), totalDmg), 'good');
+      break;
+    }
+
+    case 'damage_highest_hp': {
+      const sorted = [...enemySystem.enemies].sort((a, b) => b.hp - a.hp);
+      if (sorted.length > 0) {
+        enemySystem.dealDamage(sorted[0].id, effect.amount);
+        log(i18n.t('spell_dark_matter', effect.amount), 'good');
+      } else {
+        log(i18n.t('spell_no_enemies'), '');
+      }
+      break;
+    }
+
+    case 'void_echo':
+      if (state.lastSpellEffect && state.lastSpellEffect.type !== 'void_echo') {
+        log(i18n.t('spell_void_echo', state.lastSpellEffect.type), 'good');
+        resolveSpell(state.lastSpellEffect);
+      } else {
+        log(i18n.t('spell_void_echo_empty'), '');
+      }
+      break;
+
+    case 'discard_for_gold': {
+      // 이 카드 자체는 이미 playCard()로 제거됨 — 남은 핸드를 버림
+      const handCount = cardSystem.hand.length;
+      cardSystem.discardHand();
+      renderHand();
+      const gained = handCount * effect.goldPerCard;
+      if (gained > 0) addGold(gained, null);
+      log(i18n.t('spell_sacrifice', handCount, gained), 'gold');
+      break;
+    }
+
+    default:
+      log(`Unknown spell effect: ${effect.type}`, '');
+  }
+
+  // lastSpellEffect 추적 (Void Echo 제외)
+  if (effect.type !== 'void_echo' && state) {
+    state.lastSpellEffect = effect;
+  }
+
+  // Storm Circuit: 주문 시전 후 모든 Tesla 즉시 발사
+  if (hasRelic('storm_circuit') && towerSystem && enemySystem?.enemies?.length > 0) {
+    const count = towerSystem.triggerAllTeslas();
+    if (count > 0) log(i18n.t('log_storm_circuit', count), 'good');
+  }
+}
+
+// ── 골드 ──────────────────────────────────────────────
+// silent=true: 적 처치 등 빈번한 소액 골드 — 사운드 억제
+function addGold(amount, xy, silent = false) {
+  state.gold += amount;
+  if (state?.stats) state.stats.goldEarned += amount;
+  updateHUD();
+  if (xy) spawnFloatText(`+${amount}`, xy.x, xy.y, 'gold');
+  if (amount > 0 && !silent) audio.play('gold_gain');
+}
+
+function spendGold(amount) {
+  state.gold = Math.max(0, state.gold - amount);
+  updateHUD();
+}
+
+// ── HUD 업데이트 ──────────────────────────────────────
+function updateHUD() {
+  const actNum    = Math.max(1, Math.ceil(state.wave / ACT_SIZE));
+  const waveInAct = state.wave > 0 ? ((state.wave - 1) % ACT_SIZE) + 1 : 1;
+  $('hud-wave').textContent = `A${actNum} W${waveInAct}/${ACT_SIZE}`;
+
+  // 넥서스 하트 동적 생성 (첫 호출 또는 최대 HP 변경 시)
+  const heartsContainer = $('nexus-hearts');
+  if (heartsContainer && state.nexusHp !== undefined) {
+    // state.maxNexusHp 우선 사용 (blood_price 등으로 감소될 수 있음)
+    const maxHp = state.maxNexusHp
+      ?? (state.difficulty ? (state.warden.nexusHp + (meta.bonuses.nexusHp||0) + state.difficulty.nexusHp) : 3);
+    const currentCount = heartsContainer.querySelectorAll('.heart').length;
+    if (currentCount !== Math.max(1, maxHp)) {
+      heartsContainer.innerHTML = Array.from({ length: Math.max(1, maxHp) },
+        (_, i) => `<span class="heart${i < state.nexusHp ? ' active' : ''}">♥</span>`
+      ).join('');
+    }
+  }
+
+  // Warden 배지 업데이트
+  const w = state.warden;
+  if (w) {
+    const iconEl = $('hud-warden-icon');
+    const nameEl = $('hud-warden-name');
+    const actEl  = $('hud-act-badge');
+    if (iconEl) iconEl.textContent = w.icon;
+    if (nameEl) nameEl.textContent = w.name;
+    // ACT 배지에 난이도 아이콘도 표시
+    const diffIcon = state.difficulty?.icon ?? '';
+    if (actEl)  actEl.textContent  = `ACT ${actNum} ${diffIcon}`;
+  }
+  $('hud-gold').textContent = state.gold;
+  $('hud-deck').textContent = cardSystem?.deckCount ?? 0;
+
+  // 넥서스 하트
+  const hearts = document.querySelectorAll('.heart');
+  hearts.forEach((h, i) => {
+    h.classList.toggle('active', i < state.nexusHp);
+  });
+
+  // 카드 어포더빌리티 갱신
+  renderHand();
+}
+
+// ── 카드 핸드 렌더링 ──────────────────────────────────
+function renderHand() {
+  const container = $('card-hand');
+  container.innerHTML = '';
+
+  const surcharge = state.phase === 'wave' ? 1 + (state.ascMods?.extraSurcharge ?? 0) : 0;
+
+  for (const card of cardSystem.hand) {
+    const effectiveCost = card.cost + surcharge;
+    const canAfford = effectiveCost <= state.gold;
+    const isSelected = state.selectedCard?.uid === card.uid;
+    const isKo = i18n.lang === 'ko';
+    const cName = isKo ? (card.nameKo || card.name) : card.name;
+    const cDesc = isKo ? (card.descKo || card.desc) : card.desc;
+
+    const el = document.createElement('div');
+    el.className = `card${!canAfford ? ' unaffordable' : ''}${isSelected ? ' selected' : ''}`;
+    el.dataset.rarity = card.rarity;
+    el.dataset.type   = card.type;   // 카드 타입 배경 CSS용
+
+    el.innerHTML = `
+      <div class="card-header">
+        <span class="card-name">${card.icon} ${cName}</span>
+        <span class="card-cost">${effectiveCost > 0 ? effectiveCost + 'g' : i18n.t('free').toUpperCase()}</span>
+      </div>
+      <div class="card-type-badge">${i18n.t('card_type_' + card.type) ?? card.type}${surcharge ? ' (' + i18n.t('card_surcharge_label') + ')' : ''}</div>
+      <div class="card-desc">${cDesc}</div>
+    `;
+
+    if (canAfford || isSelected) {
+      el.addEventListener('click', () => onCardClick(card));
+    }
+
+    container.appendChild(el);
+  }
+
+  if (cardSystem.hand.length === 0) {
+    container.innerHTML = `<div style="color:#555;font-size:0.8rem;padding:0.5rem;">${i18n.t('hand_empty')}</div>`;
+  }
+}
+
+// ── 웨이브 버튼 ───────────────────────────────────────
+function setWaveButton(label, disabled) {
+  const btn = $('btn-wave');
+  btn.textContent = label;
+  btn.disabled = disabled;
+  btn.classList.toggle('active', disabled);
+}
+
+// ── 로그 ──────────────────────────────────────────────
+function log(msg, cls = '') {
+  const log = $('status-log');
+  const entry = document.createElement('div');
+  entry.className = `log-entry${cls ? ' ' + cls : ''}`;
+  entry.textContent = msg;
+  log.appendChild(entry);
+  log.scrollTop = log.scrollHeight;
+  // 최대 20줄
+  while (log.children.length > 20) log.removeChild(log.firstChild);
+}
+
+// ── 부유 텍스트 ───────────────────────────────────────
+function spawnFloatText(text, x, y, cls = '') {
+  const el = document.createElement('div');
+  el.className = `float-text${cls ? ' ' + cls : ''}`;
+  el.textContent = text;
+  el.style.left = x + 'px';
+  el.style.top  = y + 'px';
+  // 데미지 숫자 크기 스케일링 (임팩트 비례)
+  const num = parseInt(text);
+  if (!isNaN(num) && num > 0) {
+    if      (num >= 150) el.style.fontSize = '1.2rem';
+    else if (num >= 80)  el.style.fontSize = '1.05rem';
+    else if (num >= 40)  el.style.fontSize = '0.9rem';
+    // 기본: 0.78rem (CSS에서 정의)
+  }
+  $('float-container').appendChild(el);
+  setTimeout(() => el.remove(), 900);
+}
+
+// ── 넥서스 피격 이펙트 ────────────────────────────────
+function shakeNexus() {
+  const hearts = document.querySelectorAll('.heart');
+  hearts.forEach(h => {
+    h.style.animation = 'none';
+    h.offsetHeight;
+    h.style.animation = 'heartPulse 0.4s ease-out';
+  });
+  if (!document.getElementById('heart-pulse-style')) {
+    const s = document.createElement('style');
+    s.id = 'heart-pulse-style';
+    s.textContent = `@keyframes heartPulse { 0%{transform:scale(1)} 50%{transform:scale(1.5)} 100%{transform:scale(1)} }`;
+    document.head.appendChild(s);
+  }
+}
+
+// ── 이벤트 리스너 ─────────────────────────────────────
+// 첫 사용자 인터랙션에서 메뉴 BGM 시작 (Web Audio API 정책)
+let _bgmStarted = false;
+function _startMenuBGM() {
+  if (_bgmStarted) return;
+  _bgmStarted = true;
+  music.play('menu');
+}
+document.addEventListener('click', _startMenuBGM, { once: true });
+document.addEventListener('keydown', _startMenuBGM, { once: true });
+
+$('btn-start').addEventListener('click', openWardenSelect);
+$('btn-continue')?.addEventListener('click', () => {
+  let saveData = null;
+  try { saveData = JSON.parse(localStorage.getItem('rw_autosave') || 'null'); } catch {}
+  if (!saveData?.v) return;
+  // 저장된 Warden·난이도·Ascension 복원 후 런 시작
+  selectedWarden     = getWardenById(saveData.wardenId);
+  selectedDifficulty = getDifficultyById(saveData.diffId) ?? getDifficultyById('standard');
+  selectedAscension  = saveData.asc ?? 0;
+  _savedRunData      = saveData;
+  audio.play('ui_click');
+  startRun();
+});
+$('btn-how').addEventListener('click', () => {
+  // 메뉴를 숨기지 않고 overlay만 표시
+  $('screen-howto').classList.remove('hidden');
+});
+$('btn-codex').addEventListener('click', openCodex);
+$('btn-replay-tut').addEventListener('click', () => {
+  TutorialUI.reset();
+  selectedWarden = WARDEN_DEFS[0];  // 튜토리얼은 Iron Warden으로
+  startRun();
+});
+$('btn-howto-close').addEventListener('click', () => {
+  // overlay만 닫고 메뉴는 그대로 유지
+  const el = $('screen-howto');
+  el.classList.add('hidden');
+  el.style.zIndex = '';   // 일시정지에서 열렸을 때 설정한 z-index 초기화
+});
+$('btn-warden-cancel').addEventListener('click', () => {
+  $('screen-warden-select').classList.add('hidden');
+});
+$('btn-wave').addEventListener('click', beginWave);
+$('btn-retry').addEventListener('click', openWardenSelect);
+$('btn-menu').addEventListener('click', () => showScreen('menu'));
+
+// ── 일시정지 버튼 리스너 ──────────────────────────────
+$('btn-pause').addEventListener('click', () => { audio.play('ui_pause'); pauseGame(); });
+$('btn-resume').addEventListener('click', () => { audio.play('ui_click'); resumeGame(); });
+$('btn-pause-howto').addEventListener('click', () => {
+  // 일시정지 상태에서 How to Play 열기 (pause 오버레이 뒤에 겹쳐서 표시)
+  $('screen-howto').classList.remove('hidden');
+  $('screen-howto').style.zIndex = '600';  // pause(500)보다 위
+});
+// 볼륨 슬라이더 — SFX + BGM 동시 조절
+$('volume-slider').addEventListener('input', e => {
+  const v = e.target.value / 100;
+  audio.setMasterVolume(v);
+  // BGM은 마스터의 40% 수준 유지
+  music.setVolume(v * 0.4);
+});
+$('btn-mute').addEventListener('click', () => {
+  const muted = audio.toggleMute();
+  $('btn-mute').textContent = muted ? '🔇' : '🔊';
+  music.setVolume(muted ? 0 : 0.28);
+});
+
+$('btn-quit-menu').addEventListener('click', () => {
+  // 게임 루프 종료 후 메인 메뉴로
+  if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+  if (state) state.phase = 'over';
+  showScreen('menu');
+});
+
+// Escape 키로 일시정지 토글
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    if (state?.phase === 'paused') {
+      resumeGame();
+    } else if (screens.game.classList.contains('active')) {
+      pauseGame();
+    }
+  }
+});
+
+// ── 다국어 초기화 ────────────────────────────────────
+i18n.init();
+// 언어 변경 시 동적 UI 갱신
+i18n.onChange(() => {
+  updateMenuRank();
+  // 워든 선택 화면이 열려 있으면 리렌더링
+  if (!$('screen-warden-select').classList.contains('hidden')) {
+    openWardenSelect();
+  }
+  // 상점이 열려 있으면 리빌드
+  if (shopUI && !$('screen-shop').classList.contains('hidden')) {
+    shopUI._build();
+    shopUI._renderCards();
+    shopUI._refreshRerollBtn();
+  }
+});
+
+// ── 초기 화면 ─────────────────────────────────────────
+showScreen('menu');
+
+// ── 메뉴 앰비언트 파티클 (룬 부유 효과) ──────────────
+(function initMenuParticles() {
+  const bg = document.querySelector('.menu-bg');
+  if (!bg) return;
+
+  const COLORS = ['#D4AF37','#9B59B6','#2980B9','#00CED1','#D4AF37'];
+  const SHAPES = ['●','◆','✦','◈','▲'];
+
+  for (let i = 0; i < 14; i++) {
+    const p = document.createElement('span');
+    const size   = 3 + Math.random() * 5;            // 3~8px
+    const left   = Math.random() * 100;               // 0~100%
+    const dur    = 14 + Math.random() * 14;           // 14~28초 사이클
+    const delay  = -(Math.random() * dur);            // 시작 위치 분산
+    const color  = COLORS[Math.floor(Math.random() * COLORS.length)];
+    const shape  = SHAPES[Math.floor(Math.random() * SHAPES.length)];
+
+    p.textContent = shape;
+    p.style.cssText = [
+      'position:absolute',
+      `left:${left.toFixed(1)}%`,
+      'bottom:-10px',
+      `font-size:${size.toFixed(1)}px`,
+      `color:${color}`,
+      'opacity:0',
+      'pointer-events:none',
+      'will-change:transform,opacity',
+      `animation:menuParticle ${dur.toFixed(1)}s ${delay.toFixed(1)}s linear infinite`,
+    ].join(';');
+    bg.appendChild(p);
+  }
+
+  // 파티클 애니메이션 정의 (CSS에 주입)
+  if (!document.getElementById('menu-particle-style')) {
+    const s = document.createElement('style');
+    s.id = 'menu-particle-style';
+    s.textContent = `
+      @keyframes menuParticle {
+        0%   { transform: translateY(0)   rotate(0deg);   opacity: 0; }
+        8%   { opacity: 0.45; }
+        90%  { opacity: 0.3; }
+        100% { transform: translateY(-105vh) rotate(360deg); opacity: 0; }
+      }
+    `;
+    document.head.appendChild(s);
+  }
+})();
+
+// ── 개발용 전역 헬퍼 (테스트 편의) ───────────────────
+window.__dev = {
+  openNode:    () => { if (state) { state.wave = 1; openNodeSelection(); } },
+  openShop:    () => { if (state) { state.wave = 1; openShop(); } },
+  openEvent:   () => { if (state) { state.wave = 1; openEvent(); } },
+  openRest:    () => { if (state) { state.wave = 1; openRest(); } },
+  clearWave:   () => { if (state) onWaveCleared(); },
+  endGame:     (v=false) => { if (state) endGame(v); },
+  metaReset:   () => { meta.reset(); log('Meta reset!', 'bad'); },
+  metaInfo:    () => ({ rank: meta.rank, xp: meta.totalXP, bonuses: meta.bonuses }),
+  tutReset:    () => { TutorialUI.reset(); log('Tutorial reset! Restart run to replay.', 'gold'); },
+  tutStart:    () => { if (state) startTutorial(); },
+  openRelics:  () => { if (state) _openRelicPicker(); },
+  relicInfo:   () => state?.relics?.map(r => r.id),
+};
+

@@ -1,0 +1,110 @@
+{
+  "name": "runewarden",
+  "productName": "Runewarden",
+  "version": "0.1.0",
+  "description": "Build your deck. Place your towers. Survive. — A tower defense × roguelike × deck-builder hybrid.",
+  "author": {
+    "name": "Runewarden Dev",
+    "email": "phj8973@gmail.com"
+  },
+  "license": "UNLICENSED",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "icons": "node scripts/generate-icons.mjs",
+    "steam-assets": "node scripts/generate-steam-assets.mjs",
+    "build:win": "electron-builder --win",
+    "build:win:dir": "electron-builder --win --dir",
+    "build:mac": "electron-builder --mac",
+    "build:linux": "electron-builder --linux",
+    "build:all": "electron-builder -wml",
+    "server": "node server.js"
+  },
+  "devDependencies": {
+    "electron": "^42.1.0",
+    "electron-builder": "^24.13.3",
+    "png-to-ico": "^3.0.1",
+    "sharp": "^0.34.5"
+  },
+  "build": {
+    "appId": "com.runewarden.game",
+    "productName": "Runewarden",
+    "copyright": "Copyright © 2025 Runewarden Dev",
+    "directories": {
+      "output": "dist",
+      "buildResources": "assets/build"
+    },
+    "files": [
+      "index.html",
+      "main.js",
+      "preload.js",
+      "src/**/*",
+      "assets/**/*",
+      "!assets/build/**",
+      "!assets/steam/**",
+      "!assets/_tmp/**",
+      "!node_modules/**",
+      "!dist/**",
+      "!server.js",
+      "!scripts/**",
+      "!PRESSKIT.md",
+      "!STEAM_PAGE.md",
+      "!STEAM_GUIDE.md"
+    ],
+    "extraResources": [
+      {
+        "from": "steam_appid.txt",
+        "to": "steam_appid.txt"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.ico"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "icon": "assets/icon@2x.png",
+      "category": "public.app-category.games"
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.png",
+      "category": "Game"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Runewarden"
+    },
+    "publish": null
+  },
+  "dependencies": {
+    "steamworks.js": "^0.4.0"
+  }
+}

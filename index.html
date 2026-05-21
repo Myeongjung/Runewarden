@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Runewarden</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="src/ui/styles.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- Main Menu -->
+    <div id="screen-menu" class="screen active">
+      <div class="menu-bg"></div>
+
+      <!-- 언어 + 버전 배지 (우상단) -->
+      <div class="menu-topbar">
+        <div class="menu-lang-toggle">
+          <button class="lang-btn active" data-lang="en">EN</button>
+          <span class="lang-sep">|</span>
+          <button class="lang-btn" data-lang="ko">한</button>
+        </div>
+      </div>
+
+      <div class="menu-content">
+        <!-- 타이틀 -->
+        <h1 class="game-title" data-i18n="title">RUNEWARDEN</h1>
+        <p class="game-subtitle" data-i18n="subtitle">Build your deck. Place your towers. Survive.</p>
+
+        <!-- 메인 버튼 그룹 -->
+        <div class="menu-buttons">
+          <button class="btn-primary menu-btn-start" id="btn-start" data-i18n="btn_new_run">▶ New Run</button>
+          <button class="btn-continue hidden" id="btn-continue">↩ Continue Run</button>
+          <div class="menu-btn-row">
+            <button class="btn-secondary" id="btn-codex" data-i18n="btn_codex">📖 Warden Codex</button>
+            <button class="btn-secondary" id="btn-how" data-i18n="btn_how_to_play">How to Play</button>
+          </div>
+          <button class="btn-link" id="btn-replay-tut" data-i18n="btn_replay_tut">↩ Replay Tutorial</button>
+        </div>
+
+        <!-- Warden Rank 카드 (하단) -->
+        <div id="menu-rank-card" class="menu-rank-card">
+          <div class="menu-rank-row">
+            <span class="menu-rank-icon">⚜️</span>
+            <span class="menu-rank-label" data-i18n="warden_rank">WARDEN RANK</span>
+            <span id="menu-rank-num" class="menu-rank-num">0</span>
+          </div>
+          <div class="menu-xp-track">
+            <div id="menu-xp-fill" class="menu-xp-fill" style="width:0%"></div>
+          </div>
+          <div class="menu-stats-row">
+            <span id="menu-stat-runs" data-i18n-val="stat_runs" data-i18n-n="0">Runs: 0</span>
+            <span class="menu-stat-sep">•</span>
+            <span id="menu-stat-wins" data-i18n-val="stat_wins" data-i18n-n="0">Wins: 0</span>
+            <span class="menu-stat-sep">•</span>
+            <span id="menu-stat-kills" data-i18n-val="stat_kills" data-i18n-n="0">Kills: 0</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Warden Selection overlay -->
+    <div id="screen-warden-select" class="overlay hidden">
+      <div class="warden-select-box">
+        <div class="warden-select-header">
+          <h2 class="warden-select-title" data-i18n="warden_select_title">Choose Your Warden</h2>
+          <p class="warden-select-sub" data-i18n="warden_select_sub">Each Warden begins with a unique deck and passive ability.</p>
+        </div>
+        <div id="warden-cards-row" class="warden-cards-row"></div>
+        <div class="warden-select-footer">
+          <button class="btn-secondary" id="btn-warden-cancel" data-i18n="warden_select_back">← Back</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Codex overlay -->
+    <div id="screen-codex" class="overlay hidden"></div>
+
+    <!-- Game Screen -->
+    <div id="screen-game" class="screen">
+      <div id="game-layout">
+        <!-- Map Area -->
+        <div id="map-area">
+          <svg id="game-svg" xmlns="http://www.w3.org/2000/svg"></svg>
+        </div>
+
+        <!-- Right Panel -->
+        <div id="right-panel">
+          <!-- Pause Button -->
+          <div class="pause-btn-row">
+            <button id="btn-pause" class="btn-pause" title="Pause (Esc)">⚙️</button>
+          </div>
+
+          <!-- HUD -->
+          <div id="hud">
+            <!-- Warden 배지 -->
+            <div class="hud-warden-row">
+              <span id="hud-warden-icon" class="hud-warden-icon">🛡️</span>
+              <span id="hud-warden-name" class="hud-warden-name">Iron Warden</span>
+              <span id="hud-act-badge" class="hud-act-badge">ACT 1</span>
+            </div>
+            <div class="hud-row">
+              <div class="hud-item">
+                <span class="hud-label" data-i18n="hud_wave">WAVE</span>
+                <span class="hud-value mono" id="hud-wave">A1 W1/5</span>
+              </div>
+              <div class="hud-item">
+                <span class="hud-label" data-i18n="hud_gold">GOLD</span>
+                <span class="hud-value mono gold" id="hud-gold">20</span>
+              </div>
+            </div>
+            <div class="hud-row">
+              <div class="hud-item">
+                <span class="hud-label" data-i18n="hud_nexus">NEXUS</span>
+                <div id="nexus-hearts">
+                  <span class="heart active">♥</span>
+                  <span class="heart active">♥</span>
+                  <span class="heart active">♥</span>
+                </div>
+              </div>
+              <div class="hud-item">
+                <span class="hud-label" data-i18n="hud_deck">DECK</span>
+                <span class="hud-value mono" id="hud-deck">12</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Boss HP Bar (Wave 5 전용) -->
+          <div id="boss-hpbar-wrap" class="boss-hpbar-wrap hidden">
+            <div class="boss-hpbar-label">
+              <span class="boss-icon" id="boss-icon">💀</span>
+              <span id="boss-name-label">IRONCLAD</span>
+              <span id="boss-hp-text" class="boss-hp-text">700 / 700</span>
+            </div>
+            <div class="boss-hpbar-track">
+              <div id="boss-hpbar-fill" class="boss-hpbar-fill" style="width:100%"></div>
+            </div>
+          </div>
+
+          <!-- Wave Button -->
+          <button id="btn-wave" class="btn-wave">Start Wave</button>
+
+          <!-- Hand -->
+          <div id="hand-area">
+            <div class="hand-label" data-i18n="hand_label">HAND</div>
+            <div id="card-hand"></div>
+          </div>
+
+          <!-- Status Log -->
+          <div id="status-log">
+            <div class="log-entry">Welcome to Runewarden.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Run Summary overlay -->
+    <div id="screen-summary" class="overlay hidden"></div>
+
+    <!-- Difficulty selection overlay (Warden 선택 후) -->
+    <div id="screen-difficulty" class="overlay hidden"></div>
+
+    <!-- Relic selection overlay (런 시작 직후) -->
+    <div id="screen-relic" class="overlay hidden"></div>
+
+    <!-- Node selection overlay -->
+    <div id="screen-node" class="overlay hidden"></div>
+
+    <!-- Shop overlay -->
+    <div id="screen-shop" class="overlay hidden"></div>
+
+    <!-- Event overlay -->
+    <div id="screen-event" class="overlay hidden"></div>
+
+    <!-- Rest overlay -->
+    <div id="screen-rest" class="overlay hidden"></div>
+
+    <!-- How to Play overlay -->
+    <div id="screen-howto" class="overlay hidden">
+      <div class="overlay-box">
+        <h2 data-i18n="howto_title">How to Play</h2>
+        <ul>
+          <li data-i18n-html="howto_1"><b>Summon cards</b> — Click card, then click an empty hex to place a tower.</li>
+          <li data-i18n-html="howto_2"><b>Augment cards</b> — Click card, then click an existing tower to upgrade it.</li>
+          <li data-i18n-html="howto_3"><b>Spell cards</b> — Click card to activate instantly.</li>
+          <li data-i18n-html="howto_4">Towers attack enemies automatically. Don't let enemies reach the exit!</li>
+          <li data-i18n-html="howto_5">You have <b>Nexus HP</b>. Lose them all and the run ends.</li>
+          <li data-i18n-html="howto_6">⚡ <b>Enrage</b> — some enemies speed up dramatically at low HP. Burst them down!</li>
+          <li data-i18n-html="howto_7">🛡️ <b>Damage Reduction</b> — Plague Carriers & Phantoms take less damage. Use multiple towers.</li>
+          <li data-i18n-html="howto_8">🧊 <b>Slow Immunity</b> — Juggernauts & Siege Beasts cannot be slowed. Focus raw damage.</li>
+        </ul>
+        <button class="btn-primary" id="btn-howto-close" data-i18n="howto_close">Got it!</button>
+      </div>
+    </div>
+
+    <!-- Game Over overlay -->
+    <div id="screen-gameover" class="overlay hidden">
+      <div class="overlay-box">
+        <h2 id="gameover-title">Run Over</h2>
+        <p id="gameover-msg"></p>
+        <button class="btn-primary" id="btn-retry" data-i18n="btn_play_again">Play Again</button>
+        <button class="btn-secondary" id="btn-menu" data-i18n="btn_main_menu">Main Menu</button>
+      </div>
+    </div>
+
+    <!-- Pause Menu overlay -->
+    <div id="screen-pause" class="overlay hidden">
+      <div class="pause-box">
+        <div class="pause-title" data-i18n="pause_title">⚙️ Paused</div>
+        <div class="pause-actions">
+          <button class="btn-primary" id="btn-resume" data-i18n="btn_resume">▶ Resume</button>
+          <button class="btn-secondary" id="btn-pause-howto" data-i18n="btn_how_pause">📖 How to Play</button>
+          <div class="pause-volume-row">
+            <span class="pause-vol-label" data-i18n="vol_label">🔊 Volume</span>
+            <input type="range" id="volume-slider" min="0" max="100" value="70" class="volume-slider">
+            <button class="btn-mute" id="btn-mute">🔊</button>
+          </div>
+          <button class="btn-secondary btn-danger" id="btn-quit-menu" data-i18n="btn_quit_menu">✕ Quit to Menu</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Floating gold text container -->
+    <div id="float-container"></div>
+  </div>
+
+  <script type="module" src="src/core/GameEngine.js"></script>
+</body>
+</html>

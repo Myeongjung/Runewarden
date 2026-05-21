@@ -1,0 +1,833 @@
+// 적 이동 및 상태 관리 시스템
+import { ENEMY_PATH, hexToPixel, svgEl } from '../rendering/MapRenderer.js';
+import { audio } from './AudioSystem.js';
+
+const HEX_SIZE = 34;
+const HEX_W = HEX_SIZE * 2;
+
+// WAYPOINTS는 런 시작(startWave) 시점에 활성 경로로 재계산됨
+// 모듈 로드 시에는 기본 경로로 초기화
+let WAYPOINTS = ENEMY_PATH.current.map(([c, r]) => hexToPixel(c, r));
+
+const WAVE_CONFIGS = [
+  // ── Act 1 ────────────────────────────────────────────
+  // Wave 1: 그런트 3 + 고블린 4 (소형 스와머 첫 등장)
+  [{ type: 'grunt', count: 3, interval: 1500 }, { type: 'goblin', count: 4, interval: 800 }],
+  // Wave 2: 그런트 4 + 고블린 5 + 러너 2
+  [{ type: 'grunt', count: 4, interval: 1100 }, { type: 'goblin', count: 5, interval: 700 }, { type: 'fast', count: 2, interval: 1600 }],
+  // Wave 3: 그런트 5 + 고블린 6 + 러너 3 + 탱크 1
+  [{ type: 'goblin', count: 6, interval: 650 }, { type: 'grunt', count: 5, interval: 900 },
+   { type: 'fast', count: 3, interval: 1100 }, { type: 'tank', count: 1, interval: 3000 }],
+  // Wave 4: 엘리트 등장 (기존 유지)
+  [{ type: 'grunt', count: 4, interval: 800 }, { type: 'fast', count: 4, interval: 900 }, { type: 'elite', count: 2, interval: 2500 }, { type: 'tank', count: 1, interval: 2000 }],
+  // Wave 5: Act 1 보스 — Ironclad
+  [{ type: 'grunt', count: 3, interval: 1200 }, { type: 'elite', count: 2, interval: 2000 }, { type: 'boss', count: 1, interval: 5000 }],
+
+  // ── Act 2 ────────────────────────────────────────────
+  // Wave 6: 실드 적 첫 등장 (기존 유지)
+  [{ type: 'grunt', count: 6, interval: 750 }, { type: 'fast', count: 4, interval: 850 }, { type: 'shielded', count: 2, interval: 2000 }],
+  // Wave 7: 광전사 + 스톤 골렘 첫 등장 (슬로우 면역)
+  [{ type: 'berserker', count: 3, interval: 1100 }, { type: 'shielded', count: 2, interval: 1800 },
+   { type: 'fast', count: 4, interval: 750 }, { type: 'stone_golem', count: 1, interval: 4000 }],
+  // Wave 8: 네크로맨서 첫 등장 (HP 재생) + 스톤 골렘
+  [{ type: 'berserker', count: 3, interval: 900 }, { type: 'necromancer', count: 2, interval: 2000 },
+   { type: 'stone_golem', count: 1, interval: 3500 }, { type: 'elite', count: 2, interval: 1800 }],
+  // Wave 9: 페스트 캐리어 첫 등장 (피해 감소) + 네크로맨서
+  [{ type: 'elite', count: 4, interval: 1000 }, { type: 'necromancer', count: 2, interval: 1800 },
+   { type: 'plague_carrier', count: 2, interval: 2200 }, { type: 'berserker', count: 3, interval: 850 }],
+  // Wave 10: Act 2 보스 — Void Titan + 페스트 캐리어
+  [{ type: 'plague_carrier', count: 2, interval: 2000 }, { type: 'shielded', count: 2, interval: 1500 },
+   { type: 'elite', count: 2, interval: 1200 }, { type: 'void_titan', count: 1, interval: 6000 }],
+
+  // ── Act 3 ────────────────────────────────────────────
+  // Wave 11: 공허의 전령 — Void Wraith + Void Stalker(격노형 엘리트) + Phantom(고속 유령)
+  [{ type: 'void_wraith', count: 6, interval: 500 }, { type: 'phantom', count: 3, interval: 600 },
+   { type: 'void_stalker', count: 2, interval: 1200 }, { type: 'berserker', count: 3, interval: 900 }],
+  // Wave 12: 저거넛 행진 + 시즈 비스트 첫 등장 + 팬텀
+  [{ type: 'juggernaut', count: 2, interval: 2500 }, { type: 'siege_beast', count: 1, interval: 4000 },
+   { type: 'void_wraith', count: 6, interval: 480 }, { type: 'phantom', count: 4, interval: 550 },
+   { type: 'void_stalker', count: 2, interval: 1100 }],
+  // Wave 13: 그림자 군단 + 콜로서스 첫 등장 (보스급 탱커)
+  [{ type: 'shadow_elite', count: 4, interval: 900 }, { type: 'siege_beast', count: 2, interval: 3500 },
+   { type: 'phantom', count: 5, interval: 520 }, { type: 'void_stalker', count: 3, interval: 1000 },
+   { type: 'colossus', count: 1, interval: 5000 }],
+  // Wave 14: 총공세 — 모든 Act 3 타입 + 콜로서스 2기
+  [{ type: 'void_wraith', count: 6, interval: 450 }, { type: 'shadow_elite', count: 4, interval: 850 },
+   { type: 'juggernaut', count: 2, interval: 2500 }, { type: 'siege_beast', count: 2, interval: 3200 },
+   { type: 'phantom', count: 4, interval: 520 }, { type: 'colossus', count: 2, interval: 4500 }],
+  // Wave 15: 파이널 보스 — Abyssal Dragon + 호위대
+  [{ type: 'shadow_elite', count: 3, interval: 1000 }, { type: 'colossus', count: 1, interval: 4000 },
+   { type: 'void_wraith', count: 5, interval: 500 }, { type: 'abyssal_dragon', count: 1, interval: 8000 }],
+];
+
+const ENEMY_DEFS = {
+  //                              HP    speed  color          size  reward
+  grunt:      { name: 'Grunt',      hp:   48, speed:  44, color: '#8B4513', size: 12, reward:  1 },
+  fast:       { name: 'Runner',     hp:   30, speed:  85, color: '#C0392B', size: 10, reward:  1 },
+  tank:       { name: 'Tank',       hp:  160, speed:  28, color: '#2C3E50', size: 18, reward:  3 },
+  elite:      { name: 'Elite',      hp:  140, speed:  58, color: '#6A0DAD', size: 14, reward:  4, isElite: true },
+  shielded:   { name: 'Shielded',   hp:  110, speed:  38, color: '#1A5276', size: 14, reward:  5, shieldHits: 5 },
+  berserker:  { name: 'Berserker',  hp:   90, speed:  55, color: '#922B21', size: 13, reward:  4, isElite: true },
+  boss:       { name: 'Ironclad',   hp:  520, speed:  20, color: '#B8860B', size: 26, reward: 20, isBoss: true },  // 700 → 520
+  void_titan: { name: 'Void Titan', hp: 1100, speed:  15, color: '#1A0033', size: 32, reward: 40, isBoss: true },
+  // ── Act 3 기존 적 ──────────────────────────────────
+  void_wraith:   { name: 'Void Wraith',  hp:  55, speed: 120, color: '#440066', size:  9, reward: 2 },
+  juggernaut:    { name: 'Juggernaut',   hp: 320, speed:  18, color: '#1C1C1C', size: 22, reward: 8, slowImmune: true },
+  shadow_elite:  { name: 'Shadow Elite', hp: 160, speed:  62, color: '#2D0050', size: 15, reward: 6, isElite: true, enrageThreshold: 0.6 },
+  abyssal_dragon: { name: 'Abyssal Dragon', hp: 3000, speed: 12, color: '#0D0030',
+                    size: 36, reward: 60, isBoss: true, phase2Hp: 1500 },
+
+  // ── 신규 8종 ───────────────────────────────────────
+  // Act 1: 소형 스와머 — 빠르고 약하지만 대량 등장
+  goblin:        { name: 'Goblin',        hp:  20, speed:  95, color: '#5D7A1A', size:  8, reward:  1 },
+
+  // Act 2: 슬로우 면역 대형 탱커 (저거넛보다 느리지만 더 단단함)
+  stone_golem:   { name: 'Stone Golem',   hp: 580, speed:  18, color: '#7F8C8D', size: 23, reward:  6, slowImmune: true },
+
+  // Act 2: HP 재생형 (regenDps: 초당 회복 HP) — 집중 화력 필요
+  necromancer:   { name: 'Necromancer',   hp: 280, speed:  48, color: '#4A235A', size: 13, reward:  5,
+                   isElite: true, regenDps: 6 },  // 14 → 6 (처치 불가 방지)
+
+  // Act 2-3: 피해 감소 35% (damageReduction) — 지속 딜로만 잡아야 함
+  plague_carrier: { name: 'Plague Carrier', hp: 440, speed:  40, color: '#1E8449', size: 16, reward:  5,
+                    damageReduction: 0.35 },
+
+  // Act 3: 격노형 고속 엘리트 — HP 50% 이하에서 속도 폭증
+  void_stalker:  { name: 'Void Stalker',  hp: 220, speed:  78, color: '#6600CC', size: 12, reward:  5,
+                   isElite: true, enrageThreshold: 0.5 },
+
+  // Act 3: 슬로우 면역 초대형 탱커 — 저거넛보다 더 강력
+  siege_beast:   { name: 'Siege Beast',   hp: 880, speed:  20, color: '#4A4A4A', size: 25, reward:  8,
+                   slowImmune: true },
+
+  // Act 3: 고속 유령형 — 빠름 + 피해 감소 25%
+  phantom:       { name: 'Phantom',       hp: 165, speed: 108, color: '#7D3C98', size: 10, reward:  3,
+                   damageReduction: 0.25 },
+
+  // Act 3: 최강 탱커 — 슬로우 면역 + HP 35% 격노 + 거대한 크기
+  colossus:      { name: 'Colossus',      hp:1250, speed:  16, color: '#17202A', size: 29, reward:  9,
+                   slowImmune: true, enrageThreshold: 0.35 },
+};
+
+export class EnemySystem {
+  constructor(layer, onEnemyReachEnd, onEnemyKilled, onBossUpdate) {
+    this.layer = layer;
+    this.onEnemyReachEnd = onEnemyReachEnd;
+    this.onEnemyKilled   = onEnemyKilled;
+    this.onBossUpdate    = onBossUpdate ?? null; // 보스 HP 갱신 콜백
+    this.enemies = [];
+    this._idCounter = 0;
+    this._spawnQueue = [];
+    this._spawnTimer  = 0;
+    this._spawnIndex  = 0;
+    this._waveActive  = false;
+    this._dying = new Set();
+    this._boss        = null;
+    this._slowBonus   = 1;    // 유물 감속 배율
+    this._hpScale     = 1.15; // 난이도 HP 스케일 (기본: Standard)
+    this._eliteBonus  = 0;    // 엘리트 추가 HP 배율 (Veteran: 0.2)
+    this._injectStyles();
+  }
+
+  // ── 유물: 감속/번 배율 설정 ─────────────────────────
+  setSlowBonus(mult) { this._slowBonus = mult; }
+  setBurnBonus(extraDps, extraDuration) {
+    this._burnExtraDps      = (this._burnExtraDps ?? 0) + extraDps;
+    this._burnExtraDuration = (this._burnExtraDuration ?? 0) + extraDuration;
+  }
+
+  _ensureBossGlowStyle() {
+    if (document.getElementById('boss-glow-style')) return;
+    const s = document.createElement('style');
+    s.id = 'boss-glow-style';
+    // r 속성은 CSS 애니메이션 불가 → transform: scale 사용
+    s.textContent = `@keyframes bossGlow {
+      0%   { opacity: 0.25; transform: scale(0.88); }
+      100% { opacity: 0.75; transform: scale(1.25); }
+    }`;
+    document.head.appendChild(s);
+  }
+
+  _injectStyles() {
+    if (document.getElementById('enemy-fx-style')) return;
+    const s = document.createElement('style');
+    s.id = 'enemy-fx-style';
+    s.textContent = `
+      @keyframes enemyDeath {
+        0%   { opacity: 1; transform: scale(1); }
+        40%  { opacity: 1; transform: scale(1.35); }
+        100% { opacity: 0; transform: scale(0); }
+      }
+      @keyframes hitFlash {
+        0%,100% { filter: none; }
+        50%      { filter: brightness(4) saturate(0); }
+      }
+      @keyframes dmgFloat {
+        0%   { opacity: 1; transform: translateY(0) scale(1); }
+        20%  { opacity: 1; transform: translateY(-6px) scale(1.2); }
+        100% { opacity: 0; transform: translateY(-30px) scale(0.8); }
+      }
+      @keyframes deathParticle {
+        0%   { opacity: 0.9; }
+        100% { opacity: 0; }
+      }
+      @keyframes splashRing {
+        0%   { opacity: 0.7; transform: scale(0.3); }
+        100% { opacity: 0;   transform: scale(1); }
+      }
+    `;
+    document.head.appendChild(s);
+  }
+
+  // ── 웨이브 시작 ───────────────────────────────────────
+  // spawnDelay: 첫 스폰까지 추가 대기 ms (extra_prep 이벤트)
+  // spawnSpeedMult: 적 기본 속도 배율 (slow_next_wave 이벤트, 예: 0.75 = 25% 감속)
+  startWave(waveIndex, hpScale = 1.15, eliteBonus = 0, spawnDelay = 0, spawnSpeedMult = 1) {
+    // 활성 맵 경로로 웨이포인트 갱신
+    WAYPOINTS = ENEMY_PATH.current.map(([c, r]) => hexToPixel(c, r));
+    this._hpScale        = hpScale;
+    this._eliteBonus     = eliteBonus;
+    this._spawnSpeedMult = spawnSpeedMult;  // slow_next_wave 이벤트 효과
+
+    const config = WAVE_CONFIGS[Math.min(waveIndex, WAVE_CONFIGS.length - 1)];
+    this._spawnQueue = [];
+    let cumDelay = 0;
+    for (const group of config) {
+      for (let i = 0; i < group.count; i++) {
+        this._spawnQueue.push({ type: group.type, at: cumDelay });
+        cumDelay += group.interval;
+      }
+    }
+    // extra_prep: 첫 스폰을 spawnDelay ms 뒤로 미룸 (음수 타이머 시작)
+    this._spawnTimer = -spawnDelay;
+    this._spawnIndex = 0;
+    this._waveActive = true;
+  }
+
+  isWaveClear() {
+    return this._waveActive &&
+           this._spawnIndex >= this._spawnQueue.length &&
+           this.enemies.length === 0;
+  }
+
+  // ── 메인 업데이트 ─────────────────────────────────────
+  update(delta) {
+    if (!this._waveActive) return;
+
+    this._spawnTimer += delta;
+    while (
+      this._spawnIndex < this._spawnQueue.length &&
+      this._spawnTimer >= this._spawnQueue[this._spawnIndex].at
+    ) {
+      this._spawn(this._spawnQueue[this._spawnIndex].type);
+      this._spawnIndex++;
+    }
+
+    const reachedEnd = [];
+    for (const e of [...this.enemies]) {  // 복사본으로 순회 (중간 제거 대비)
+      // HP 재생 (Necromancer 등) — 빙결 중에도 계속
+      if (e.regenDps > 0 && e.hp < e.maxHp && e.hp > 0) {
+        e.hp = Math.min(e.maxHp, e.hp + e.regenDps * delta / 1000);
+        this._updateHpBar(e);
+      }
+      // 번(DoT) 처리 — 빙결 중에도 계속 타오름
+      if (e.burns.length > 0) {
+        this._updateBurns(e, delta);
+        if (e.hp <= 0 && !this._dying.has(e.id)) {
+          // 보스 번 사망: 참조 정리 + HP 바 갱신
+          if (e.isBoss) {
+            this._boss = null;
+            this.onBossUpdate?.({ hp: 0, maxHp: e.maxHp });
+            audio.play('boss_die');
+          } else if (e.isElite || e.type === 'tank') {
+            audio.play(e.isElite ? 'elite_die' : 'tank_die');
+          } else {
+            audio.play('enemy_die');
+          }
+          this.enemies = this.enemies.filter(x => x.id !== e.id);
+          this._playDeathAnim(e);
+          this.onEnemyKilled(e.reward);
+          continue;
+        }
+      }
+      if (!this.enemies.includes(e)) continue; // 이미 제거됨
+
+      if (e.frozen > 0) { e.frozen -= delta; this._updateEnemySVG(e); continue; }
+      this._moveEnemy(e, delta);
+      this._updateEnemySVG(e);
+      if (e.reached) reachedEnd.push(e);
+    }
+    for (const e of reachedEnd) {
+      this._removeEnemy(e, false);
+      this.onEnemyReachEnd();
+    }
+  }
+
+  _moveEnemy(e, delta) {
+    const speedMult = e.slowTimer > 0 ? (1 - e.slowAmt) : 1;
+    if (e.slowTimer > 0) e.slowTimer -= delta;
+
+    const target = WAYPOINTS[e.waypointIndex];
+    const dx = target.x - e.x;
+    const dy = target.y - e.y;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    const step = (e.speed * speedMult * delta) / 1000;
+
+    if (dist <= step) {
+      e.x = target.x; e.y = target.y;
+      e.waypointIndex++;
+      if (e.waypointIndex >= WAYPOINTS.length) e.reached = true;
+    } else {
+      e.x += (dx/dist) * step;
+      e.y += (dy/dist) * step;
+    }
+  }
+
+  // ── 스폰 ──────────────────────────────────────────────
+  _spawn(type) {
+    const def = ENEMY_DEFS[type];
+    const start = WAYPOINTS[0];
+    const id = `enemy-${++this._idCounter}`;
+
+    // 난이도 HP 스케일링: 보스는 적용 안 함 (디자인 기준이 이미 맞춤)
+    const hpScale  = def.isBoss ? 1 : (this._hpScale ?? 1.15);
+    const eliteAdd = (def.isElite && !def.isBoss) ? (this._eliteBonus ?? 0) : 0;
+    const scaledHp = Math.round(def.hp * (hpScale * (1 + eliteAdd)));
+
+    const enemy = {
+      id, type,
+      x: start.x, y: start.y,
+      hp: scaledHp, maxHp: scaledHp,
+      // slow_next_wave 이벤트: 기본 속도에 배율 적용 (1.0 = 변화 없음)
+      speed: def.speed * (this._spawnSpeedMult ?? 1),
+      baseSpeed: def.speed * (this._spawnSpeedMult ?? 1),
+      color: def.color, size: def.size, reward: def.reward,
+      isBoss:    def.isBoss    ?? false,
+      isElite:   def.isElite   ?? false,
+      shieldHits: def.shieldHits ?? 0,
+      slowImmune: def.slowImmune ?? false,           // Juggernaut, Stone Golem, Siege Beast, Colossus
+      enrageThreshold: def.enrageThreshold ?? null,  // Berserker, Shadow Elite, Void Stalker, Colossus
+      enraged:   false,
+      regenDps:        def.regenDps        ?? 0,     // Necromancer: 초당 HP 회복
+      damageReduction: def.damageReduction ?? 0,     // Plague Carrier, Phantom: 피해 감소율
+      waypointIndex: 1, reached: false,
+      frozen: 0, slowTimer: 0, slowAmt: 0,
+      burns: [],
+      el: null, hpBar: null, bodyEl: null, shieldEl: null,
+    };
+
+    const g = svgEl('g', { id, class: 'enemy-unit' });
+
+    // 그림자
+    const shadow = svgEl('ellipse', {
+      cx: 0, cy: def.size * 0.7, rx: def.size * 0.8, ry: def.size * 0.3,
+      fill: 'rgba(0,0,0,0.3)', 'pointer-events': 'none',
+    });
+    g.appendChild(shadow);
+
+    // 몸통
+    const body = svgEl('circle', {
+      cx: 0, cy: 0, r: def.size,
+      fill: def.color, stroke: 'rgba(255,255,255,0.6)', 'stroke-width': 1.5,
+    });
+    g.appendChild(body);
+    enemy.bodyEl = body;
+
+    // 적 타입별 마킹
+    if (type === 'tank') {
+      g.appendChild(svgEl('circle', { cx: 0, cy: 0, r: def.size * 0.5, fill: 'rgba(0,0,0,0.4)' }));
+    } else if (type === 'fast') {
+      g.appendChild(svgEl('polygon', {
+        points: '0,-6 4,4 -4,4', fill: 'rgba(255,200,0,0.7)',
+      }));
+    } else if (type === 'shielded') {
+      // 실드 적: 파란 방어막 원
+      const shield = svgEl('circle', {
+        cx: 0, cy: 0, r: def.size + 5,
+        fill: 'rgba(100,180,255,0.12)',
+        stroke: '#5DADE2', 'stroke-width': 2.5, opacity: '0.85',
+      });
+      g.appendChild(shield);
+      enemy.shieldEl = shield;
+      // 방패 마크
+      g.appendChild(svgEl('polygon', {
+        points: `0,${-def.size*0.5} ${def.size*0.4},${-def.size*0.1} ${def.size*0.4},${def.size*0.3} 0,${def.size*0.55} ${-def.size*0.4},${def.size*0.3} ${-def.size*0.4},${-def.size*0.1}`,
+        fill: 'rgba(93,173,226,0.7)',
+      }));
+
+    } else if (type === 'berserker') {
+      // 광전사: 빨간 뿔 마킹
+      g.appendChild(svgEl('polygon', {
+        points: `${-def.size*0.4},${-def.size*0.5} ${-def.size*0.1},${-def.size*0.85} 0,${-def.size*0.4}`,
+        fill: '#FF4500',
+      }));
+      g.appendChild(svgEl('polygon', {
+        points: `${def.size*0.4},${-def.size*0.5} ${def.size*0.1},${-def.size*0.85} 0,${-def.size*0.4}`,
+        fill: '#FF4500',
+      }));
+
+    } else if (type === 'elite') {
+      // 엘리트: 다이아몬드 마킹
+      g.appendChild(svgEl('polygon', {
+        points: `0,${-def.size*0.65} ${def.size*0.45},0 0,${def.size*0.65} ${-def.size*0.45},0`,
+        fill: 'rgba(220,180,255,0.8)',
+      }));
+
+    // ── 신규 8종 형태 ──────────────────────────────────
+
+    } else if (type === 'goblin') {
+      // 고블린: 뾰족한 귀 2개 (작은 삼각형)
+      g.appendChild(svgEl('polygon', {
+        points: `${-def.size*0.5},${-def.size*0.4} ${-def.size*0.15},${-def.size*0.85} ${-def.size*0.1},${-def.size*0.3}`,
+        fill: '#7CB518',
+      }));
+      g.appendChild(svgEl('polygon', {
+        points: `${def.size*0.5},${-def.size*0.4} ${def.size*0.15},${-def.size*0.85} ${def.size*0.1},${-def.size*0.3}`,
+        fill: '#7CB518',
+      }));
+
+    } else if (type === 'tank' || type === 'stone_golem' || type === 'juggernaut' || type === 'colossus') {
+      // 탱커 계열: 육각형 테두리 (견고한 장갑 느낌)
+      const s = def.size;
+      const hexPts = Array.from({length: 6}, (_, i) => {
+        const a = (i * Math.PI / 3) + Math.PI / 6;
+        return `${(s*0.7*Math.cos(a)).toFixed(1)},${(s*0.7*Math.sin(a)).toFixed(1)}`;
+      }).join(' ');
+      g.appendChild(svgEl('polygon', {
+        points: hexPts,
+        fill: 'none', stroke: 'rgba(200,200,200,0.5)', 'stroke-width': 2,
+      }));
+
+    } else if (type === 'necromancer') {
+      // 네크로맨서: 마름모 + 중앙 보라 코어
+      g.appendChild(svgEl('polygon', {
+        points: `0,${-def.size*0.7} ${def.size*0.5},0 0,${def.size*0.7} ${-def.size*0.5},0`,
+        fill: 'none', stroke: '#C39BD3', 'stroke-width': 1.8, opacity: '0.9',
+      }));
+      g.appendChild(svgEl('circle', { cx: 0, cy: 0, r: def.size * 0.3,
+        fill: 'rgba(150,50,200,0.6)' }));
+
+    } else if (type === 'phantom') {
+      // 팬텀: 반투명 위로 테이퍼드 다이아몬드
+      g.appendChild(svgEl('polygon', {
+        points: `0,${-def.size*0.9} ${def.size*0.4},${def.size*0.1} 0,${def.size*0.5} ${-def.size*0.4},${def.size*0.1}`,
+        fill: 'rgba(180,140,255,0.35)', stroke: '#C9B1FF', 'stroke-width': 1,
+      }));
+
+    } else if (type === 'plague_carrier') {
+      // 페스트 캐리어: 원 + 바깥 독 안개 링
+      g.appendChild(svgEl('circle', { cx: 0, cy: 0, r: def.size + 4,
+        fill: 'rgba(30,150,60,0.18)', stroke: '#27AE60', 'stroke-width': 1.2,
+        'stroke-dasharray': '4 3', opacity: '0.7' }));
+
+    } else if (type === 'siege_beast') {
+      // 시즈 비스트: 정사각형 (기계적/구조물 느낌)
+      const s = def.size * 0.75;
+      g.appendChild(svgEl('rect', {
+        x: -s, y: -s, width: s * 2, height: s * 2,
+        fill: 'none', stroke: 'rgba(180,180,180,0.55)', 'stroke-width': 2, rx: 2,
+      }));
+
+    } else if (type === 'void_stalker') {
+      // 보이드 스토커: 날카로운 방향 화살표 (속도감)
+      g.appendChild(svgEl('polygon', {
+        points: `0,${-def.size*0.85} ${def.size*0.5},${def.size*0.45} 0,${def.size*0.2} ${-def.size*0.5},${def.size*0.45}`,
+        fill: 'rgba(120,0,200,0.6)',
+      }));
+
+    } else if (type === 'void_titan') {
+      // Void Titan: 심연 보스
+      g.appendChild(svgEl('circle', { cx: 0, cy: 0, r: def.size * 0.6,
+        fill: 'rgba(80,0,120,0.5)', stroke: '#9B59B6', 'stroke-width': 2.5 }));
+      // 보이드 크랙 (별 모양)
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2;
+        g.appendChild(svgEl('line', {
+          x1: 0, y1: 0,
+          x2: (def.size * 0.75 * Math.cos(a)).toFixed(1),
+          y2: (def.size * 0.75 * Math.sin(a)).toFixed(1),
+          stroke: '#E8DAEF', 'stroke-width': 1.5, opacity: '0.6',
+        }));
+      }
+      // 이름 라벨
+      const vtLabel = svgEl('text', {
+        x: 0, y: -def.size - 12,
+        'text-anchor': 'middle', 'dominant-baseline': 'middle',
+        fill: '#9B59B6', 'font-size': '9px',
+        'font-family': 'Cinzel, serif', 'font-weight': 'bold',
+        'pointer-events': 'none',
+        stroke: 'rgba(0,0,0,0.8)', 'stroke-width': '2', 'paint-order': 'stroke',
+      });
+      vtLabel.textContent = 'VOID TITAN';
+      g.appendChild(vtLabel);
+      // 외부 글로우
+      g.appendChild(svgEl('circle', { cx: 0, cy: 0, r: def.size + 6,
+        fill: 'none', stroke: '#9B59B6', 'stroke-width': 2, opacity: '0.4',
+        style: 'transform-origin: 0px 0px; animation: bossGlow 1.2s ease-in-out infinite alternate',
+      }));
+      this._boss = enemy;
+      this._ensureBossGlowStyle();
+
+    } else if (type === 'boss') {
+      // 보스: 겹원 + 왕관 모양
+      g.appendChild(svgEl('circle', { cx: 0, cy: 0, r: def.size * 0.55,
+        fill: 'rgba(0,0,0,0.35)', stroke: '#FFD700', 'stroke-width': 2 }));
+      g.appendChild(svgEl('polygon', {
+        points: `0,${-def.size*0.45} ${def.size*0.3},${-def.size*0.1} ${-def.size*0.3},${-def.size*0.1}`,
+        fill: '#FFD700',
+      }));
+      // 보스 이름 레이블
+      const label = svgEl('text', {
+        x: 0, y: -def.size - 12,
+        'text-anchor': 'middle', 'dominant-baseline': 'middle',
+        fill: '#FFD700', 'font-size': '9px',
+        'font-family': 'Cinzel, serif', 'font-weight': 'bold',
+        'pointer-events': 'none',
+        stroke: 'rgba(0,0,0,0.8)', 'stroke-width': '2', 'paint-order': 'stroke',
+      });
+      label.textContent = 'IRONCLAD';
+      g.appendChild(label);
+      // 보스 외곽 글로우 링 (transform-origin: 중심점)
+      g.appendChild(svgEl('circle', { cx: 0, cy: 0, r: def.size + 5,
+        fill: 'none', stroke: '#FFD700', 'stroke-width': 2, opacity: '0.5',
+        style: 'transform-origin: 0px 0px; animation: bossGlow 1.4s ease-in-out infinite alternate',
+      }));
+      this._boss = enemy;
+      this._ensureBossGlowStyle();
+    }
+
+    // HP 바 배경
+    const hpBg = svgEl('rect', {
+      x: -def.size, y: -def.size - 7,
+      width: def.size * 2, height: 4,
+      fill: '#1a1a1a', rx: 2,
+    });
+    g.appendChild(hpBg);
+
+    // HP 바
+    const hpBar = svgEl('rect', {
+      x: -def.size, y: -def.size - 7,
+      width: def.size * 2, height: 4,
+      fill: '#2ecc71', rx: 2,
+    });
+    g.appendChild(hpBar);
+
+    g.setAttribute('transform', `translate(${start.x},${start.y})`);
+    this.layer.appendChild(g);
+    enemy.el = g;
+    enemy.hpBar = hpBar;
+    this.enemies.push(enemy);
+  }
+
+  // HP 바만 갱신 (regen 등에서 사용)
+  _updateHpBar(e) {
+    if (!e.hpBar) return;
+    const ratio = Math.max(0, e.hp / e.maxHp);
+    e.hpBar.setAttribute('width', (e.size * 2 * ratio).toFixed(1));
+    e.hpBar.setAttribute('fill', ratio > 0.5 ? '#2ecc71' : ratio > 0.25 ? '#f39c12' : '#e74c3c');
+  }
+
+  _updateEnemySVG(e) {
+    if (!e.el) return;
+    e.el.setAttribute('transform', `translate(${e.x.toFixed(1)},${e.y.toFixed(1)})`);
+    this._updateHpBar(e);
+
+    if (e.slowTimer > 0 && e.bodyEl) {
+      e.bodyEl.setAttribute('fill', '#7EC8E3');
+    } else if (e.bodyEl) {
+      e.bodyEl.setAttribute('fill', e.color);
+    }
+  }
+
+  _removeEnemy(e, withAnim = true) {
+    this.enemies = this.enemies.filter(x => x.id !== e.id);
+
+    if (!e.el) return;
+
+    if (withAnim) {
+      this._dying.add(e.id);
+      this._playDeathAnim(e);
+    } else {
+      e.el.remove();
+    }
+  }
+
+  // ── 사망 애니메이션 ───────────────────────────────────
+  _playDeathAnim(e) {
+    const el = e.el;
+    if (!el) return;
+
+    const cx = e.x, cy = e.y;
+
+    // 1) 몸통 팽창 후 소멸
+    el.style.transformOrigin = `${cx}px ${cy}px`;
+    el.style.animation = 'enemyDeath 0.4s ease-out forwards';
+
+    // 2) 파티클 (4~6개 작은 원)
+    const count = 4 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < count; i++) {
+      const angle = (Math.PI * 2 * i) / count + Math.random() * 0.5;
+      const dist  = e.size * (1.2 + Math.random() * 1.5);
+      const px = cx + Math.cos(angle) * dist;
+      const py = cy + Math.sin(angle) * dist;
+      const r  = 2 + Math.random() * 3;
+
+      const pid = `particle-${this._idCounter}-${i}`;
+      const particle = svgEl('circle', {
+        id: pid, cx: px.toFixed(1), cy: py.toFixed(1), r: r.toFixed(1),
+        fill: e.color, opacity: 0.9,
+        'pointer-events': 'none',
+        style: `animation: deathParticle 0.45s ease-out forwards`,
+      });
+      this.layer.appendChild(particle);
+      setTimeout(() => document.getElementById(pid)?.remove(), 450);
+    }
+
+    // 3) 정리
+    setTimeout(() => {
+      el.remove();
+      this._dying.delete(e.id);
+    }, 400);
+  }
+
+  // ── 피격 플래시 ───────────────────────────────────────
+  _hitFlash(e) {
+    if (!e.el) return;
+    e.el.style.animation = 'hitFlash 0.12s ease-out';
+    setTimeout(() => { if (e.el) e.el.style.animation = ''; }, 120);
+  }
+
+  // ── 떠오르는 데미지 숫자 (SVG) ────────────────────────
+  _spawnDamageNumber(x, y, amount, isCrit = false) {
+    const id = `dmg-${this._idCounter}-${Date.now()}`;
+    const size = isCrit ? '13px' : '10px';
+    const color = isCrit ? '#ffcc00' : '#ff6666';
+    const text = svgEl('text', {
+      id,
+      x: (x + (Math.random() - 0.5) * 12).toFixed(1),
+      y: (y - 14).toFixed(1),
+      'text-anchor': 'middle',
+      'dominant-baseline': 'middle',
+      fill: color,
+      'font-size': size,
+      'font-family': 'Share Tech Mono, monospace',
+      'font-weight': 'bold',
+      'pointer-events': 'none',
+      stroke: 'rgba(0,0,0,0.6)',
+      'stroke-width': '2',
+      'paint-order': 'stroke',
+      style: 'animation: dmgFloat 0.65s ease-out forwards',
+    });
+    text.textContent = `-${amount}`;
+    this.layer.appendChild(text);
+    setTimeout(() => document.getElementById(id)?.remove(), 650);
+  }
+
+  // ── 피해 처리 ─────────────────────────────────────────
+  dealDamage(enemyId, amount) {
+    const e = this.enemies.find(x => x.id === enemyId);
+    if (!e) return false;
+
+    // 피해 감소 (Plague Carrier, Phantom 등)
+    let finalDmg = e.damageReduction > 0
+      ? Math.max(1, Math.round(amount * (1 - e.damageReduction)))
+      : amount;
+
+    // 실드 적: 피해 추가 50% 감소 (피해 감소 이후 적용), 실드 히트 차감
+    if (e.shieldHits > 0) {
+      finalDmg = Math.max(1, Math.round(finalDmg * 0.5));
+      e.shieldHits--;
+      if (e.shieldHits <= 0) {
+        // 실드 파괴
+        e.shieldEl?.remove(); e.shieldEl = null;
+        this._spawnSplashEffect(e.x, e.y, '#5DADE2');
+      }
+    }
+
+    e.hp -= finalDmg;
+    this._hitFlash(e);
+
+    // 격노 메커닉: berserker(40%) + shadow_elite(60%) + void_stalker(50%) + colossus(35%)
+    const enrageThreshold = e.enrageThreshold ?? (e.type === 'berserker' ? 0.4 : null);
+    if (enrageThreshold && !e.enraged && e.hp <= e.maxHp * enrageThreshold) {
+      e.enraged = true;
+      e.speed   = e.baseSpeed * 1.8;
+      const enrageColor = {
+        shadow_elite: '#CC00FF',
+        void_stalker: '#AA00FF',
+        colossus:     '#FF4400',
+      }[e.type] ?? '#FF2200';
+      if (e.bodyEl) e.bodyEl.setAttribute('fill', enrageColor);
+    }
+
+    // Abyssal Dragon 2페이즈: HP 50% 이하에서 속도 1.6배 + 색상 변경
+    if (e.type === 'abyssal_dragon' && !e.phase2 && e.hp <= e.maxHp * 0.5) {
+      e.phase2 = true;
+      e.speed  = e.baseSpeed * 1.6;
+      if (e.bodyEl) {
+        e.bodyEl.setAttribute('fill', '#5500AA');
+        e.bodyEl.setAttribute('stroke', '#FF00FF');
+      }
+      this.onBossUpdate?.({ hp: Math.max(0, e.hp), maxHp: e.maxHp, name: e.name, phase2: true });
+      audio.play('boss_warning');
+    }
+
+    const isCrit = finalDmg >= 20;
+    this._spawnDamageNumber(e.x, e.y, finalDmg, isCrit);
+
+    // 보스 HP 갱신 알림 + 보스 피격 사운드
+    if (e.isBoss) {
+      this.onBossUpdate?.({ hp: Math.max(0, e.hp), maxHp: e.maxHp, name: e.name });
+      audio.play('boss_hit');
+    }
+
+    if (e.hp <= 0) {
+      if (e.isBoss) {
+        this._boss = null;
+        this.onBossUpdate?.({ hp: 0, maxHp: e.maxHp });
+        audio.play('boss_die');
+      } else if (e.type === 'tank' || e.isElite) {
+        audio.play(e.isElite ? 'elite_die' : 'tank_die');
+      } else {
+        audio.play('enemy_die');
+      }
+      this._removeEnemy(e, true);
+      this.onEnemyKilled(e.reward);
+      return true;
+    }
+    return false;
+  }
+
+  dealDamageToAll(amount) {
+    for (const e of [...this.enemies]) this.dealDamage(e.id, amount);
+  }
+
+  // N명의 무작위 적에게 피해
+  dealDamageToRandom(count, amount) {
+    const targets = [...this.enemies].sort(() => Math.random() - 0.5).slice(0, count);
+    for (const e of targets) this.dealDamage(e.id, amount);
+  }
+
+  // 선두(가장 앞선) 적에게 피해
+  dealDamageToLead(amount) {
+    if (!this.enemies.length) return;
+    const lead = this.enemies.reduce((best, e) =>
+      e.waypointIndex > best.waypointIndex ? e : best, this.enemies[0]);
+    this.dealDamage(lead.id, amount);
+    return lead;
+  }
+
+  freezeAll(duration) {
+    for (const e of this.enemies) e.frozen = duration;
+  }
+
+  // Void Rift: 모든 적을 스폰 지점으로 순간이동
+  teleportToStart() {
+    const start = WAYPOINTS[0];
+    if (!start) return;
+    for (const e of this.enemies) {
+      if (e.isBoss) continue;   // 보스는 이동 불가
+      e.x = start.x;
+      e.y = start.y;
+      e.waypointIndex = 1;
+      if (e.el) e.el.setAttribute('transform', `translate(${e.x},${e.y})`);
+    }
+  }
+
+  // 전체 감속 (빙결이 아닌 슬로우)
+  slowAll(amount, duration) {
+    const boosted = Math.min(0.95, amount * this._slowBonus);
+    for (const e of this.enemies) {
+      if (e.slowImmune) continue;    // Juggernaut: 슬로우 면역
+      e.slowAmt   = Math.max(e.slowAmt, boosted);
+      e.slowTimer = Math.max(e.slowTimer, duration);
+    }
+  }
+
+  applySlow(enemyId, amount, duration) {
+    const e = this.enemies.find(x => x.id === enemyId);
+    if (!e || e.slowImmune) return;   // Juggernaut: 슬로우 면역
+    const boosted = Math.min(0.95, amount * this._slowBonus);
+    e.slowAmt = boosted; e.slowTimer = duration;
+  }
+
+  // 번(DoT) 적용
+  applyBurn(enemyId, dps, duration) {
+    const e = this.enemies.find(x => x.id === enemyId);
+    if (!e) return;
+    // Ember Core 유물 보너스 반영
+    const boostedDps      = dps      + (this._burnExtraDps      ?? 0);
+    const boostedDuration = duration + (this._burnExtraDuration ?? 0);
+    // 기존 번 스택 갱신 또는 새 스택 추가 (최대 3스택)
+    if (e.burns.length < 3) {
+      e.burns.push({ dps: boostedDps, remaining: boostedDuration, tickTimer: 350 });
+    } else {
+      e.burns[0] = { dps: boostedDps, remaining: boostedDuration, tickTimer: 350 };
+    }
+    // 불꽃 색으로 몸통 표시
+    if (e.bodyEl) e.bodyEl.setAttribute('fill', '#FF8C00');
+  }
+
+  // 번 DoT 업데이트 (update 루프에서 호출)
+  _updateBurns(e, delta) {
+    let totalDmg = 0;
+    for (const burn of e.burns) {
+      burn.remaining -= delta;
+      burn.tickTimer -= delta;
+      if (burn.tickTimer <= 0) {
+        burn.tickTimer = 400; // 400ms마다 틱
+        const dmg = Math.max(1, Math.round(burn.dps * 0.4));
+        totalDmg += dmg;
+      }
+    }
+    e.burns = e.burns.filter(b => b.remaining > 0);
+
+    if (totalDmg > 0) {
+      e.hp -= totalDmg;
+      this._spawnDamageNumber(e.x, e.y, totalDmg, false);
+      // 번 색 유지/해제
+      if (e.burns.length > 0 && e.bodyEl) {
+        e.bodyEl.setAttribute('fill', '#FF8C00');
+      } else if (e.bodyEl && e.slowTimer <= 0) {
+        e.bodyEl.setAttribute('fill', e.color);
+      }
+    }
+  }
+
+  // 실드 파괴 이펙트 (CSS 애니메이션 원)
+  _spawnSplashEffect(x, y, color) {
+    const id = `sfx-${Date.now()}`;
+    const el = svgEl('circle', {
+      id, cx: x.toFixed(1), cy: y.toFixed(1), r: 22,
+      fill: 'none', stroke: color, 'stroke-width': 3,
+      'pointer-events': 'none',
+      style: 'animation: splashRing 0.4s ease-out forwards',
+    });
+    // splashRing 키프레임은 TowerSystem에서 이미 정의됨
+    this.layer.appendChild(el);
+    setTimeout(() => document.getElementById(id)?.remove(), 400);
+  }
+
+  getEnemiesInRange(px, py, radiusPx) {
+    return this.enemies.filter(e => {
+      const dx = e.x - px, dy = e.y - py;
+      return Math.sqrt(dx*dx + dy*dy) <= radiusPx;
+    });
+  }
+
+  getLeadEnemy(px, py, radiusPx) {
+    const inRange = this.getEnemiesInRange(px, py, radiusPx);
+    if (!inRange.length) return null;
+    return inRange.reduce((best, e) =>
+      e.waypointIndex > best.waypointIndex ? e : best, inRange[0]);
+  }
+
+  clearAll() {
+    for (const e of [...this.enemies]) e.el?.remove();
+    this.enemies = [];
+    this._waveActive = false;
+    this._dying.clear();
+    this._boss = null;
+    this.onBossUpdate?.({ hp: 0, maxHp: 1, hidden: true });
+  }
+}

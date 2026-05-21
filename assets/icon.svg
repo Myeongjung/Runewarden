@@ -1,0 +1,141 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <!-- Background radial gradient -->
+    <radialGradient id="bgGrad" cx="50%" cy="45%" r="55%">
+      <stop offset="0%"   stop-color="#1e1e3f"/>
+      <stop offset="100%" stop-color="#0d0d1a"/>
+    </radialGradient>
+
+    <!-- Gold glow gradient -->
+    <radialGradient id="goldGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%"   stop-color="#D4AF37" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#D4AF37" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Arcane glow gradient -->
+    <radialGradient id="arcaneGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%"   stop-color="#8E44AD" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#8E44AD" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Clip to rounded square -->
+    <clipPath id="roundedClip">
+      <rect width="512" height="512" rx="96" ry="96"/>
+    </clipPath>
+
+    <!-- Drop shadow for outer ring -->
+    <filter id="goldShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+
+    <!-- Glow for inner rune -->
+    <filter id="runeGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- ── Background ── -->
+  <g clip-path="url(#roundedClip)">
+    <rect width="512" height="512" fill="url(#bgGrad)"/>
+
+    <!-- Ambient glow blobs -->
+    <circle cx="256" cy="240" r="200" fill="url(#arcaneGlow)"/>
+    <circle cx="256" cy="256" r="160" fill="url(#goldGlow)"/>
+
+    <!-- ── Outer decorative hex ring (6 small hexagons) ── -->
+    <g opacity="0.22" fill="#D4AF37">
+      <!-- Top -->
+      <polygon points="256,72 272,81 272,99 256,108 240,99 240,81"/>
+      <!-- Top-right -->
+      <polygon points="354,128 370,137 370,155 354,164 338,155 338,137"/>
+      <!-- Bottom-right -->
+      <polygon points="354,340 370,349 370,367 354,376 338,367 338,349"/>
+      <!-- Bottom -->
+      <polygon points="256,396 272,405 272,423 256,432 240,423 240,405"/>
+      <!-- Bottom-left -->
+      <polygon points="158,340 174,349 174,367 158,376 142,367 142,349"/>
+      <!-- Top-left -->
+      <polygon points="158,128 174,137 174,155 158,164 142,155 142,137"/>
+    </g>
+
+    <!-- ── Outer magic circle ── -->
+    <circle cx="256" cy="256" r="188"
+      fill="none" stroke="#D4AF37" stroke-width="2.5" opacity="0.55"
+      filter="url(#goldShadow)"/>
+
+    <!-- Dashed secondary ring -->
+    <circle cx="256" cy="256" r="176"
+      fill="none" stroke="#D4AF37" stroke-width="1.2"
+      stroke-dasharray="14 8" opacity="0.35"/>
+
+    <!-- ── Star of six (hexagram) lines ── -->
+    <g stroke="#D4AF37" stroke-width="1.8" opacity="0.40" stroke-linecap="round">
+      <!-- Triangle 1 (pointing up) -->
+      <line x1="256" y1="82"  x2="374" y2="289"/>
+      <line x1="374" y1="289" x2="138" y2="289"/>
+      <line x1="138" y1="289" x2="256" y2="82"/>
+      <!-- Triangle 2 (pointing down) -->
+      <line x1="256" y1="430" x2="374" y2="223"/>
+      <line x1="374" y1="223" x2="138" y2="223"/>
+      <line x1="138" y1="223" x2="256" y2="430"/>
+    </g>
+
+    <!-- ── Inner circle ── -->
+    <circle cx="256" cy="256" r="122"
+      fill="none" stroke="#8E44AD" stroke-width="2" opacity="0.6"
+      filter="url(#runeGlow)"/>
+
+    <!-- ── Large central hexagon (tower/shield shape) ── -->
+    <polygon
+      points="256,144 334,190 334,282 256,328 178,282 178,190"
+      fill="rgba(212,175,55,0.06)"
+      stroke="#D4AF37" stroke-width="3" stroke-linejoin="round"
+      filter="url(#goldShadow)" opacity="0.9"/>
+
+    <!-- ── Inner decorative hex (nested) ── -->
+    <polygon
+      points="256,172 318,208 318,280 256,316 194,280 194,208"
+      fill="none"
+      stroke="#D4AF37" stroke-width="1.5" opacity="0.35"/>
+
+    <!-- ── W glyph (Warden symbol) — stylized rune ── -->
+    <g filter="url(#runeGlow)" opacity="0.95">
+      <!-- Left downstroke -->
+      <line x1="202" y1="196" x2="224" y2="296" stroke="#D4AF37" stroke-width="10" stroke-linecap="round"/>
+      <!-- Left-center V -->
+      <line x1="224" y1="296" x2="256" y2="236" stroke="#D4AF37" stroke-width="10" stroke-linecap="round"/>
+      <!-- Right-center V -->
+      <line x1="256" y1="236" x2="288" y2="296" stroke="#D4AF37" stroke-width="10" stroke-linecap="round"/>
+      <!-- Right downstroke -->
+      <line x1="288" y1="296" x2="310" y2="196" stroke="#D4AF37" stroke-width="10" stroke-linecap="round"/>
+      <!-- Top horizontal bar -->
+      <line x1="198" y1="190" x2="314" y2="190" stroke="#D4AF37" stroke-width="5" stroke-linecap="round" opacity="0.7"/>
+    </g>
+
+    <!-- ── Four cardinal rune dots ── -->
+    <g fill="#8E44AD" filter="url(#runeGlow)" opacity="0.85">
+      <circle cx="256" cy="148" r="5"/>
+      <circle cx="256" cy="364" r="5"/>
+      <circle cx="148" cy="256" r="5"/>
+      <circle cx="364" cy="256" r="5"/>
+    </g>
+
+    <!-- ── Diagonal rune dashes (arcane accents) ── -->
+    <g stroke="#8E44AD" stroke-width="2" opacity="0.5" stroke-linecap="round">
+      <line x1="184" y1="155" x2="196" y2="167"/>
+      <line x1="316" y1="155" x2="328" y2="167"/>
+      <line x1="184" y1="357" x2="196" y2="345"/>
+      <line x1="316" y1="357" x2="328" y2="345"/>
+    </g>
+
+    <!-- ── Subtle vignette frame ── -->
+    <rect width="512" height="512" rx="96" ry="96"
+      fill="none"
+      stroke="#2a2a4a" stroke-width="12" opacity="0.6"/>
+    <rect width="512" height="512" rx="96" ry="96"
+      fill="none"
+      stroke="#D4AF37" stroke-width="3" opacity="0.2"/>
+  </g>
+</svg>
