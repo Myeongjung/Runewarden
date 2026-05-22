@@ -1,0 +1,136 @@
+# RUNEWARDEN
+
+> **Build your spell deck. Place your towers. Survive.**
+
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue)](#system-requirements)
+[![Steam Deck](https://img.shields.io/badge/Steam%20Deck-Planned-1b2838?logo=steam)](#)
+[![License](https://img.shields.io/badge/license-UNLICENSED-red)](#)
+[![Version](https://img.shields.io/badge/version-0.1.0-gold)](#)
+
+A **Tower Defense × Deck Building × Roguelike** hybrid — every card you play is a tower action.
+
+---
+
+## What is Runewarden?
+
+Runewarden fuses three genres into one tight loop:
+
+- **Deck Building** — Construct your spell deck from 30+ cards across runs
+- **Tower Defense** — Place and upgrade towers on a hex grid to stop enemy waves
+- **Roguelike** — No two runs are the same. Every choice is permanent.
+
+**The twist:** Cards don't just buff stats — they *are* the towers.
+
+| Card Type | What it does |
+|-----------|-------------|
+| ⚔️ **Summon** | Place a tower on an empty hex |
+| ⬆️ **Augment** | Attach a power slot to an existing tower |
+| ✨ **Spell** | Instant-cast magic effect |
+
+---
+
+## Key Features
+
+### 🏰 6 Unique Towers
+| Tower | Ability |
+|-------|---------|
+| 🏹 Archer Tower | Fast attack, long range |
+| 💣 Cannon Tower | High damage + AoE splash |
+| ❄️ Frost Mage | 45% slow on hit |
+| 🐉 Fire Drake | Burn DoT (8 DPS / 2.5s) |
+| ⚡ Tesla Coil | Chain lightning, 2 targets |
+| 🌿 Druid Grove | Slow + +15% damage aura to adjacent towers |
+
+### 🃏 30 Cards
+- **Common** (13) · **Uncommon** (12) · **Rare** (5)
+- Buy, reroll, and remove cards between waves
+- Build focused synergy decks or flexible generalist builds
+
+### 🗺️ Roguelike Structure
+After each wave, choose a node:
+- **Shop** — Buy and reroll cards (up to 2 rerolls)
+- **Event** — 10 random events with risk/reward tradeoffs
+- **Rest Site** — Remove a card from your deck or scavenge gold
+
+### ⚔️ 5 Wardens (Characters)
+Each Warden starts with a unique deck and passive ability, unlocked through meta progression.
+
+### 📈 Meta Progression
+- Warden Rank 1–20 (XP across runs)
+- Codex unlocks: new cards, tower bonuses, passive upgrades
+- Difficulty Ascension system (I–III) for challenge runs
+
+### 🏆 20 Steam Achievements
+*Ironclad Breaker · Flawless Warden · Swift Justice · and more*
+
+---
+
+## DLC — Shadow Realm
+
+**Runewarden: Shadow Realm** expands the base game with:
+
+- Act 4 (8 additional waves) with a new Shadow Realm biome
+- 3 new towers with dark-magic mechanics
+- New spell and augment cards
+- Shadow Warden character with unique passive
+
+---
+
+## Keyboard Shortcuts
+
+| Key | Action |
+|-----|--------|
+| `Space` | Start Wave |
+| `1`–`5` | Select / play card from hand |
+| `F` | Deselect card |
+| `Tab` | Toggle 2× speed (during wave) |
+| `1`–`3` | Node choice · Shop buy · Event pick |
+| `R` | Reroll shop |
+| `L` / `Esc` | Leave shop / Pause |
+| `M` | Mute (while paused) |
+| `Q` | Quit to menu (while paused) |
+
+---
+
+## System Requirements
+
+| | Minimum | Recommended |
+|-|---------|-------------|
+| **OS** | Windows 10 64-bit | Windows 11 |
+| **CPU** | Intel Core i3 (4th gen) | Intel Core i5 / Ryzen 5 |
+| **RAM** | 4 GB | 8 GB |
+| **GPU** | Integrated graphics (DirectX 11) | Dedicated GPU |
+| **Storage** | 300 MB | 500 MB |
+
+*Steam Deck support planned.*
+
+---
+
+## Development
+
+Built with **Electron + vanilla JS/SVG** — no game engine, no framework.
+
+```bash
+# Install dependencies
+npm install
+
+# Run in development mode (DevTools enabled)
+npm run dev
+
+# Run in production mode
+npm start
+
+# Build Windows installer
+npm run build:win
+```
+
+---
+
+## Contact
+
+**Developer:** Solo indie (phj8973@gmail.com)  
+**Review / Creator key requests:** phj8973@gmail.com — Subject: `[Review Key Request] Runewarden`
+
+---
+
+*© 2025 Runewarden Dev. All rights reserved.*
