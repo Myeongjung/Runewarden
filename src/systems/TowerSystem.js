@@ -219,7 +219,13 @@ export class TowerSystem {
     if (this._relicFirePact > 0 && tower.def.id === 'fire_drake' && this._fireDrakeCount >= 2) {
       firePactMult = 1 + this._relicFirePact;
     }
-    const dmg = Math.round(tower.damage * this._globalDmgMult * druidMult * firePactMult);
+    let dmg = Math.round(tower.damage * this._globalDmgMult * druidMult * firePactMult);
+
+    // ── DLC: critOnSlow — 감속 적에게 크리티컬 ─────────────
+    if (tower.def.critOnSlow && enemy.slowUntil && enemy.slowUntil > Date.now()) {
+      dmg = Math.round(dmg * tower.def.critOnSlow);
+    }
+
     this.enemySystem.dealDamage(enemy.id, dmg);
 
     const ex = enemy.x, ey = enemy.y;
@@ -287,6 +293,11 @@ export class TowerSystem {
     } else {
       this._spawnArrow(tx, ty, ex, ey, tower.def.accentColor);
       audio.play('arrow_shoot');
+    }
+
+    // ── DLC: shadowDotDps — Shadow DoT 적용 ───────────────
+    if (tower.def.shadowDotDps && tower.def.shadowDotDur) {
+      this.enemySystem.applyBurn(enemy.id, tower.def.shadowDotDps, tower.def.shadowDotDur);
     }
 
     this._spawnMuzzleFlash(tx, ty, tower.def.accentColor);

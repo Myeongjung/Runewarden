@@ -25,12 +25,17 @@ const HEX_W = 34 * 2;
 function rangeToPixel(hexRange) { return hexRange * HEX_W * 0.75; }
 
 // ── 상수 ──────────────────────────────────────────────
-const MAX_WAVES   = 15;  // Act 1(5) + Act 2(5) + Act 3(5)
+const MAX_WAVES_BASE = 15;  // Act 1(5) + Act 2(5) + Act 3(5)
+const MAX_WAVES_DLC  = 23;  // + Act 4(8) — DLC Shadow Realm
+// DLC 소유 여부는 런 시작 시 결정
+let   MAX_WAVES      = MAX_WAVES_BASE;
 const ACT_SIZE    = 5;   // 액트당 웨이브 수
 const NEXUS_HP    = 3;
 const START_GOLD  = 25;
 const WAVE_GOLD   = 8;
-const BOSS_WAVES  = new Set([5, 10, 15]);  // 보스 등장 웨이브
+const BOSS_WAVES_BASE = new Set([5, 10, 15]);
+const BOSS_WAVES_DLC  = new Set([5, 10, 15, 23]);  // DLC 보스 웨이브
+let   BOSS_WAVES      = BOSS_WAVES_BASE;
 
 // ── DOM 참조 ───────────────────────────────────────────
 const $ = id => document.getElementById(id);
@@ -479,6 +484,11 @@ function startRun() {
   // 이전 런 정리
   if (rafId) cancelAnimationFrame(rafId);
 
+  // DLC 상태에 따라 최대 웨이브 / 보스 웨이브 결정
+  const hasShadowRealmDlc = steam?.isDlcOwned('shadow_realm') ?? false;
+  MAX_WAVES  = hasShadowRealmDlc ? MAX_WAVES_DLC  : MAX_WAVES_BASE;
+  BOSS_WAVES = hasShadowRealmDlc ? BOSS_WAVES_DLC : BOSS_WAVES_BASE;
+
   // Warden + 난이도 기반 시작 조건
   const bonuses    = meta.bonuses;
   const warden     = selectedWarden;
@@ -506,16 +516,17 @@ function startRun() {
     lastSpellEffect:       null,   // Void Echo: 마지막 시전 스펠 효과 추적
     // 런 통계
     stats: {
-      enemiesKilled:     0,
-      goldEarned:        initGold,
-      cardsPlayed:       0,
-      eliteKills:        0,
-      bossKilled:        false,
-      nexusHealed:       false,
-      augmentsApplied:   0,
-      spellsThisWave:    0,
-      maxSpellsInWave:   0,
-      towerTypesUsed:    new Set(),  // 업적: 6종 타워 모두 배치
+      enemiesKilled:         0,
+      enemiesKilledThisWave: 0,   // DLC: Death Toll 주문용 웨이브 처치 수
+      goldEarned:            initGold,
+      cardsPlayed:           0,
+      eliteKills:            0,
+      bossKilled:            false,
+      nexusHealed:           false,
+      augmentsApplied:       0,
+      spellsThisWave:        0,
+      maxSpellsInWave:       0,
+      towerTypesUsed:        new Set(),
     },
     _runStartTime: Date.now(),
   };
@@ -888,7 +899,10 @@ function beginWave() {
   state.selectedCard = null;
   renderHand();
 
-  if (state?.stats) state.stats.spellsThisWave = 0;
+  if (state?.stats) {
+    state.stats.spellsThisWave        = 0;
+    state.stats.enemiesKilledThisWave = 0;
+  }
   // 난이도 스케일링 + 이벤트 효과 전달
   const hpScale    = state.difficulty?.hpScale ?? 1.15;
   const eliteBonus = state.difficulty?.eliteBonus ?? 0;
@@ -1237,6 +1251,7 @@ function onEnemyKilled(reward) {
 
   if (!state?.stats) return;
   state.stats.enemiesKilled++;
+  state.stats.enemiesKilledThisWave = (state.stats.enemiesKilledThisWave ?? 0) + 1;
 
   // 보상 기반으로 적 종류 추론
   if (reward >= 20) {
@@ -1702,6 +1717,74 @@ function resolveSpell(effect) {
       const gained = handCount * effect.goldPerCard;
       if (gained > 0) addGold(gained, null);
       log(i18n.t('spell_sacrifice', handCount, gained), 'gold');
+      break;
+    }
+
+    // ── DLC Shadow Realm 주문 효과 ─────────────────────
+
+    case 'darkness': {
+      // 어둠: 전체 적 감속 + 전체 타워 피해 증폭 동시
+      enemySystem.slowAll(effect.slowAmt, effect.duration);
+      towerSystem.applyGlobalDamageBoost(1 + effect.dmgBoost, effect.duration);
+      audio.play('spell_freeze');
+      log(i18n.t('spell_darkness',
+        Math.round(effect.slowAmt * 100),
+        Math.round(effect.dmgBoost * 100),
+        effect.duration / 1000), 'good');
+      break;
+    }
+
+    case 'shadow_nova': {
+      // 그림자 노바: 각 적의 잃은 HP 비율로 피해
+      const enemies = [...enemySystem.enemies];
+      let totalDmg = 0;
+      for (const e of enemies) {
+        const missing = Math.max(0, e.maxHp - e.hp);
+        const dmg = Math.max(1, Math.ceil(missing * effect.pct));
+        enemySystem.dealDamage(e.id, dmg);
+        totalDmg += dmg;
+      }
+      log(i18n.t('spell_shadow_nova', totalDmg), 'good');
+      break;
+    }
+
+    case 'void_pulse': {
+      // 공허 파동: 선두 N명을 경로 위에서 steps칸 후퇴
+      const sorted = [...enemySystem.enemies]
+        .sort((a, b) => (b.pathProgress ?? 0) - (a.pathProgress ?? 0))
+        .slice(0, effect.count ?? 3);
+      for (const e of sorted) {
+        enemySystem.pushBack(e.id, effect.steps ?? 3);
+      }
+      log(i18n.t('spell_void_pulse', sorted.length, effect.steps ?? 3), 'good');
+      audio.play('spell_freeze');
+      break;
+    }
+
+    case 'soul_feast': {
+      // 영혼 향연: HP임계값 이하 적 즉사 + 골드 보상
+      const threshold = effect.hpThreshold ?? 0.25;
+      const goldEach  = effect.goldPerKill ?? 3;
+      const targets   = enemySystem.enemies.filter(e => e.hp / e.maxHp <= threshold);
+      let gained = 0;
+      for (const e of targets) {
+        enemySystem.dealDamage(e.id, e.hp + 9999);
+        gained += goldEach;
+      }
+      if (gained > 0) addGold(gained, null, true);
+      log(i18n.t('spell_soul_feast', targets.length, gained), targets.length > 0 ? 'gold' : '');
+      break;
+    }
+
+    case 'gold_per_wave_kill': {
+      // 죽음의 값: 이번 웨이브 처치 수 × 1g
+      const kills = state?.stats?.enemiesKilledThisWave ?? 0;
+      if (kills > 0) {
+        addGold(kills, null);
+        log(i18n.t('spell_death_toll', kills), 'gold');
+      } else {
+        log(i18n.t('spell_no_enemies'), '');
+      }
       break;
     }
 

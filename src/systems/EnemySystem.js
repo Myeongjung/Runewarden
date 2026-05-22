@@ -58,6 +58,33 @@ const WAVE_CONFIGS = [
   // Wave 15: 파이널 보스 — Abyssal Dragon + 호위대
   [{ type: 'shadow_elite', count: 3, interval: 1000 }, { type: 'colossus', count: 1, interval: 4000 },
    { type: 'void_wraith', count: 5, interval: 500 }, { type: 'abyssal_dragon', count: 1, interval: 8000 }],
+
+  // ── DLC Act 4 (Wave 16~23) ─────────────────────────
+  // Wave 16: 공허 침공 개시 — Void Shade 물량 + Shadow Hound
+  [{ type: 'void_shade', count: 8, interval: 400 }, { type: 'shadow_hound', count: 6, interval: 350 },
+   { type: 'void_knight', count: 2, interval: 2000 }],
+  // Wave 17: 망령 군단 — Abyssal Wraith + Void Reaper 첫 등장
+  [{ type: 'void_shade', count: 6, interval: 400 }, { type: 'abyssal_wraith', count: 3, interval: 900 },
+   { type: 'void_reaper', count: 2, interval: 2200 }, { type: 'void_knight', count: 2, interval: 1800 }],
+  // Wave 18: 공허 기사 + 팬텀 자이언트 첫 등장 (중간 탱커)
+  [{ type: 'void_knight', count: 3, interval: 1500 }, { type: 'phantom_giant', count: 1, interval: 5000 },
+   { type: 'abyssal_wraith', count: 4, interval: 800 }, { type: 'shadow_hound', count: 8, interval: 300 }],
+  // Wave 19: 그림자 타이탄 중간보스 + 호위대
+  [{ type: 'void_shade', count: 8, interval: 380 }, { type: 'void_reaper', count: 3, interval: 1800 },
+   { type: 'phantom_giant', count: 1, interval: 4500 }, { type: 'shadow_titan', count: 1, interval: 7000 }],
+  // Wave 20: DLC 중반 — Void Herald 대거 등장 + 압도적 물량
+  [{ type: 'void_spawn', count: 12, interval: 300 }, { type: 'abyssal_wraith', count: 4, interval: 750 },
+   { type: 'void_herald', count: 2, interval: 3000 }, { type: 'phantom_giant', count: 2, interval: 4000 }],
+  // Wave 21: 그림자 총공세 — Act 4 전 유닛 총출동
+  [{ type: 'shadow_hound', count: 8, interval: 300 }, { type: 'void_knight', count: 4, interval: 1200 },
+   { type: 'void_reaper', count: 3, interval: 1800 }, { type: 'phantom_giant', count: 2, interval: 3800 },
+   { type: 'abyssal_wraith', count: 4, interval: 700 }],
+  // Wave 22: 보스 직전 — Shadow Titan 2기 + 최정예 호위대
+  [{ type: 'void_shade', count: 10, interval: 350 }, { type: 'void_herald', count: 3, interval: 2500 },
+   { type: 'shadow_titan', count: 2, interval: 6000 }, { type: 'void_knight', count: 4, interval: 1100 }],
+  // Wave 23: DLC 파이널 보스 — Shadow Colossus + 호위대
+  [{ type: 'void_reaper', count: 3, interval: 1500 }, { type: 'void_herald', count: 2, interval: 2500 },
+   { type: 'phantom_giant', count: 2, interval: 4000 }, { type: 'shadow_colossus', count: 1, interval: 10000 }],
 ];
 
 const ENEMY_DEFS = {
@@ -107,6 +134,28 @@ const ENEMY_DEFS = {
   // Act 3: 최강 탱커 — 슬로우 면역 + HP 35% 격노 + 거대한 크기
   colossus:      { name: 'Colossus',      hp:1250, speed:  16, color: '#17202A', size: 29, reward:  9,
                    slowImmune: true, enrageThreshold: 0.35 },
+
+  // ── DLC Act 4 적 10종 ───────────────────────────────
+  // 공허 군단 — 그림자 왕국의 적들
+  void_shade:    { name: 'Void Shade',    hp:  80, speed: 130, color: '#1A0033', size:  9, reward:  2,
+                   damageReduction: 0.15 },                         // 고속 + 소량 피해감소
+  shadow_hound:  { name: 'Shadow Hound',  hp:  45, speed: 160, color: '#2D004D', size:  8, reward:  1 }, // 최고속 경량
+  void_knight:   { name: 'Void Knight',   hp: 480, speed:  35, color: '#0D0025', size: 18, reward:  7,
+                   isElite: true, shieldHits: 3 },                  // 쉴드 + 엘리트
+  shadow_titan:  { name: 'Shadow Titan',  hp:1800, speed:  12, color: '#0A001A', size: 30, reward: 25,
+                   isBoss: false, slowImmune: true, damageReduction: 0.20 }, // 중간보스급 탱커
+  abyssal_wraith:{ name: 'Abyssal Wraith',hp: 220, speed:  95, color: '#3D0066', size: 11, reward:  4,
+                   isElite: true, enrageThreshold: 0.55 },          // 고속 격노 엘리트
+  void_reaper:   { name: 'Void Reaper',   hp: 340, speed:  50, color: '#1A0044', size: 14, reward:  6,
+                   isElite: true, regenDps: 8 },                    // HP 재생 엘리트
+  phantom_giant: { name: 'Phantom Giant', hp: 920, speed:  22, color: '#4D0080', size: 26, reward: 10,
+                   damageReduction: 0.30, slowImmune: true },       // 피해감소 + 슬로우면역 탱커
+  void_spawn:    { name: 'Void Spawn',    hp:  35, speed: 100, color: '#220033', size:  7, reward:  1 }, // 다량 스와머
+  shadow_colossus:{ name: 'Shadow Colossus', hp:2500, speed: 10, color: '#060015', size: 34, reward: 30,
+                    isBoss: true, slowImmune: true, enrageThreshold: 0.40,
+                    damageReduction: 0.15 },                        // DLC 최종 보스
+  void_herald:   { name: 'Void Herald',   hp: 600, speed:  30, color: '#1A0055', size: 20, reward: 12,
+                   isElite: true, enrageThreshold: 0.50, regenDps: 5 }, // 재생 + 격노 엘리트
 };
 
 export class EnemySystem {
@@ -726,12 +775,24 @@ export class EnemySystem {
     const start = WAYPOINTS[0];
     if (!start) return;
     for (const e of this.enemies) {
-      if (e.isBoss) continue;   // 보스는 이동 불가
+      if (e.isBoss) continue;
       e.x = start.x;
       e.y = start.y;
       e.waypointIndex = 1;
       if (e.el) e.el.setAttribute('transform', `translate(${e.x},${e.y})`);
     }
+  }
+
+  // Void Pulse: 특정 적을 경로 위에서 N 웨이포인트 뒤로 밀어냄
+  pushBack(enemyId, steps) {
+    const e = this.enemies.find(x => x.id === enemyId);
+    if (!e || e.isBoss) return;
+    const newWpIdx = Math.max(1, e.waypointIndex - steps);
+    const target   = WAYPOINTS[newWpIdx - 1] ?? WAYPOINTS[0];
+    e.waypointIndex = newWpIdx;
+    e.x = target.x;
+    e.y = target.y;
+    if (e.el) e.el.setAttribute('transform', `translate(${e.x},${e.y})`);
   }
 
   // 전체 감속 (빙결이 아닌 슬로우)
