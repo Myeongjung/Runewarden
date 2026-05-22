@@ -58,14 +58,15 @@ export class ShopUI {
   }
 
   // ── 상점 열기 ─────────────────────────────────────
-  open(gold, waveNum, unlockedCardIds = null, discount = 0, freeRerolls = 0, shopSize = SHOP_SIZE) {
-    this._gold        = gold;
-    this._waveNum     = waveNum;
-    this._rerolls     = 0;
-    this._freeRerolls = freeRerolls;      // Merchant's Ring 무료 리롤 횟수
-    this._shopSize    = shopSize;         // Ascension I: 2장, 기본: 3장
-    this._unlockedIds = unlockedCardIds;  // null = 모두 허용
-    this._discount    = discount;         // Gold Lens 유물 할인
+  open(gold, waveNum, unlockedCardIds = null, discount = 0, freeRerolls = 0, shopSize = SHOP_SIZE, challengeMods = null) {
+    this._gold          = gold;
+    this._waveNum       = waveNum;
+    this._rerolls       = 0;
+    this._freeRerolls   = freeRerolls;
+    this._shopSize      = shopSize;
+    this._unlockedIds   = unlockedCardIds;
+    this._discount      = discount;
+    this._challengeMods = challengeMods;  // 챌린지 제한 mods
 
     this.container.classList.remove('hidden');
     this.container.querySelector('#shop-wave-label').textContent = i18n.t('shop_after_wave', waveNum);
@@ -110,9 +111,19 @@ export class ShopUI {
       });
     }
 
-    // 풀이 너무 작으면 전체에서 보충
+    // 챌린지: common_only — Common 등급만 허용
+    if (this._challengeMods?.maxCardRarity === 'common') {
+      pool = pool.filter(c => c.rarity === 'common');
+    }
+
+    // 풀이 너무 작으면 등급 제한 없이 보충
     const size = this._shopSize ?? SHOP_SIZE;
-    if (pool.length < size) pool = [...CARD_DEFS];
+    if (pool.length < size) {
+      let fallback = this._challengeMods?.maxCardRarity === 'common'
+        ? CARD_DEFS.filter(c => c.rarity === 'common')
+        : [...CARD_DEFS];
+      pool = fallback.length >= size ? fallback : [...CARD_DEFS];
+    }
 
     this._offered = [];
     const used = new Set();
@@ -177,7 +188,11 @@ export class ShopUI {
         </button>
       `;
 
-      if (canAfford) {
+      // 챌린지: fixed_deck — 구매 불가
+      if (this._challengeMods?.noShopBuy) {
+        const buyBtn = slot.querySelector('.btn-buy');
+        if (buyBtn) { buyBtn.disabled = true; buyBtn.textContent = i18n.t('challenge_no_buy'); }
+      } else if (canAfford) {
         slot.querySelector('.btn-buy').addEventListener('click', () => this._buy(card));
       }
 
@@ -228,6 +243,13 @@ export class ShopUI {
     const btn = this.container.querySelector('#shop-reroll');
     const remain = this.container.querySelector('#reroll-remaining');
     const left = MAX_REROLLS - this._rerolls;
+
+    // 챌린지: no_reroll
+    if (this._challengeMods?.noReroll) {
+      btn.disabled = true;
+      if (remain) remain.textContent = i18n.t('challenge_no_reroll');
+      return;
+    }
 
     btn.disabled = left <= 0 || this._gold < REROLL_COST;
     if (remain) remain.textContent = left > 0 ? i18n.t('shop_rerolls_left', left) : i18n.t('shop_no_rerolls');

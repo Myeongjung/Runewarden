@@ -1629,6 +1629,108 @@ kbd {
 .summary-buttons .btn-primary,
 .summary-buttons .btn-secondary { min-width: 130px; }
 
+/* ── Challenge System ─────────────────────────────────── */
+.challenge-section {
+  margin-top: 1.2rem;
+  border-top: 1px solid var(--border);
+  padding-top: 0.8rem;
+}
+.challenge-section-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  cursor: pointer;
+  font-family: 'Cinzel', serif;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  user-select: none;
+  padding: 0.2rem 0;
+}
+.challenge-section-header:hover { color: var(--text); }
+.challenge-xp-badge {
+  margin-left: auto;
+  background: rgba(212,175,55,0.15);
+  border: 1px solid rgba(212,175,55,0.4);
+  color: #D4AF37;
+  border-radius: 10px;
+  padding: 0.1rem 0.5rem;
+  font-size: 0.72rem;
+  font-family: var(--font-mono);
+}
+.challenge-toggle-arrow {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+}
+.challenge-panel {
+  margin-top: 0.7rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+.challenge-panel.hidden { display: none; }
+.challenge-cat-label {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  letter-spacing: 0.08em;
+  margin-bottom: 0.3rem;
+  font-family: 'Cinzel', serif;
+}
+.challenge-btn-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.challenge-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.3rem 0.55rem;
+  cursor: pointer;
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  transition: all 0.15s;
+  user-select: none;
+}
+.challenge-btn:hover {
+  background: rgba(255,255,255,0.1);
+  color: var(--text);
+}
+.challenge-btn.active {
+  background: rgba(212,175,55,0.18);
+  border-color: #D4AF37;
+  color: #D4AF37;
+}
+.ch-icon { font-size: 0.9rem; }
+.ch-name { font-weight: 600; }
+.ch-xp {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: #2ecc71;
+  margin-left: 0.2rem;
+}
+.challenge-btn.active .ch-xp { color: #D4AF37; }
+
+/* 챌린지로 금지된 카드 */
+.card.challenge-banned {
+  opacity: 0.45;
+  border-color: #c0392b !important;
+  cursor: not-allowed;
+}
+
+/* 챌린지로 금지된 노드 */
+.node-card.node-card-banned {
+  opacity: 0.4;
+  cursor: not-allowed;
+  filter: grayscale(60%);
+}
+.node-card.node-card-banned:hover {
+  transform: none;
+  box-shadow: none;
+}
+
 /* ── Pause / Speed Buttons ────────────────────────────── */
 .pause-btn-row {
   display: flex;

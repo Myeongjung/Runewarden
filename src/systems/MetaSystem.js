@@ -212,8 +212,8 @@ export class MetaSystem {
   }
 
   // ── 런 종료 처리 → XP 적용, 레벨업, 언락 반환 ────
-  applyRunResult({ wavesCleared, enemiesKilled, nexusHpLeft, victory }) {
-    const xpGained = calcRunXP({ wavesCleared, enemiesKilled, nexusHpLeft, victory });
+  applyRunResult({ wavesCleared, enemiesKilled, nexusHpLeft, victory }, xpMultiplier = 1) {
+    const xpGained = Math.round(calcRunXP({ wavesCleared, enemiesKilled, nexusHpLeft, victory }) * xpMultiplier);
 
     this._data.totalXP   += xpGained;
     this._data.runsPlayed++;

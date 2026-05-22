@@ -11,8 +11,42 @@ export class NodeSelectionUI {
     this.onRest  = callbacks.onRest;
   }
 
-  open(waveNum, gold) {
+  open(waveNum, gold, flags = {}) {
+    const { noRest = false, noEvent = false } = flags;
     this.container.classList.remove('hidden');
+
+    const eventCard = noEvent ? `
+      <div class="node-card node-card-banned" id="node-event">
+        <div class="node-hint-badge node-hint-mystery">🔮 ${i18n.t('node_hint_mystery')}</div>
+        <div class="node-card-icon">⚡</div>
+        <div class="node-card-name">${i18n.t('node_event')}</div>
+        <div class="node-card-desc">${i18n.t('challenge_node_banned')}</div>
+        <div class="node-card-tag">🚫</div>
+      </div>` : `
+      <div class="node-card" id="node-event">
+        <div class="node-hint-badge node-hint-mystery">🔮 ${i18n.t('node_hint_mystery')}</div>
+        <div class="node-card-icon">⚡</div>
+        <div class="node-card-name">${i18n.t('node_event')}</div>
+        <div class="node-card-desc">${i18n.t('node_event_desc2')}</div>
+        <div class="node-card-tag">${i18n.t('node_unknown')}</div>
+      </div>`;
+
+    const restCard = noRest ? `
+      <div class="node-card node-card-banned" id="node-rest">
+        <div class="node-hint-badge node-hint-rest">💆 ${i18n.t('node_hint_rest')}</div>
+        <div class="node-card-icon">🛌</div>
+        <div class="node-card-name">${i18n.t('node_rest')}</div>
+        <div class="node-card-desc">${i18n.t('challenge_node_banned')}</div>
+        <div class="node-card-tag">🚫</div>
+      </div>` : `
+      <div class="node-card" id="node-rest">
+        <div class="node-hint-badge node-hint-rest">💆 ${i18n.t('node_hint_rest')}</div>
+        <div class="node-card-icon">🛌</div>
+        <div class="node-card-name">${i18n.t('node_rest')}</div>
+        <div class="node-card-desc">${i18n.t('node_rest_desc2')}</div>
+        <div class="node-card-tag">${i18n.t('node_sanctuary')}</div>
+      </div>`;
+
     this.container.innerHTML = `
       <div class="node-box">
         <div class="node-header">
@@ -30,37 +64,28 @@ export class NodeSelectionUI {
             <div class="node-card-desc">${i18n.t('node_shop_desc2')}</div>
             <div class="node-card-tag">${i18n.t('node_merchant')}</div>
           </div>
-          <div class="node-card" id="node-event">
-            <div class="node-hint-badge node-hint-mystery">🔮 ${i18n.t('node_hint_mystery')}</div>
-            <div class="node-card-icon">⚡</div>
-            <div class="node-card-name">${i18n.t('node_event')}</div>
-            <div class="node-card-desc">${i18n.t('node_event_desc2')}</div>
-            <div class="node-card-tag">${i18n.t('node_unknown')}</div>
-          </div>
-          <div class="node-card" id="node-rest">
-            <div class="node-hint-badge node-hint-rest">💆 ${i18n.t('node_hint_rest')}</div>
-            <div class="node-card-icon">🛌</div>
-            <div class="node-card-name">${i18n.t('node_rest')}</div>
-            <div class="node-card-desc">${i18n.t('node_rest_desc2')}</div>
-            <div class="node-card-tag">${i18n.t('node_sanctuary')}</div>
-          </div>
+          ${eventCard}
+          ${restCard}
         </div>
       </div>
     `;
 
-    // 입장 애니메이션
     const box = this.container.querySelector('.node-box');
     box.style.animation = 'shopSlideIn 0.3s cubic-bezier(0.34,1.56,0.64,1)';
 
     this.container.querySelector('#node-shop').addEventListener('click', () => {
       this._close(); this.onShop();
     });
-    this.container.querySelector('#node-event').addEventListener('click', () => {
-      this._close(); this.onEvent();
-    });
-    this.container.querySelector('#node-rest').addEventListener('click', () => {
-      this._close(); this.onRest();
-    });
+    if (!noEvent) {
+      this.container.querySelector('#node-event').addEventListener('click', () => {
+        this._close(); this.onEvent();
+      });
+    }
+    if (!noRest) {
+      this.container.querySelector('#node-rest').addEventListener('click', () => {
+        this._close(); this.onRest();
+      });
+    }
   }
 
   _close() { this.container.classList.add('hidden'); }

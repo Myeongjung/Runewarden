@@ -20,6 +20,7 @@ import { pickRandomMap, getMapById }   from '../data/maps.js';
 import { setActiveMap }     from '../rendering/MapRenderer.js';
 import { DIFFICULTY_DEFS, getDifficultyById } from '../data/difficulty.js';
 import { ASCENSION_DEFS, getAscensionMods }   from '../data/ascension.js';
+import { CHALLENGE_DEFS, getChallengeXPBonus, getChallengeMods } from '../data/challenges.js';
 
 const HEX_W = 34 * 2;
 function rangeToPixel(hexRange) { return hexRange * HEX_W * 0.75; }
@@ -72,6 +73,9 @@ let selectedAscension = 0;
 
 // 자동저장 복원 데이터 (Continue 버튼으로 런 재개 시 세팅)
 let _savedRunData = null;
+
+// 선택된 챌린지 ID 목록
+let selectedChallenges = [];
 
 // 튜토리얼 (런 시작 후 생성)
 let tutorial   = null;
@@ -250,6 +254,39 @@ function openDifficultySelect() {
     </div>
   ` : '';
 
+  // 챌린지 섹션 HTML
+  const catLabels = { tower: i18n.t('ch_cat_tower'), card: i18n.t('ch_cat_card'), economy: i18n.t('ch_cat_economy'), run: i18n.t('ch_cat_run') };
+  const cats = ['tower', 'card', 'economy', 'run'];
+  const challengeHTML = `
+    <div class="challenge-section">
+      <div class="challenge-section-header" id="challenge-toggle-btn">
+        <span>${i18n.t('challenge_section_title')}</span>
+        <span class="challenge-xp-badge" id="challenge-xp-total">${
+          selectedChallenges.length ? i18n.t('challenge_xp_bonus', Math.round(getChallengeXPBonus(selectedChallenges) * 100)) : i18n.t('challenge_xp_none')
+        }</span>
+        <span class="challenge-toggle-arrow" id="challenge-arrow">▶</span>
+      </div>
+      <div class="challenge-panel hidden" id="challenge-panel">
+        ${cats.map(cat => {
+          const defs = CHALLENGE_DEFS.filter(c => c.category === cat);
+          return `<div class="challenge-cat">
+            <div class="challenge-cat-label">${catLabels[cat]}</div>
+            <div class="challenge-btn-row">
+              ${defs.map(c => `
+                <div class="challenge-btn${selectedChallenges.includes(c.id) ? ' active' : ''}" data-cid="${c.id}"
+                     title="${i18n.t('ch_' + c.id + '_desc')}">
+                  <span class="ch-icon">${c.icon}</span>
+                  <span class="ch-name">${i18n.t('ch_' + c.id + '_name')}</span>
+                  <span class="ch-xp">+${Math.round(c.xpBonus * 100)}%</span>
+                </div>
+              `).join('')}
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+  `;
+
   overlay.innerHTML = `
     <div class="difficulty-box" style="animation:shopSlideIn 0.3s cubic-bezier(0.34,1.56,0.64,1)">
       <div class="difficulty-header">
@@ -268,6 +305,7 @@ function openDifficultySelect() {
         `).join('')}
       </div>
       ${ascHTML}
+      ${challengeHTML}
       <div class="diff-footer">
         <button class="btn-secondary" id="diff-back">${i18n.t('diff_back')}</button>
         <button class="btn-primary"   id="diff-confirm">${i18n.t('diff_confirm')}</button>
@@ -296,6 +334,33 @@ function openDifficultySelect() {
           ? i18n.t('asc_off_desc')
           : i18n.t('asc_' + selectedAscension + '_desc');
       }
+    });
+  });
+
+  // 챌린지 패널 토글
+  overlay.querySelector('#challenge-toggle-btn').addEventListener('click', () => {
+    const panel = overlay.querySelector('#challenge-panel');
+    const arrow = overlay.querySelector('#challenge-arrow');
+    panel.classList.toggle('hidden');
+    arrow.textContent = panel.classList.contains('hidden') ? '▶' : '▼';
+  });
+
+  // 챌린지 버튼 클릭 → 토글
+  overlay.querySelectorAll('.challenge-btn').forEach(el => {
+    el.addEventListener('click', () => {
+      const cid = el.dataset.cid;
+      if (selectedChallenges.includes(cid)) {
+        selectedChallenges = selectedChallenges.filter(id => id !== cid);
+        el.classList.remove('active');
+      } else {
+        selectedChallenges.push(cid);
+        el.classList.add('active');
+      }
+      const bonus = getChallengeXPBonus(selectedChallenges);
+      const xpEl = overlay.querySelector('#challenge-xp-total');
+      if (xpEl) xpEl.textContent = bonus > 0
+        ? i18n.t('challenge_xp_bonus', Math.round(bonus * 100))
+        : i18n.t('challenge_xp_none');
     });
   });
 
@@ -515,15 +580,23 @@ function startRun() {
   const initGold   = Math.max(0, warden.startGold + (bonuses.startGold || 0) + diff.goldBonus);
   const initNexus  = Math.max(1, warden.nexusHp + (bonuses.nexusHp || 0) + diff.nexusHp);
 
-  const ascMods = getAscensionMods(selectedAscension);
+  const ascMods       = getAscensionMods(selectedAscension);
+  const challengeMods = getChallengeMods(selectedChallenges);
+
+  // 챌린지 poverty: 시작 골드 오버라이드
+  const finalGold = challengeMods.startGold !== null
+    ? challengeMods.startGold
+    : initGold;
 
   state = {
     wave:        0,
     nexusHp:     initNexus,
     maxNexusHp:  initNexus,      // 이번 런 넥서스 최대 HP (heal 상한선)
-    gold:        initGold,
+    gold:        finalGold,
     difficulty:  diff,           // 런 내 난이도 참조
     ascension:   selectedAscension,  // 런 내 Ascension 레벨
+    challenges:     [...selectedChallenges],
+    challengeMods,
     ascMods,                     // 누적 핸디캡 mods
     phase:       'pre',
     selectedCard: null,
@@ -1043,7 +1116,16 @@ function showClearBanner(waveNum, isBossStart = false, isActEnd = false) {
 function openNodeSelection() {
   state.phase = 'node';
   setWaveButton(i18n.t('btn_start_wave_n', state.wave + 1), true);
-  nodeUI.open(state.wave, state.gold);
+
+  // 챌린지: auto_shop → 노드 선택 없이 바로 상점
+  if (state.challengeMods?.forceNode === 'shop') {
+    openShop(); return;
+  }
+
+  nodeUI.open(state.wave, state.gold, {
+    noRest:  state.challengeMods?.noRest  ?? false,
+    noEvent: state.challengeMods?.noEvent ?? false,
+  });
 }
 
 // ── 상점 열기 ─────────────────────────────────────────
@@ -1059,7 +1141,7 @@ function openShop() {
   const freeRerolls = hasRelic('merchants_ring') ? 1 : 0;
   // Ascension I: 상점 카드 2장으로 감소
   const shopSize    = state.ascMods?.shopSize ?? 3;
-  shopUI.open(state.gold, state.wave, unlockedIds, totalDiscount, freeRerolls, shopSize);
+  shopUI.open(state.gold, state.wave, unlockedIds, totalDiscount, freeRerolls, shopSize, state.challengeMods);
 }
 
 // ── 이벤트 열기 ───────────────────────────────────────
@@ -1215,6 +1297,14 @@ function onEnemyReachEnd() {
     return;
   }
 
+  // 챌린지: perfect_nexus — 피격 즉시 런 종료
+  if (state.challengeMods?.nexusPerfect) {
+    log(i18n.t('challenge_perfect_fail'), 'bad');
+    audio.play('defeat');
+    endGame(false);
+    return;
+  }
+
   // Iron Fortress: 웨이브당 넥서스 최대 1회 피격
   if (hasRelic('iron_fortress')) {
     if ((state._waveNexusDamageCount ?? 0) >= 1) {
@@ -1328,10 +1418,11 @@ function endGame(victory) {
     }
   }
 
-  // 메타 XP 적용
-  const rankBefore = meta.rank;
-  const xpBefore   = meta.totalXP;
-  const { xpGained, newUnlocks } = meta.applyRunResult(runStats);
+  // 메타 XP 적용 (챌린지 보너스 배율 포함)
+  const rankBefore    = meta.rank;
+  const xpBefore      = meta.totalXP;
+  const xpMultiplier  = 1 + getChallengeXPBonus(state.challenges ?? []);
+  const { xpGained, newUnlocks } = meta.applyRunResult(runStats, xpMultiplier);
 
   // Steam 업적 체크 (풀 stat 전달)
   const runTimeMs = Date.now() - (state._runStartTime ?? Date.now());
@@ -1397,6 +1488,25 @@ function onCardClick(card) {
       ? i18n.t('log_surcharge', cost, waveSurcharge)
       : i18n.t('log_not_enough_gold', cost, state.gold), 'bad');
     return;
+  }
+
+  // 챌린지: 카드 타입 제한
+  const cm = state.challengeMods;
+  if (cm?.bannedCardTypes?.includes(card.type)) {
+    log(i18n.t('challenge_card_banned', i18n.t('card_type_' + card.type)), 'bad');
+    return;
+  }
+  // 챌린지: 타워 제한
+  if (card.type === 'summon' && cm) {
+    const towerId = TOWER_DEFS[card.tower]?.id ?? card.tower;
+    if (cm.allowedTowers && !cm.allowedTowers.includes(towerId)) {
+      log(i18n.t('challenge_tower_banned'), 'bad');
+      return;
+    }
+    if (cm.bannedTowers?.includes(towerId)) {
+      log(i18n.t('challenge_tower_banned'), 'bad');
+      return;
+    }
   }
 
   // 주문 카드: 즉시 실행
@@ -1951,21 +2061,33 @@ function renderHand() {
     const cName = isKo ? (card.nameKo || card.name) : card.name;
     const cDesc = isKo ? (card.descKo || card.desc) : card.desc;
 
+    // 챌린지 제한 여부 판별
+    const _cm = state.challengeMods;
+    let isBanned = false;
+    if (_cm) {
+      if (_cm.bannedCardTypes?.includes(card.type)) isBanned = true;
+      if (!isBanned && card.type === 'summon') {
+        const tid = TOWER_DEFS[card.tower]?.id ?? card.tower;
+        if (_cm.allowedTowers && !_cm.allowedTowers.includes(tid)) isBanned = true;
+        if (_cm.bannedTowers?.includes(tid)) isBanned = true;
+      }
+    }
+
     const el = document.createElement('div');
-    el.className = `card${!canAfford ? ' unaffordable' : ''}${isSelected ? ' selected' : ''}`;
+    el.className = `card${(!canAfford || isBanned) ? ' unaffordable' : ''}${isSelected ? ' selected' : ''}${isBanned ? ' challenge-banned' : ''}`;
     el.dataset.rarity = card.rarity;
-    el.dataset.type   = card.type;   // 카드 타입 배경 CSS용
+    el.dataset.type   = card.type;
 
     el.innerHTML = `
       <div class="card-header">
         <span class="card-name">${card.icon} ${cName}</span>
         <span class="card-cost">${effectiveCost > 0 ? effectiveCost + 'g' : i18n.t('free').toUpperCase()}</span>
       </div>
-      <div class="card-type-badge">${i18n.t('card_type_' + card.type) ?? card.type}${surcharge ? ' (' + i18n.t('card_surcharge_label') + ')' : ''}</div>
+      <div class="card-type-badge">${i18n.t('card_type_' + card.type) ?? card.type}${surcharge ? ' (' + i18n.t('card_surcharge_label') + ')' : ''}${isBanned ? ' 🚫' : ''}</div>
       <div class="card-desc">${cDesc}</div>
     `;
 
-    if (canAfford || isSelected) {
+    if ((canAfford || isSelected) && !isBanned) {
       el.addEventListener('click', () => onCardClick(card));
     }
 
