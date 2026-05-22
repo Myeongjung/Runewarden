@@ -94,6 +94,21 @@ const _BASE_KO = {
   howto_7:        '🛡️ <b>피해 감소</b> — 페스트 캐리어, 팬텀은 피해를 적게 받습니다. 여러 타워로 공략하세요.',
   howto_8:        '🧊 <b>슬로우 면역</b> — 저거넛, 공성 야수, 스톤 골렘은 <b>감속이 통하지 않습니다.</b> 순수 데미지로 처치하세요.',
 
+  howto_shortcuts_title: '⌨️ 키보드 단축키',
+  howto_shortcuts_body:  `
+    <div class="shortcut-grid">
+      <div class="sc-row"><kbd>Space</kbd><span>웨이브 시작</span></div>
+      <div class="sc-row"><kbd>1</kbd>–<kbd>5</kbd><span>카드 선택 / 사용</span></div>
+      <div class="sc-row"><kbd>F</kbd><span>카드 선택 취소</span></div>
+      <div class="sc-row"><kbd>Tab</kbd><span>2배속 토글 (웨이브 중)</span></div>
+      <div class="sc-row"><kbd>Esc</kbd><span>일시정지 / 창 닫기</span></div>
+      <div class="sc-row"><kbd>1</kbd>–<kbd>3</kbd><span>노드 · 상점 · 이벤트 선택</span></div>
+      <div class="sc-row"><kbd>R</kbd><span>상점 리롤 / 재시작</span></div>
+      <div class="sc-row"><kbd>L</kbd><span>상점 나가기</span></div>
+      <div class="sc-row"><kbd>M</kbd><span>음소거 (일시정지 중)</span></div>
+      <div class="sc-row"><kbd>Q</kbd><span>메뉴로 나가기 (일시정지 중)</span></div>
+    </div>`,
+
   // ── 게임 오버 / 승리 ─────────────────────────────────
   gameover_title_win:  '🏆 승리!',
   gameover_title_lose: '런 종료',

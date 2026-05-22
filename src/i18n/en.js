@@ -94,6 +94,21 @@ const _BASE_EN = {
   howto_7:        '🛡️ <b>Damage Reduction</b> — Plague Carriers and Phantoms take less damage. Use many towers, not just one big one.',
   howto_8:        '🧊 <b>Slow Immunity</b> — Juggernauts, Siege Beasts, and Stone Golems <b>cannot be slowed</b>. Focus raw damage.',
 
+  howto_shortcuts_title: '⌨️ Keyboard Shortcuts',
+  howto_shortcuts_body:  `
+    <div class="shortcut-grid">
+      <div class="sc-row"><kbd>Space</kbd><span>Start Wave</span></div>
+      <div class="sc-row"><kbd>1</kbd>–<kbd>5</kbd><span>Select / play card</span></div>
+      <div class="sc-row"><kbd>F</kbd><span>Deselect card</span></div>
+      <div class="sc-row"><kbd>Tab</kbd><span>2× Speed toggle (wave only)</span></div>
+      <div class="sc-row"><kbd>Esc</kbd><span>Pause / Close overlay</span></div>
+      <div class="sc-row"><kbd>1</kbd>–<kbd>3</kbd><span>Node · Shop · Event choice</span></div>
+      <div class="sc-row"><kbd>R</kbd><span>Reroll shop / Retry</span></div>
+      <div class="sc-row"><kbd>L</kbd><span>Leave shop</span></div>
+      <div class="sc-row"><kbd>M</kbd><span>Mute (while paused)</span></div>
+      <div class="sc-row"><kbd>Q</kbd><span>Quit to menu (while paused)</span></div>
+    </div>`,
+
   // ── 게임 오버 / 승리 ─────────────────────────────────
   gameover_title_win:  '🏆 Victory!',
   gameover_title_lose: 'Run Over',
