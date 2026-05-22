@@ -5,7 +5,7 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue)](#system-requirements)
 [![Steam Deck](https://img.shields.io/badge/Steam%20Deck-Planned-1b2838?logo=steam)](#)
 [![License](https://img.shields.io/badge/license-UNLICENSED-red)](#)
-[![Version](https://img.shields.io/badge/version-0.1.0-gold)](#)
+[![Version](https://img.shields.io/badge/version-0.2.0-gold)](#)
 
 A **Tower Defense × Deck Building × Roguelike** hybrid — every card you play is a tower action.
 
@@ -58,7 +58,19 @@ Each Warden starts with a unique deck and passive ability, unlocked through meta
 ### 📈 Meta Progression
 - Warden Rank 1–20 (XP across runs)
 - Codex unlocks: new cards, tower bonuses, passive upgrades
-- Difficulty Ascension system (I–III) for challenge runs
+- Difficulty Ascension system (I–III) for hardcore runs
+
+### ⚔️ Challenge System
+Optional self-imposed handicaps that stack XP bonuses on completion.
+
+| Category | Examples |
+|----------|---------|
+| 🏰 Tower | Archer Only (+40%), No AoE Towers (+25%), No Frost (+20%) |
+| 🃏 Card | Silence — no spells (+25%), Bare Hands — no augments (+25%), Common Only (+30%), Immutable Deck (+35%) |
+| 💰 Economy | Poverty Run — start with 10g (+25%), No Rerolls (+20%), No Rest Sites (+20%) |
+| ⚔️ Run | Perfect Defense — any Nexus hit ends the run (+50%), Fate's Path — auto shop (+15%), Orderly Run — no events (+10%) |
+
+Stack multiple challenges to multiply XP rewards — e.g. Perfect Defense + Silence = **×1.75 XP**.
 
 ### 🏆 20 Steam Achievements
 *Ironclad Breaker · Flawless Warden · Swift Justice · and more*
