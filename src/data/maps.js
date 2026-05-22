@@ -1,9 +1,11 @@
 /**
- * Runewarden — 맵 정의 (5종)
+ * Runewarden — 맵 정의 (5종 기본 + DLC)
  * 그리드 크기: COLS=14, ROWS=9
  */
 
-export const MAP_DEFS = [
+import { SHADOW_MAPS } from '../dlc/shadow_realm/maps.js';
+
+const _BASE_MAP_DEFS = [
   // ── 맵 A: Crossroads ─────────────────────────────────
   {
     id: 'crossroads',
@@ -75,6 +77,9 @@ export const MAP_DEFS = [
     ],
   },
 ];
+
+// DLC 맵 병합
+export const MAP_DEFS = [..._BASE_MAP_DEFS, ...SHADOW_MAPS];
 
 /** 런 시작 시 랜덤 맵 선택 */
 export function pickRandomMap() {

@@ -31,7 +31,9 @@
  *  'blood_price'       — 넥서스 HP 1 희생 → 즉시 골드 획득 (goldGain, hpCost)
  */
 
-export const RELIC_DEFS = [
+import { SHADOW_RELICS } from '../dlc/shadow_realm/relics.js';
+
+const _BASE_RELIC_DEFS = [
 
   // ── 공격형 (Attack) ─────────────────────────────────
 
@@ -235,6 +237,9 @@ export const RELIC_DEFS = [
     effect: { type: 'blood_price', goldGain: 20, hpCost: 1 },
   },
 ];
+
+// DLC 유물 병합
+export const RELIC_DEFS = [..._BASE_RELIC_DEFS, ...SHADOW_RELICS];
 
 /** id로 유물 찾기 */
 export function getRelicById(id) {

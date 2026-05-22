@@ -1,5 +1,7 @@
 /** Runewarden — 한국어 (ko) */
-export default {
+import dlcShadowKo from '../dlc/shadow_realm/i18n/ko.js';
+
+const _BASE_KO = {
   // ── 메인 메뉴 ───────────────────────────────────────
   title:           'RUNEWARDEN',
   subtitle:        '덱을 구성하고, 타워를 배치하고, 살아남아라.',
@@ -665,3 +667,6 @@ export default {
     },
   ],
 };
+
+// DLC 번역 병합
+export default { ..._BASE_KO, ...dlcShadowKo };

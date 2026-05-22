@@ -1,8 +1,10 @@
-// Runewarden 카드 데이터 — v0.4 (44종)
-// Summon(8) / Augment(14) / Spell(22)
-// Common(17) / Uncommon(19) / Rare(8)
+// Runewarden 카드 데이터 — v0.4 (60종 기본 + DLC)
+// Summon(12) / Augment(23) / Spell(25)
+// DLC 카드는 src/dlc/*/cards.js 에서 병합됨
 
-export const CARD_DEFS = [
+import { SHADOW_CARDS } from '../dlc/shadow_realm/cards.js';
+
+const BASE_CARD_DEFS = [
   // ════════════════════════════════════════════════════
   // ── SUMMON CARDS (6) ──────────────────────────────
   // ════════════════════════════════════════════════════
@@ -900,6 +902,9 @@ export const CARD_DEFS = [
     effect: { type: 'slow_all', amount: 0.55, duration: 5000, label: 'decay' },
   },
 ];
+
+// DLC 카드 병합 — DLC 데이터가 없으면 빈 배열로 처리
+export const CARD_DEFS = [...BASE_CARD_DEFS, ...SHADOW_CARDS];
 
 // 시작 덱 (14장) — v0.3: 타워 6 + 강화 4 + 주문 4
 export function buildStarterDeck() {

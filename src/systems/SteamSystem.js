@@ -48,6 +48,18 @@ export const STEAM_STATS = {
   TOTAL_GOLD:     'stat_total_gold',
 };
 
+// ── DLC 정의 ────────────────────────────────────────
+// Steam Partner에서 DLC App ID 발급 후 여기에 입력
+export const DLC_DEFS = {
+  shadow_realm: {
+    id:       'shadow_realm',
+    name:     'Shadow Realm',
+    nameKo:   '그림자 왕국',
+    steamAppId: 0,   // TODO: Steam DLC App ID 입력
+    price:    '$4.99',
+  },
+};
+
 // ── SteamSystem 클래스 ───────────────────────────────
 export class SteamSystem {
   constructor() {
@@ -103,6 +115,54 @@ export class SteamSystem {
   }
 
   isUnlocked(id) { return this._localUnlocked.has(id); }
+
+  // ── DLC 소유 여부 확인 ────────────────────────────
+  /**
+   * DLC 구매 여부를 확인합니다.
+   * @param {string} dlcKey — DLC_DEFS의 키 (예: 'shadow_realm')
+   * @returns {boolean}
+   *
+   * 우선순위:
+   * 1. 개발 모드 → 항상 true (테스트 편의)
+   * 2. Steam API → isSubscribedApp(appId)
+   * 3. localStorage 오버라이드 → 크리에이터 키/테스트용
+   * 4. 기본값 → false
+   */
+  isDlcOwned(dlcKey) {
+    const dlc = DLC_DEFS[dlcKey];
+    if (!dlc) return false;
+
+    // 개발 모드 우회
+    const isDev = localStorage.getItem('rw_dev') === '1';
+    if (isDev) return true;
+
+    // localStorage 오버라이드 (크리에이터/베타 키 배포용)
+    const overrides = JSON.parse(localStorage.getItem('rw_dlc_owned') ?? '[]');
+    if (overrides.includes(dlcKey)) return true;
+
+    // Steam API 확인 (App ID가 0이면 미등록 → false)
+    if (this._ready && this._api && dlc.steamAppId > 0) {
+      try {
+        return this._api.isSubscribedApp?.(dlc.steamAppId) ?? false;
+      } catch {
+        return false;
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * DLC 활성화 (크리에이터 키, 베타 테스트용)
+   * @param {string} dlcKey
+   */
+  activateDlcLocally(dlcKey) {
+    const owned = JSON.parse(localStorage.getItem('rw_dlc_owned') ?? '[]');
+    if (!owned.includes(dlcKey)) {
+      owned.push(dlcKey);
+      localStorage.setItem('rw_dlc_owned', JSON.stringify(owned));
+    }
+  }
 
   // ── 통계 갱신 ─────────────────────────────────────
   async setStat(statKey, value) {

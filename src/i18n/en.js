@@ -1,5 +1,7 @@
 /** Runewarden — English (en) */
-export default {
+import dlcShadowEn from '../dlc/shadow_realm/i18n/en.js';
+
+const _BASE_EN = {
   // ── 메인 메뉴 ───────────────────────────────────────
   title:           'RUNEWARDEN',
   subtitle:        'Build your deck. Place your towers. Survive.',
@@ -665,3 +667,6 @@ export default {
     },
   ],
 };
+
+// DLC 번역 병합 (DLC 키는 'dlc_sr_' 프리픽스로 기존 키와 충돌 없음)
+export default { ..._BASE_EN, ...dlcShadowEn };

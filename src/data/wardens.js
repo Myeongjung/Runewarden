@@ -8,6 +8,7 @@
  */
 
 import { CARD_DEFS } from './cards.js';
+import { SHADOW_WARDENS } from '../dlc/shadow_realm/wardens.js';
 
 // ── Warden 패시브 ID ────────────────────────────────
 export const PASSIVES = {
@@ -26,8 +27,8 @@ function makeDeck(idList) {
   }).filter(Boolean);
 }
 
-// ── Warden 정의 ────────────────────────────────────
-export const WARDEN_DEFS = [
+// ── Warden 정의 (기본 게임) ────────────────────────
+const _BASE_WARDEN_DEFS = [
 
   // ── 1. Iron Warden (기본) ────────────────────────
   {
@@ -166,6 +167,9 @@ export const WARDEN_DEFS = [
     tips: ['웨이브 종료 시 핸드를 가득 채워 최대 골드를 확보하세요', 'Dark Sacrifice로 나쁜 패를 골드로 전환하세요'],
   },
 ];
+
+// DLC 워든 병합
+export const WARDEN_DEFS = [..._BASE_WARDEN_DEFS, ...SHADOW_WARDENS];
 
 /** ID로 Warden 찾기 */
 export function getWardenById(id) {
