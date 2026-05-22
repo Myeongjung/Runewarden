@@ -306,7 +306,7 @@ export class MapRenderer {
     cell.dataset.tower = towerDef.id;
 
     // 타워 SVG 그리기
-    const tg = svgEl('g', { id: `tower-${col}-${row}`, class: 'tower-group' });
+    const tg = svgEl('g', { id: `tower-${col}-${row}`, class: 'tower-group', 'pointer-events': 'none' });
     tg.appendChild(this._drawTowerShape(x, y, towerDef));
 
     // 아이콘 텍스트
