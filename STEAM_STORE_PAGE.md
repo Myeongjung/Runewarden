@@ -280,5 +280,87 @@ Runewarden은 하나의 질문에서 시작됐습니다:
 
 ---
 
-*파일 생성일: 2026-05-22*
-*버전: v0.1.0*
+---
+
+# DLC 1 — Shadow Realm 스토어 페이지
+
+> 기본 게임 출시 후 약 10~12개월 뒤 등록. 가격: $4.99
+
+---
+
+## DLC 짧은 설명 (EN)
+```
+A new realm. A new Warden. A new threat.
+
+Shadow Realm adds a 5th Warden, 37 new cards, Act 4, and 15 new relics.
+The darkness has a price — are you ready to pay it?
+```
+
+## DLC 짧은 설명 (KO)
+```
+새로운 왕국. 새로운 워든. 새로운 위협.
+
+Shadow Realm은 5번째 워든, 37종 신규 카드, Act 4, 유물 15개를 추가합니다.
+어둠에는 대가가 따릅니다 — 당신은 그 대가를 치를 준비가 되었습니까?
+```
+
+---
+
+## DLC 긴 설명 (EN)
+```
+[h2]The Shadow Realm awaits.[/h2]
+
+[b]Runewarden: Shadow Realm[/b] is the first major expansion — a new chapter that begins where the base game ends.
+
+[h2]What's Included[/h2]
+[list]
+[*] [b]Shadow Realm Warden[/b] — The 5th Warden. Every kill charges shadow power. At full charge, a devastating spell auto-casts itself.
+[*] [b]37 new cards[/b] — Shadow, Void, and Death themes. New tower types, augments that bend the rules, spells that exploit enemy HP.
+[*] [b]Act 4[/b] — 8 new waves beyond the base game. 10 new enemy types. A 3-phase Shadow Titan boss.
+[*] [b]15 new relics[/b] — Shadow-themed passive bonuses that reshape how you play.
+[*] [b]3 new maps[/b] — Shadow Realm biome: darker hex grids, different chokepoints.
+[*] [b]10 new events[/b] — Shadow-specific encounters with harder choices.
+[*] [b]10 new Steam achievements[/b]
+[/list]
+
+[b]Requires the base game: Runewarden.[/b]
+```
+
+## DLC 긴 설명 (KO)
+```
+[h2]그림자 왕국이 당신을 기다립니다.[/h2]
+
+[b]Runewarden: Shadow Realm[/b]은 첫 번째 대형 확장팩으로, 기본 게임이 끝나는 곳에서 시작되는 새로운 챕터입니다.
+
+[h2]포함 콘텐츠[/h2]
+[list]
+[*] [b]그림자 왕국 워든[/b] — 5번째 워든. 매 처치마다 그림자 에너지가 축적됩니다. 완충 시, 강력한 주문이 자동으로 시전됩니다.
+[*] [b]신규 카드 37종[/b] — 그림자, 공허, 죽음 테마. 새 타워 타입, 규칙을 뒤트는 강화 카드, 적 HP를 이용하는 주문.
+[*] [b]Act 4[/b] — 기본 게임 이후 8개의 새 웨이브. 신규 적 10종. 3페이즈 그림자 타이탄 보스.
+[*] [b]신규 유물 15개[/b] — 플레이 방식을 재정의하는 그림자 테마 패시브 보너스.
+[*] [b]신규 맵 3종[/b] — 그림자 왕국 바이옴: 더 어두운 헥스 격자, 다른 목 지점.
+[*] [b]신규 이벤트 10종[/b] — 더 어려운 선택을 강요하는 그림자 전용 조우.
+[*] [b]Steam 업적 10개 추가[/b]
+[/list]
+
+[b]기본 게임 Runewarden이 필요합니다.[/b]
+```
+
+---
+
+## Steam 등록 시 DLC 특이사항
+
+| 항목 | 내용 |
+|------|------|
+| 등록 위치 | 기본 게임 → Edit Steamworks Settings → All Associated DLC → Add New DLC |
+| DLC 유형 | 일반 DLC (스토어 판매) |
+| 기본 게임 종속 | ✅ 자동으로 기본 게임 필요 |
+| 별도 설치 | ❌ 기본 게임 .exe에 포함 (API 잠금 방식) |
+| 가격 | $4.99 |
+| 번들 | 기본 게임 + DLC = $13.99 (약 17% 할인) |
+| 스크린샷 | 최소 3장 (DLC 고유 콘텐츠) |
+| 트레일러 | 60초 DLC 트레일러 권장 |
+
+---
+
+*최초 작성: 2026-05-22 / 버전: v0.1.0*

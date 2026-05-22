@@ -132,24 +132,47 @@ export class SteamSystem {
     const dlc = DLC_DEFS[dlcKey];
     if (!dlc) return false;
 
-    // 개발 모드 우회
-    const isDev = localStorage.getItem('rw_dev') === '1';
-    if (isDev) return true;
+    // 개발 모드 우회 (콘솔: localStorage.setItem('rw_dev','1') 후 새로고침)
+    if (localStorage.getItem('rw_dev') === '1') return true;
 
-    // localStorage 오버라이드 (크리에이터/베타 키 배포용)
+    // localStorage 오버라이드 (크리에이터 키·베타 배포용)
     const overrides = JSON.parse(localStorage.getItem('rw_dlc_owned') ?? '[]');
     if (overrides.includes(dlcKey)) return true;
 
-    // Steam API 확인 (App ID가 0이면 미등록 → false)
+    // Steam API: BIsDlcInstalled — 소유 + 설치 여부 동시 확인
+    // (BIsSubscribedApp는 소유만 확인, DLC에는 BIsDlcInstalled가 정확함)
     if (this._ready && this._api && dlc.steamAppId > 0) {
       try {
-        return this._api.isSubscribedApp?.(dlc.steamAppId) ?? false;
+        // steamworks.js는 apps.isDlcInstalled(appId) 형태로 노출
+        return this._api.isDlcInstalled?.(dlc.steamAppId)
+            ?? this._api.isSubscribedApp?.(dlc.steamAppId)  // 폴백
+            ?? false;
       } catch {
         return false;
       }
     }
 
     return false;
+  }
+
+  /**
+   * 현재 앱에 등록된 DLC 목록 조회 (Steam 기준)
+   * GetDLCCount + BGetDLCDataByIndex 활용
+   * @returns {{ appId: number, name: string, available: boolean }[]}
+   */
+  getRegisteredDlcs() {
+    if (!this._ready || !this._api) return [];
+    try {
+      const count = this._api.getDLCCount?.() ?? 0;
+      const result = [];
+      for (let i = 0; i < count; i++) {
+        const data = this._api.getDLCDataByIndex?.(i);
+        if (data) result.push(data);
+      }
+      return result;
+    } catch {
+      return [];
+    }
   }
 
   /**
