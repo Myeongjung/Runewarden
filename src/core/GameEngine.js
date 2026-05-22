@@ -458,7 +458,7 @@ function _restoreFromSave(save) {
       towerSystem.place(t.col, t.row, tDef);
       renderer.placeTower(t.col, t.row, tDef);
       for (const aug of (t.augments ?? [])) towerSystem.augment(t.col, t.row, aug);
-      if (t.augments?.length > 0) renderer.markAugmented(t.col, t.row, tDef);
+      if (t.augments?.length > 0) renderer.markAugmented(t.col, t.row, tDef, t.augments.length);
     }
 
     updateHUD();
@@ -1361,19 +1361,19 @@ function endGame(victory) {
 function onCardClick(card) {
   if (state.phase === 'over') return;
 
-  // 골드 부족
-  if (card.cost > state.gold) {
-    log(i18n.t('log_not_enough_gold', card.cost, state.gold), 'bad');
-    return;
-  }
-
   // Arcane Flow 패시브: 주문 코스트 -1
   const arcaneDiscount = (card.type === 'spell' && state?.warden?.passive === PASSIVES.ARCANE_FLOW) ? 1 : 0;
   // 웨이브 중 추가 비용 (Ascension III: +2 instead of +1)
-  const waveSurcharge = state.phase === 'wave' ? 1 + (state.ascMods?.extraSurcharge ?? 0) : 0;
+  // 주문 카드는 웨이브 중 사용을 위해 설계되어 있으므로 추가 비용 면제
+  const waveSurcharge = (state.phase === 'wave' && card.type !== 'spell')
+    ? 1 + (state.ascMods?.extraSurcharge ?? 0) : 0;
   const cost = Math.max(0, card.cost + waveSurcharge - arcaneDiscount);
+
+  // 골드 부족
   if (cost > state.gold) {
-    log(i18n.t('log_surcharge', cost, waveSurcharge), 'bad');
+    log(waveSurcharge > 0
+      ? i18n.t('log_surcharge', cost, waveSurcharge)
+      : i18n.t('log_not_enough_gold', cost, state.gold), 'bad');
     return;
   }
 
@@ -1470,7 +1470,8 @@ function onCellClick(col, row, cellEl) {
     cardSystem.playCard(card.uid);
     const ok = towerSystem.augment(col, row, card.effect);
     if (ok) {
-      renderer.markAugmented(col, row, existing.def);
+      const augLen = towerSystem.getTower(col, row)?.augments?.length ?? 1;
+      renderer.markAugmented(col, row, existing.def, augLen);
       audio.play('augment_apply');
       state.stats.augmentsApplied++;
     }
@@ -1915,10 +1916,13 @@ function renderHand() {
   const container = $('card-hand');
   container.innerHTML = '';
 
-  const surcharge = state.phase === 'wave' ? 1 + (state.ascMods?.extraSurcharge ?? 0) : 0;
+  const baseSurcharge = state.phase === 'wave' ? 1 + (state.ascMods?.extraSurcharge ?? 0) : 0;
 
   for (const card of cardSystem.hand) {
-    const effectiveCost = card.cost + surcharge;
+    // 주문 카드는 웨이브 중 추가 비용 없음 (웨이브 중 사용 목적)
+    const surcharge = (card.type === 'spell') ? 0 : baseSurcharge;
+    const arcaneDiscount = (card.type === 'spell' && state?.warden?.passive === PASSIVES.ARCANE_FLOW) ? 1 : 0;
+    const effectiveCost = Math.max(0, card.cost + surcharge - arcaneDiscount);
     const canAfford = effectiveCost <= state.gold;
     const isSelected = state.selectedCard?.uid === card.uid;
     const isKo = i18n.lang === 'ko';

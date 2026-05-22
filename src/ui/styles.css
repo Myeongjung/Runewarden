@@ -628,10 +628,10 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg);
   position: fixed; inset: 0;
   background: rgba(0,0,0,0.75);
   display: flex;
-  align-items: flex-start;          /* 상단 정렬 → 스크롤 가능 */
+  align-items: center;              /* 세로 가운데 정렬 */
   justify-content: center;
   z-index: 100;
-  overflow-y: auto;                 /* 세로 스크롤 허용 */
+  overflow-y: auto;
   padding: 1.5rem 1rem;
 }
 .overlay.hidden { display: none; }

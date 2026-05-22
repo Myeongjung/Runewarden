@@ -465,19 +465,32 @@ export class MapRenderer {
     }
   }
 
-  // 타워에 강화 시각 표시
-  markAugmented(col, row, towerDef) {
+  // 타워에 강화 시각 표시 (augCount: 1 또는 2)
+  markAugmented(col, row, towerDef, augCount = 1) {
     const tg = document.getElementById(`tower-${col}-${row}`);
     if (!tg) return;
+
+    // 기존 강화 표시 제거 후 재렌더
+    tg.querySelectorAll('.aug-indicator').forEach(el => el.remove());
+
     const { x, y } = hexToPixel(col, row);
-    const ring = svgEl('circle', {
-      cx: x, cy: y, r: HEX_SIZE * 0.58,
-      fill: 'none',
-      stroke: '#D4AF37',
-      'stroke-width': 1.5,
-      'stroke-dasharray': '4 3',
-    });
-    tg.appendChild(ring);
+    const count = Math.min(augCount, 2);
+
+    for (let i = 0; i < count; i++) {
+      // 1강화: 중앙 위, 2강화: 좌/우 두 점
+      const offsetX = count === 1 ? 0 : (i === 0 ? -5 : 5);
+      const offsetY = -HEX_SIZE * 0.54;
+      const dot = svgEl('circle', {
+        cx: x + offsetX,
+        cy: y + offsetY,
+        r: 4,
+        fill: '#D4AF37',
+        stroke: '#1A1A2E',
+        'stroke-width': 1,
+        class: 'aug-indicator',
+      });
+      tg.appendChild(dot);
+    }
   }
 
   // ── 범위 표시 (rangePx: 픽셀 단위 or rangeHex: 헥스 단위) ──
