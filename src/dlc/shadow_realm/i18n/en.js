@@ -1,32 +1,66 @@
 /**
- * Shadow Realm DLC — 영어 번역 키
- * src/i18n/en.js에 자동 병합됩니다.
- *
- * 네이밍 규칙: 모든 키는 'dlc_sr_' 프리픽스 사용 (기존 키와 충돌 방지)
+ * Shadow Realm DLC — English translations
+ * Prefix: dlc_sr_  (no collision with base keys)
  */
 
 export default {
-  // ── DLC 워든 ──────────────────────────────────────────
-  // dlc_sr_warden_name:       'Shadow Realm Warden',
-  // dlc_sr_warden_title:      'The Phantom',
-  // dlc_sr_warden_tagline:    '"From the void, power."',
-  // dlc_sr_warden_desc:       'Harnesses shadow energy. Each kill charges power for devastating auto-spells.',
-  // dlc_sr_passive_name:      'Shadow Charge',
-  // dlc_sr_passive_desc:      'Each enemy kill charges +1 Shadow. At 10 charges, auto-cast a powerful Shadow spell.',
+  // ── Warden ─────────────────────────────────────────
+  dlc_sr_passive_name: 'Shadow Charge',
+  dlc_sr_passive_desc: 'Each enemy kill generates +1 Shadow Charge. At 10 charges, a powerful shadow spell auto-casts for free.',
+  dlc_sr_warden_locked: 'Requires Shadow Realm DLC',
 
-  // ── DLC 카드 ──────────────────────────────────────────
-  // (카드명·설명은 cards.js의 nameKo/descKo 필드에 직접 작성)
+  // ── Shadow Charge HUD ───────────────────────────────
+  dlc_sr_log_auto_cast:    (spell) => `👁️ Shadow power unleashed! Auto-cast: ${spell}`,
+  dlc_sr_log_shadow_charge:(n)    => `Shadow Charge: ${n}/10`,
 
-  // ── DLC 유물 ──────────────────────────────────────────
-  // dlc_sr_relic_void_crystal:      'Void Crystal',
-  // dlc_sr_relic_void_crystal_desc: 'Shadow towers deal +35% damage.',
+  // ── Relic names ─────────────────────────────────────
+  relic_shadow_crystal:        'Shadow Crystal',
+  relic_shadow_crystal_desc:   'Shadow Strike towers deal +50% damage.',
+  relic_void_lens:             'Void Lens',
+  relic_void_lens_desc:        'Void Sentinel towers gain +60% attack range.',
+  relic_phantom_edge:          'Phantom Edge',
+  relic_phantom_edge_desc:     'All towers deal +12% damage.',
+  relic_death_shroud:          'Death Shroud',
+  relic_death_shroud_desc:     'Gain +2 gold per enemy killed.',
+  relic_void_core:             'Void Core',
+  relic_void_core_desc:        'All towers attack 20% faster.',
+  relic_shadow_hoard:          'Shadow Hoard',
+  relic_shadow_hoard_desc:     'Gain +5 gold on each wave clear.',
+  relic_void_market:           'Void Market',
+  relic_void_market_desc:      'Shop card costs reduced by 2g.',
+  relic_souls_purse:           "Soul's Purse",
+  relic_souls_purse_desc:      'Start each run with +15 bonus gold.',
+  relic_shadow_ward:           'Shadow Ward',
+  relic_shadow_ward_desc:      'Start with +1 Nexus HP.',
+  relic_void_anchor:           'Void Anchor',
+  relic_void_anchor_desc:      'Nexus can only be hit once per wave.',
+  relic_death_veil:            'Death Veil',
+  relic_death_veil_desc:       'All slow effects are 30% stronger.',
+  relic_shadow_pact:           'Shadow Pact',
+  relic_shadow_pact_desc:      'With 2+ Shadow towers, all Shadow damage +30%.',
+  relic_void_echo_relic:       'Void Echo',
+  relic_void_echo_relic_desc:  'Casting a spell fires all Void towers immediately.',
+  relic_charge_crystal:        'Charge Crystal',
+  relic_charge_crystal_desc:   'Shadow Warden: Shadow Charge triggers at 8 instead of 10.',
+  relic_undying_will:          'Undying Will',
+  relic_undying_will_desc:     'Draw 2 extra cards after each wave clear.',
 
-  // ── DLC 로그 메시지 ────────────────────────────────────
-  // dlc_sr_log_shadow_charge: (n) => `Shadow Charge: ${n}/10`,
-  // dlc_sr_log_auto_cast:     (spell) => `Shadow power unleashed! Auto-cast: ${spell}`,
+  // ── Map names ──────────────────────────────────────
+  dlc_sr_map_void_corridor:    'Void Corridor',
+  dlc_sr_map_phantom_crossing: 'Phantom Crossing',
+  dlc_sr_map_abyssal_spiral:   'Abyssal Spiral',
 
-  // ── DLC Act 4 ─────────────────────────────────────────
-  // dlc_sr_act_label:         'ACT 4',
-  // dlc_sr_act_name:          'Shadow Realm',
-  // dlc_sr_banner_boss:       'Shadow Titan awakens!',
+  // ── Spell logs ─────────────────────────────────────
+  spell_darkness:         (pct, dmg, s) => `Darkness! All enemies -${pct}% speed, all towers +${dmg}% damage for ${s}s!`,
+  spell_shadow_nova:      (total)       => `Shadow Nova! ${total} total damage to wounded enemies!`,
+  spell_void_pulse:       (n, steps)    => `Void Pulse! ${n} enemies pushed back ${steps} steps.`,
+  spell_soul_feast:       (n, g)        => n > 0 ? `Soul Feast! ${n} enemies devoured → +${g} gold!` : 'Soul Feast: no enemies below threshold.',
+  spell_soul_surge:       (pct, s)      => `Soul Surge! All towers +${pct}% damage for ${s}s!`,
+  spell_abyssal_wave:     (d, pct, s)   => `Abyssal Wave! ${d} damage + ${pct}% slow for ${s}s!`,
+  spell_shadow_step:      (n)           => `Shadow Step! ${n} enemies teleported to spawn.`,
+  spell_death_toll:       (n)           => `Death Toll! +${n} gold for this wave's kills.`,
+  spell_entropy_cascade:  (total)       => `Entropy Cascade! ${total} total damage (50% of current HP each).`,
+  spell_void_collapse:    (pct, s)      => `Void Collapse! All enemies ${pct}% slow for ${s}s.`,
+  spell_void_grasp:       (s)           => `Void Grasp! All enemies frozen for ${s}s.`,
+  spell_phantom_strike:   (n, d)        => `Phantom Strike! ${n} enemies hit for ${d} damage.`,
 };

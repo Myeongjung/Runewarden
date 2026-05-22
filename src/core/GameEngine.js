@@ -129,21 +129,30 @@ function openWardenSelect() {
   row.innerHTML = '';
 
   for (const w of WARDEN_DEFS) {
-    const isLocked   = meta.rank < w.unlockRank;
+    const isDlcLocked = w.dlc ? !(steam?.isDlcOwned(w.dlc) ?? false) : false;
+    const isRankLocked = meta.rank < w.unlockRank;
+    const isLocked   = isRankLocked || isDlcLocked;
     const isSelected = selectedWarden.id === w.id;
 
     const card = document.createElement('div');
-    card.className = `warden-card${isLocked ? ' locked' : ''}${isSelected ? ' selected' : ''}`;
+    card.className = `warden-card${isLocked ? ' locked' : ''}${isSelected ? ' selected' : ''}${isDlcLocked ? ' dlc-locked' : ''}`;
     card.style.setProperty('--warden-color', w.color);
     card.style.setProperty('--warden-bg', w.accentBg);
 
-    const deckSize = w.buildDeck().length;
-    const btnLabel = isLocked
-      ? i18n.t('warden_locked', w.unlockRank)
-      : isSelected ? i18n.t('warden_selected') : i18n.t('warden_select_btn');
+    const deckSize = w.buildDeck ? w.buildDeck().length : 0;
+    const btnLabel = isDlcLocked
+      ? (i18n.t('dlc_sr_warden_locked') ?? 'DLC Required')
+      : isRankLocked
+        ? i18n.t('warden_locked', w.unlockRank)
+        : isSelected ? i18n.t('warden_selected') : i18n.t('warden_select_btn');
 
     card.innerHTML = `
-      ${isLocked ? `<div class="warden-lock-badge">🔒 Rank ${w.unlockRank}</div>` : ''}
+      ${isDlcLocked
+        ? `<div class="warden-lock-badge dlc-badge">💠 DLC</div>`
+        : isRankLocked
+          ? `<div class="warden-lock-badge">🔒 Rank ${w.unlockRank}</div>`
+          : ''
+      }
 
       <div class="warden-card-head">
         <div class="warden-icon">${w.icon}</div>
@@ -1215,6 +1224,17 @@ function onEnemyKilled(reward) {
     log(i18n.t('log_venom_fang', venomEffect.damage), 'good');
   }
 
+  // ── Shadow Charge 패시브 (Shadow Realm Warden DLC) ──────
+  if (state?.warden?.passive === 'shadow_charge') {
+    state.shadowCharges = (state.shadowCharges ?? 0) + 1;
+    _updateShadowChargeHUD();
+    if (state.shadowCharges >= 10) {
+      state.shadowCharges = 0;
+      _updateShadowChargeHUD();
+      _triggerShadowAutoSpell();
+    }
+  }
+
   if (!state?.stats) return;
   state.stats.enemiesKilled++;
 
@@ -1759,6 +1779,52 @@ function updateHUD() {
 
   // 카드 어포더빌리티 갱신
   renderHand();
+}
+
+// ── Shadow Charge HUD 업데이트 (DLC) ──────────────────
+function _updateShadowChargeHUD() {
+  let bar = document.getElementById('shadow-charge-bar');
+  if (state?.warden?.passive !== 'shadow_charge') {
+    if (bar) bar.style.display = 'none';
+    return;
+  }
+  if (!bar) {
+    // 최초 생성
+    bar = document.createElement('div');
+    bar.id = 'shadow-charge-bar';
+    bar.className = 'shadow-charge-bar';
+    const hud = document.getElementById('hud');
+    if (hud) hud.appendChild(bar);
+  }
+  bar.style.display = '';
+  const charges = state.shadowCharges ?? 0;
+  bar.innerHTML = `
+    <div class="sc-label">👁️ ${charges}/10</div>
+    <div class="sc-track">
+      <div class="sc-fill" style="width:${charges * 10}%"></div>
+    </div>
+  `;
+}
+
+// ── Shadow Charge 자동 주문 발동 (DLC) ─────────────────
+function _triggerShadowAutoSpell() {
+  const SHADOW_AUTO_SPELLS = [
+    'spell_darkness', 'spell_shadow_nova',
+    'spell_void_pulse', 'spell_soul_drain',
+    'spell_entropy',
+  ];
+  const available = SHADOW_AUTO_SPELLS.filter(id =>
+    CARD_DEFS.find(c => c.id === id)
+  );
+  if (!available.length) return;
+
+  const spellId = available[Math.floor(Math.random() * available.length)];
+  const card    = CARD_DEFS.find(c => c.id === spellId);
+  if (!card) return;
+
+  log(`👁️ ${i18n.t('dlc_sr_log_auto_cast', i18n.lang === 'ko' ? (card.nameKo || card.name) : card.name)}`, 'gold');
+  audio?.play('spell_cast');
+  resolveSpell(card, true);   // true = 무료 발동 (골드 소모 없음)
 }
 
 // ── 카드 핸드 렌더링 ──────────────────────────────────

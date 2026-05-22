@@ -1,5 +1,7 @@
-// 타워 기본 스탯 정의 — v0.5 (10종)
-export const TOWER_DEFS = {
+// 타워 기본 스탯 정의 — v0.5 (12종 기본 + DLC)
+import { SHADOW_TOWER_DEFS } from '../dlc/shadow_realm/towers.js';
+
+const _BASE_TOWER_DEFS = {
   // ── 기존 타워 ─────────────────────────────────────────
   archer: {
     id: 'archer',
@@ -182,3 +184,6 @@ export const TOWER_DEFS = {
     shape: 'archer',
   },
 };
+
+// DLC 타워 병합
+export const TOWER_DEFS = { ..._BASE_TOWER_DEFS, ...SHADOW_TOWER_DEFS };
