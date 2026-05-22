@@ -222,7 +222,7 @@ export class TowerSystem {
     let dmg = Math.round(tower.damage * this._globalDmgMult * druidMult * firePactMult);
 
     // ── DLC: critOnSlow — 감속 적에게 크리티컬 ─────────────
-    if (tower.def.critOnSlow && enemy.slowUntil && enemy.slowUntil > Date.now()) {
+    if (tower.def.critOnSlow && enemy.slowTimer > 0) {
       dmg = Math.round(dmg * tower.def.critOnSlow);
     }
 

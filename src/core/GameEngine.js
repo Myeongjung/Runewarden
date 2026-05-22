@@ -1907,7 +1907,7 @@ function _triggerShadowAutoSpell() {
 
   log(`👁️ ${i18n.t('dlc_sr_log_auto_cast', i18n.lang === 'ko' ? (card.nameKo || card.name) : card.name)}`, 'gold');
   audio?.play('spell_cast');
-  resolveSpell(card, true);   // true = 무료 발동 (골드 소모 없음)
+  resolveSpell(card.effect);   // 무료 자동 발동 — 골드 소모 없음
 }
 
 // ── 카드 핸드 렌더링 ──────────────────────────────────
