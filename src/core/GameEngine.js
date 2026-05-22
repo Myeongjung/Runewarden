@@ -903,17 +903,19 @@ function beginWave() {
     audio.play('wave_start');
   }
 
-  // GRAVE_GOLD 패시브: 웨이브 시작 직전, 남은 핸드를 버리기 전에 골드 계산
+  // GRAVE_GOLD 패시브: 주문 카드는 웨이브 중 유지되므로 제외하고 계산
   if (state?.warden?.passive === PASSIVES.GRAVE_GOLD) {
-    const discardCount = cardSystem.hand.length;
+    const discardCount = cardSystem.hand.filter(c => c.type !== 'spell').length;
     if (discardCount > 0) {
       addGold(discardCount, null, true);
       log(i18n.t('passive_grave_gold_trigger', discardCount), 'gold');
     }
   }
 
-  // 핸드 버림
-  cardSystem.discardHand();
+  // 주문 카드는 웨이브 중 사용을 위해 손패에 유지, 나머지만 버림
+  const spellsKept = cardSystem.hand.filter(c => c.type === 'spell');
+  cardSystem.discardPile.push(...cardSystem.hand.filter(c => c.type !== 'spell'));
+  cardSystem.hand = spellsKept;
   renderer.clearSelection();
   state.selectedCard = null;
   renderHand();
