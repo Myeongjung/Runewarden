@@ -96,20 +96,22 @@ function initSteam() {
 
 // ── 게임 창 생성 ─────────────────────────────────────
 function createWindow() {
-  // Steam Deck 해상도 대응: 기본 1280×720, 최소 1024×600
+  // Steam Deck 해상도 대응: 실제 해상도 1280×800에 맞춤
   const { screen } = require('electron');
   const primaryDisplay = screen.getPrimaryDisplay();
   const { width: screenW, height: screenH } = primaryDisplay.workAreaSize;
 
-  // 화면이 충분히 크면 더 큰 창으로 시작
-  const winW = Math.min(1280, screenW);
-  const winH = Math.min(720, screenH);
+  // Steam Deck(1280×800) 또는 더 큰 화면에 맞게 창 크기 결정
+  const isSteamDeck = screenW <= 1280 && screenH <= 800;
+  const winW = isSteamDeck ? screenW : Math.min(1440, screenW);
+  const winH = isSteamDeck ? screenH : Math.min(900, screenH);
 
   mainWindow = new BrowserWindow({
     width:  winW,
     height: winH,
-    minWidth:  1024,
+    minWidth:  960,
     minHeight: 600,
+    fullscreen: isSteamDeck,   // Steam Deck에서는 전체화면으로 시작
     title: 'Runewarden',
     backgroundColor: '#1A1A2E',   // 로딩 중 배경색 (FOUC 방지)
     show: false,                   // 준비 완료 후 표시
