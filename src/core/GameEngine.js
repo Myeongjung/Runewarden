@@ -77,6 +77,7 @@ let _savedRunData = null;
 let tutorial   = null;
 let rafId = null;
 let lastTime = 0;
+let gameSpeed = 1;   // 1 = 1×, 2 = 2× (웨이브 중에만 적용)
 
 // ── 일시정지 / 재개 ───────────────────────────────────
 function pauseGame() {
@@ -104,6 +105,24 @@ function resumeGame() {
 
   lastTime = performance.now();
   rafId = requestAnimationFrame(gameLoop);
+}
+
+// ── 게임 속도 ─────────────────────────────────────────
+function toggleGameSpeed() {
+  gameSpeed = gameSpeed === 1 ? 2 : 1;
+  _updateSpeedBtn();
+}
+
+function resetGameSpeed() {
+  gameSpeed = 1;
+  _updateSpeedBtn();
+}
+
+function _updateSpeedBtn() {
+  const btn = $('btn-speed');
+  if (!btn) return;
+  btn.textContent = gameSpeed === 2 ? '2×' : '1×';
+  btn.classList.toggle('speed-active', gameSpeed === 2);
 }
 
 // ── 화면 전환 ─────────────────────────────────────────
@@ -793,7 +812,7 @@ function startTutorial() {
 
 // ── 게임 루프 ─────────────────────────────────────────
 function gameLoop(now) {
-  const delta = now - lastTime;
+  const delta = (now - lastTime) * gameSpeed;
   lastTime = now;
 
   if (state.phase === 'wave') {
@@ -926,6 +945,7 @@ function beginWave() {
 // ── 웨이브 클리어 ─────────────────────────────────────
 function onWaveCleared() {
   state.phase = 'post';
+  resetGameSpeed();
 
   // 기본 웨이브 보상 + 유물 + 난이도 보정
   const badgeEffect    = getRelicEffect('wave_clear_gold');
@@ -2085,13 +2105,122 @@ $('btn-quit-menu').addEventListener('click', () => {
   showScreen('menu');
 });
 
-// Escape 키로 일시정지 토글
+// 속도 버튼
+$('btn-speed').addEventListener('click', () => { if (state?.phase === 'wave') toggleGameSpeed(); });
+
+// ── 키보드 단축키 ─────────────────────────────────────
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') {
-    if (state?.phase === 'paused') {
-      resumeGame();
-    } else if (screens.game.classList.contains('active')) {
-      pauseGame();
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  const key   = e.key;
+  const phase = state?.phase;
+
+  // ── ESC ───────────────────────────────────────────
+  if (key === 'Escape') {
+    if (!$('screen-howto').classList.contains('hidden')) {
+      $('btn-howto-close')?.click(); return;
+    }
+    if (!$('screen-warden-select').classList.contains('hidden')) {
+      $('btn-warden-cancel')?.click(); return;
+    }
+    if (phase === 'paused')  { resumeGame(); return; }
+    if (phase === 'shop')    { $('screen-shop').querySelector('#shop-leave')?.click(); return; }
+    if (phase === 'rest')    { $('screen-rest').querySelector('#rest-leave')?.click(); return; }
+    if (screens.game.classList.contains('active') && phase !== 'over') { pauseGame(); }
+    return;
+  }
+
+  // ── 메인 메뉴 ─────────────────────────────────────
+  if (screens.menu.classList.contains('active')) {
+    if (key === 'Enter') { $('btn-start')?.click(); return; }
+    if (key === 'c' || key === 'C') {
+      const cont = $('btn-continue');
+      if (cont && !cont.classList.contains('hidden')) cont.click();
+      return;
+    }
+    return;
+  }
+
+  // ── 일시정지 ──────────────────────────────────────
+  if (phase === 'paused') {
+    if (key === 'm' || key === 'M') { $('btn-mute')?.click(); return; }
+    if (key === 'q' || key === 'Q') { $('btn-quit-menu')?.click(); return; }
+    return;
+  }
+
+  // ── 게임 오버 / 결산 ──────────────────────────────
+  if (phase === 'over') {
+    if (key === 'r' || key === 'R') { $('btn-retry')?.click(); return; }
+    if (key === 'm' || key === 'M') { $('btn-menu')?.click(); return; }
+    return;
+  }
+
+  if (!screens.game.classList.contains('active')) return;
+
+  // ── Tab: 게임 속도 토글 (웨이브 중) ──────────────
+  if (key === 'Tab') {
+    e.preventDefault();
+    if (phase === 'wave') toggleGameSpeed();
+    return;
+  }
+
+  // ── 노드 선택 ─────────────────────────────────────
+  if (phase === 'node') {
+    if (key === '1') { $('node-shop')?.click(); return; }
+    if (key === '2') { $('node-event')?.click(); return; }
+    if (key === '3') { $('node-rest')?.click(); return; }
+    return;
+  }
+
+  // ── 상점 ─────────────────────────────────────────
+  if (phase === 'shop') {
+    if (key === 'r' || key === 'R') { shopUI?._reroll(); return; }
+    if (key === 'l' || key === 'L') { $('screen-shop').querySelector('#shop-leave')?.click(); return; }
+    const shopIdx = parseInt(key) - 1;
+    if (shopIdx >= 0 && shopIdx <= 2) {
+      const slots = document.querySelectorAll('#screen-shop .shop-card-slot');
+      slots[shopIdx]?.querySelector('.btn-buy.can-buy')?.click();
+      return;
+    }
+    return;
+  }
+
+  // ── 이벤트 ───────────────────────────────────────
+  if (phase === 'event') {
+    const choices = document.querySelectorAll('#screen-event .event-choice');
+    const idx = parseInt(key) - 1;
+    if (!isNaN(idx) && idx >= 0 && idx < choices.length) choices[idx]?.click();
+    return;
+  }
+
+  // ── 휴식 ─────────────────────────────────────────
+  if (phase === 'rest') {
+    if (key === '1') { $('screen-rest').querySelector('#rest-remove')?.click(); return; }
+    if (key === '2') { $('screen-rest').querySelector('#rest-gold')?.click(); return; }
+    return;
+  }
+
+  // ── 준비 단계: Space → 웨이브 시작 ────────────────
+  if (key === ' ' && phase === 'pre') {
+    e.preventDefault();
+    $('btn-wave')?.click();
+    return;
+  }
+
+  // ── 준비/웨이브: 카드 조작 ────────────────────────
+  if (phase === 'pre' || phase === 'wave') {
+    if (key === 'f' || key === 'F') {
+      if (state.selectedCard) {
+        state.selectedCard = null;
+        renderer?.clearSelection();
+        renderHand();
+      }
+      return;
+    }
+    const num = parseInt(key);
+    if (num >= 1 && num <= 5) {
+      const card = cardSystem?.hand?.[num - 1];
+      if (card) onCardClick(card);
+      return;
     }
   }
 });
