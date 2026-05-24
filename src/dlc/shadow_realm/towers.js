@@ -63,4 +63,28 @@ export const SHADOW_TOWER_DEFS = {
     shape:       'archer',
     dlc:         'shadow_realm',
   },
+
+  // ── 4. Soul Reaper (영혼 수확자) ──────────────────────
+  // 3중 디버프 특화 타워: 극강 감속(60%) + 그림자 DoT + 방어관통.
+  // 직접 피해 최소화 — 적의 생존 시간을 연장해 딜러 타워가 처리하게 함.
+  soul_reaper: {
+    id:           'soul_reaper',
+    name:         'Soul Reaper',
+    nameKo:       '영혼 수확자',
+    icon:         '💀',
+    color:        '#0A001A',
+    accentColor:  '#8B00FF',
+    damage:       6,
+    range:        4.5,
+    attackSpeed:  1800,
+    splash:       0,
+    slowEffect:   0.60,
+    slowDuration: 3500,
+    shadowDotDps: 14,
+    shadowDotDur: 6000,
+    armorPen:     0.25,
+    tags:         ['Shadow', 'Void'],
+    shape:        'mage',
+    dlc:          'shadow_realm',
+  },
 };
