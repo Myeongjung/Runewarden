@@ -1,4 +1,6 @@
+/* eslint-disable max-lines-per-function, no-unused-vars, prefer-const */
 // Runewarden — GameEngine
+// TODO: 이 파일은 점진적 리팩토링 대상. SpellResolver 분리 완료 후 suppress 제거 예정.
 import { MapRenderer, isPlaceableCell, hexToPixel } from '../rendering/MapRenderer.js';
 import { EnemySystem } from '../systems/EnemySystem.js';
 import { TowerSystem } from '../systems/TowerSystem.js';
@@ -21,6 +23,7 @@ import { setActiveMap }     from '../rendering/MapRenderer.js';
 import { DIFFICULTY_DEFS, getDifficultyById } from '../data/difficulty.js';
 import { ASCENSION_DEFS, getAscensionMods }   from '../data/ascension.js';
 import { CHALLENGE_DEFS, getChallengeXPBonus, getChallengeMods } from '../data/challenges.js';
+import { resolveSpell as _resolveSpellImpl } from './SpellResolver.js';
 
 const HEX_W = 34 * 2;
 function rangeToPixel(hexRange) { return hexRange * HEX_W * 0.75; }
@@ -73,6 +76,9 @@ let selectedAscension = 0;
 
 // 자동저장 복원 데이터 (Continue 버튼으로 런 재개 시 세팅)
 let _savedRunData = null;
+
+// renderHand dirty-flag: 핸드/상태가 동일하면 DOM 재생성 스킵
+let _lastHandKey = '';
 
 // 선택된 챌린지 ID 목록
 let selectedChallenges = [];
@@ -565,6 +571,8 @@ function startRun() {
    'screen-warden-select','screen-relic','screen-difficulty',
   ].forEach(id => $(id)?.classList.add('hidden'));
 
+  // 핸드 dirty-flag 초기화 (새 런 강제 리렌더)
+  _lastHandKey = '';
   // 이전 런 정리
   if (rafId) cancelAnimationFrame(rafId);
 
@@ -1624,325 +1632,14 @@ function onCellClick(col, row, cellEl) {
 }
 
 // ── 주문 해결 ─────────────────────────────────────────
+// 로직은 SpellResolver.js 핸들러 맵으로 이전됨. 이 래퍼가 ctx를 주입합니다.
 function resolveSpell(effect) {
-  switch (effect.type) {
-    case 'gold':
-      addGold(effect.amount, null);
-      log(i18n.t('spell_gold', effect.amount), 'gold');
-      break;
-
-    case 'freeze':
-      enemySystem.freezeAll(effect.duration);
-      audio.play('spell_freeze');
-      // 5초 이상: Time Stop 메시지, 그 이하: Blizzard
-      if (effect.duration >= 4000) {
-        log(i18n.t('spell_time_stop', effect.duration / 1000), 'good');
-      } else {
-        log(i18n.t('spell_freeze'), 'good');
-      }
-      break;
-
-    case 'damage_all':
-      enemySystem.dealDamageToAll(effect.amount);
-      if (effect.amount >= 70) {
-        log(i18n.t('spell_crimson_tide', effect.amount), 'good');
-      } else {
-        log(i18n.t('spell_damage_all', effect.amount), 'good');
-      }
-      break;
-
-    case 'slow_all':
-      enemySystem.slowAll(effect.amount, effect.duration);
-      if (effect.label === 'decay') {
-        log(i18n.t('spell_decay', Math.round(effect.amount * 100), effect.duration / 1000), 'good');
-      } else if (effect.amount >= 0.65) {
-        // Quagmire (70%+)
-        log(i18n.t('spell_mass_slow', Math.round(effect.amount * 100), effect.duration / 1000), 'good');
-      } else {
-        log(i18n.t('spell_slow_all', Math.round(effect.amount * 100), effect.duration / 1000), 'good');
-      }
-      break;
-
-    case 'damage_random': {
-      enemySystem.dealDamageToRandom(effect.count, effect.amount);
-      // count ≥ 5: arcane storm 텍스트, 그 외: lightning strike
-      if (effect.count >= 5) {
-        log(i18n.t('spell_arcane_storm', effect.count, effect.amount), 'good');
-      } else if (effect.count === 1) {
-        log(i18n.t('spell_void_bolt', effect.amount), 'good');
-      } else {
-        log(i18n.t('spell_lightning', effect.count, effect.amount), 'good');
-      }
-      break;
-    }
-
-    case 'chain_damage': {
-      const lead = enemySystem.dealDamageToLead(effect.damage);
-      if (lead) {
-        const nearby = enemySystem.getEnemiesInRange(lead.x, lead.y, 120)
-          .filter(e => e.id !== lead.id)
-          .slice(0, effect.chainCount);
-        for (const e of nearby) enemySystem.dealDamage(e.id, effect.chainDmg);
-        log(i18n.t('spell_chain_bolt_hit', effect.damage, nearby.length, effect.chainDmg), 'good');
-      } else {
-        log(i18n.t('spell_chain_bolt_miss'), '');
-      }
-      break;
-    }
-
-    case 'heal_nexus':
-      _applyNexusHeal(effect.amount, { isSpell: true, goldOnFull: effect.goldOnFull ?? 0 });
-      break;
-
-    case 'draw':
-      cardSystem.drawExtra(effect.count);
-      renderHand();
-      if (effect.count >= 4) {
-        log(i18n.t('spell_warden_call', effect.count), 'good');
-      } else {
-        log(i18n.t('spell_draw', effect.count), 'good');
-      }
-      break;
-
-    case 'speed_boost_all':
-      towerSystem.applyGlobalSpeedBoost(effect.mult, effect.duration);
-      if (effect.mult <= 0.34) {
-        // 3× 속도: Overdrive
-        log(i18n.t('spell_overdrive', effect.duration / 1000), 'good');
-      } else {
-        log(i18n.t('spell_speed_boost', Math.round(1 / effect.mult), effect.duration / 1000), 'good');
-      }
-      break;
-
-    case 'damage_boost_all':
-      towerSystem.applyGlobalDamageBoost(effect.mult, effect.duration);
-      log(i18n.t('spell_dmg_boost', effect.mult, effect.duration / 1000), 'good');
-      break;
-
-    case 'nova':
-      enemySystem.dealDamageToAll(effect.damage);
-      enemySystem.slowAll(effect.slowAmt, effect.slowDuration);
-      // Ice Storm(≤20dmg), Ember Rain(≤45dmg), Arcane Nova(>45dmg)
-      if (effect.damage <= 20) {
-        log(i18n.t('spell_ice_storm', effect.damage, Math.round(effect.slowAmt * 100), effect.slowDuration / 1000), 'good');
-      } else if (effect.damage <= 45) {
-        log(i18n.t('spell_ember_rain', effect.damage, Math.round(effect.slowAmt * 100), effect.slowDuration / 1000), 'good');
-      } else {
-        log(i18n.t('spell_nova', effect.damage, Math.round(effect.slowAmt * 100), effect.slowDuration / 1000), 'good');
-      }
-      break;
-
-    // ── 신규 주문 효과 ───────────────────────────────────
-
-    case 'gold_draw':
-      addGold(effect.amount, null);
-      cardSystem.drawExtra(effect.draw);
-      renderHand();
-      if (effect.draw >= 2) {
-        log(i18n.t('spell_life_tap', effect.amount, effect.draw), 'gold');
-      } else {
-        log(i18n.t('spell_gold_draw', effect.amount, effect.draw), 'gold');
-      }
-      break;
-
-    case 'tower_rally':
-      // 모든 타워 쿨다운 즉시 리셋 → 일제 사격
-      for (const t of towerSystem.towers.values()) t.cooldown = 0;
-      log(i18n.t('spell_tower_rally'), 'good');
-      audio.play('wave_start');
-      break;
-
-    case 'gold_per_enemy': {
-      // 필드 위 적 수 × 1g
-      const count = enemySystem.enemies.length;
-      if (count > 0) {
-        addGold(count, null);
-        log(i18n.t('spell_soul_harvest', count), 'gold');
-      } else {
-        log(i18n.t('spell_no_enemies'), '');
-      }
-      break;
-    }
-
-    case 'nature_cycle':
-      // 손패 전체 버리고 5장 드로우
-      cardSystem.discardHand();
-      cardSystem.drawExtra(5);
-      renderHand();
-      log(i18n.t('spell_nature_cycle'), 'good');
-      break;
-
-    case 'rally_cry':
-      towerSystem.applyGlobalDamageBoost(effect.dmgMult, effect.duration);
-      towerSystem.applyGlobalSpeedBoost(effect.spdMult, effect.duration);
-      log(i18n.t('spell_rally_cry', Math.round((effect.dmgMult - 1) * 100), effect.duration / 1000), 'good');
-      break;
-
-    case 'freeze_damage':
-      // Cryo Wave: 전체 빙결 + 피해 동시
-      enemySystem.freezeAll(effect.duration);
-      enemySystem.dealDamageToAll(effect.damage);
-      audio.play('spell_freeze');
-      log(i18n.t('spell_cryowave', effect.damage, (effect.duration / 1000).toFixed(1)), 'good');
-      break;
-
-    case 'teleport_all':
-      // Void Rift: 모든 적을 스폰 지점으로 순간이동
-      enemySystem.teleportToStart();
-      log(i18n.t('spell_void_rift'), 'good');
-      audio.play('spell_freeze');
-      break;
-
-    // ── v1.2 Shadow Warden 주문 효과 ───────────────────
-
-    case 'damage_all_gold_kill': {
-      const beforeCount = enemySystem.enemies.length;
-      enemySystem.dealDamageToAll(effect.amount);
-      const killed = beforeCount - enemySystem.enemies.length;
-      if (killed > 0) addGold(killed, null, true);
-      log(i18n.t('spell_soul_drain', effect.amount, killed), killed > 0 ? 'gold' : 'good');
-      break;
-    }
-
-    case 'recall_discard': {
-      const available = cardSystem.discardPile.length;
-      const count = Math.min(effect.count, available);
-      if (count > 0) {
-        const recalled = cardSystem.discardPile.splice(-count);
-        cardSystem.hand.push(...recalled);
-        renderHand();
-        log(i18n.t('spell_grave_call', count), 'good');
-      } else {
-        log(i18n.t('spell_no_discard'), '');
-      }
-      break;
-    }
-
-    case 'percent_hp_damage': {
-      const enemies = [...enemySystem.enemies];
-      let totalDmg = 0;
-      for (const e of enemies) {
-        const dmg = Math.max(1, Math.ceil(e.hp * effect.percent));
-        enemySystem.dealDamage(e.id, dmg);
-        totalDmg += dmg;
-      }
-      log(i18n.t('spell_entropy', Math.round(effect.percent * 100), totalDmg), 'good');
-      break;
-    }
-
-    case 'damage_highest_hp': {
-      const sorted = [...enemySystem.enemies].sort((a, b) => b.hp - a.hp);
-      if (sorted.length > 0) {
-        enemySystem.dealDamage(sorted[0].id, effect.amount);
-        log(i18n.t('spell_dark_matter', effect.amount), 'good');
-      } else {
-        log(i18n.t('spell_no_enemies'), '');
-      }
-      break;
-    }
-
-    case 'void_echo':
-      if (state.lastSpellEffect && state.lastSpellEffect.type !== 'void_echo') {
-        log(i18n.t('spell_void_echo', state.lastSpellEffect.type), 'good');
-        resolveSpell(state.lastSpellEffect);
-      } else {
-        log(i18n.t('spell_void_echo_empty'), '');
-      }
-      break;
-
-    case 'discard_for_gold': {
-      // 이 카드 자체는 이미 playCard()로 제거됨 — 남은 핸드를 버림
-      const handCount = cardSystem.hand.length;
-      cardSystem.discardHand();
-      renderHand();
-      const gained = handCount * effect.goldPerCard;
-      if (gained > 0) addGold(gained, null);
-      log(i18n.t('spell_sacrifice', handCount, gained), 'gold');
-      break;
-    }
-
-    // ── DLC Shadow Realm 주문 효과 ─────────────────────
-
-    case 'darkness': {
-      // 어둠: 전체 적 감속 + 전체 타워 피해 증폭 동시
-      enemySystem.slowAll(effect.slowAmt, effect.duration);
-      towerSystem.applyGlobalDamageBoost(1 + effect.dmgBoost, effect.duration);
-      audio.play('spell_freeze');
-      log(i18n.t('spell_darkness',
-        Math.round(effect.slowAmt * 100),
-        Math.round(effect.dmgBoost * 100),
-        effect.duration / 1000), 'good');
-      break;
-    }
-
-    case 'shadow_nova': {
-      // 그림자 노바: 각 적의 잃은 HP 비율로 피해
-      const enemies = [...enemySystem.enemies];
-      let totalDmg = 0;
-      for (const e of enemies) {
-        const missing = Math.max(0, e.maxHp - e.hp);
-        const dmg = Math.max(1, Math.ceil(missing * effect.pct));
-        enemySystem.dealDamage(e.id, dmg);
-        totalDmg += dmg;
-      }
-      log(i18n.t('spell_shadow_nova', totalDmg), 'good');
-      break;
-    }
-
-    case 'void_pulse': {
-      // 공허 파동: 선두 N명을 경로 위에서 steps칸 후퇴
-      const sorted = [...enemySystem.enemies]
-        .sort((a, b) => (b.pathProgress ?? 0) - (a.pathProgress ?? 0))
-        .slice(0, effect.count ?? 3);
-      for (const e of sorted) {
-        enemySystem.pushBack(e.id, effect.steps ?? 3);
-      }
-      log(i18n.t('spell_void_pulse', sorted.length, effect.steps ?? 3), 'good');
-      audio.play('spell_freeze');
-      break;
-    }
-
-    case 'soul_feast': {
-      // 영혼 향연: HP임계값 이하 적 즉사 + 골드 보상
-      const threshold = effect.hpThreshold ?? 0.25;
-      const goldEach  = effect.goldPerKill ?? 3;
-      const targets   = enemySystem.enemies.filter(e => e.hp / e.maxHp <= threshold);
-      let gained = 0;
-      for (const e of targets) {
-        enemySystem.dealDamage(e.id, e.hp + 9999);
-        gained += goldEach;
-      }
-      if (gained > 0) addGold(gained, null, true);
-      log(i18n.t('spell_soul_feast', targets.length, gained), targets.length > 0 ? 'gold' : '');
-      break;
-    }
-
-    case 'gold_per_wave_kill': {
-      // 죽음의 값: 이번 웨이브 처치 수 × 1g
-      const kills = state?.stats?.enemiesKilledThisWave ?? 0;
-      if (kills > 0) {
-        addGold(kills, null);
-        log(i18n.t('spell_death_toll', kills), 'gold');
-      } else {
-        log(i18n.t('spell_no_enemies'), '');
-      }
-      break;
-    }
-
-    default:
-      log(`Unknown spell effect: ${effect.type}`, '');
-  }
-
-  // lastSpellEffect 추적 (Void Echo 제외)
-  if (effect.type !== 'void_echo' && state) {
-    state.lastSpellEffect = effect;
-  }
-
-  // Storm Circuit: 주문 시전 후 모든 Tesla 즉시 발사
-  if (hasRelic('storm_circuit') && towerSystem && enemySystem?.enemies?.length > 0) {
-    const count = towerSystem.triggerAllTeslas();
-    if (count > 0) log(i18n.t('log_storm_circuit', count), 'good');
-  }
+  _resolveSpellImpl(effect, {
+    addGold, log, i18n, audio,
+    enemySystem, towerSystem, cardSystem,
+    state, hasRelic, renderHand,
+    applyNexusHeal: _applyNexusHeal,
+  });
 }
 
 // ── 골드 ──────────────────────────────────────────────
@@ -2053,6 +1750,18 @@ function _triggerShadowAutoSpell() {
 
 // ── 카드 핸드 렌더링 ──────────────────────────────────
 function renderHand() {
+  // 핸드 구성·골드·선택 상태·웨이브 페이즈가 모두 동일하면 DOM 재생성 불필요
+  const handKey = [
+    state?.gold ?? 0,
+    state?.phase ?? '',
+    state?.selectedCard?.uid ?? '',
+    state?.ascMods?.extraSurcharge ?? 0,
+    i18n.lang,
+    cardSystem?.hand.map(c => c.uid).join(',') ?? '',
+  ].join('|');
+  if (handKey === _lastHandKey) return;
+  _lastHandKey = handKey;
+
   const container = $('card-hand');
   container.innerHTML = '';
 

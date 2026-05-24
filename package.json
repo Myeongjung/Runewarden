@@ -20,11 +20,15 @@
     "build:mac": "electron-builder --mac",
     "build:linux": "electron-builder --linux",
     "build:all": "electron-builder -wml",
-    "server": "node server.js"
+    "server": "node server.js",
+    "lint": "eslint src/"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "electron": "^42.1.0",
     "electron-builder": "^24.13.3",
+    "eslint": "^10.4.0",
+    "globals": "^17.6.0",
     "png-to-ico": "^3.0.1",
     "sharp": "^0.34.5"
   },
