@@ -1,0 +1,308 @@
+/**
+ * SpellResolver — 스펠 효과 처리 핸들러 맵
+ *
+ * 각 스펠 타입 → 핸들러 함수로 등록. 새 스펠 추가 시 이 파일에만 case를 추가하면 됩니다.
+ * ctx: { addGold, log, i18n, enemySystem, towerSystem, cardSystem, state, hasRelic, renderHand, audio }
+ *
+ * GameEngine에서는 `resolveSpell(effect, ctx)` 한 줄만 호출합니다.
+ */
+
+// ── 기본 스펠 핸들러 ─────────────────────────────────
+const BASE_HANDLERS = {
+  gold(effect, { addGold, log, i18n }) {
+    addGold(effect.amount, null);
+    log(i18n.t('spell_gold', effect.amount), 'gold');
+  },
+
+  freeze(effect, { enemySystem, log, i18n, audio }) {
+    enemySystem.freezeAll(effect.duration);
+    audio.play('spell_freeze');
+    if (effect.duration >= 4000) {
+      log(i18n.t('spell_time_stop', effect.duration / 1000), 'good');
+    } else {
+      log(i18n.t('spell_freeze'), 'good');
+    }
+  },
+
+  damage_all(effect, { enemySystem, log, i18n }) {
+    enemySystem.dealDamageToAll(effect.amount);
+    if (effect.amount >= 70) {
+      log(i18n.t('spell_crimson_tide', effect.amount), 'good');
+    } else {
+      log(i18n.t('spell_damage_all', effect.amount), 'good');
+    }
+  },
+
+  slow_all(effect, { enemySystem, log, i18n }) {
+    enemySystem.slowAll(effect.amount, effect.duration);
+    if (effect.label === 'decay') {
+      log(i18n.t('spell_decay', Math.round(effect.amount * 100), effect.duration / 1000), 'good');
+    } else if (effect.amount >= 0.65) {
+      log(i18n.t('spell_mass_slow', Math.round(effect.amount * 100), effect.duration / 1000), 'good');
+    } else {
+      log(i18n.t('spell_slow_all', Math.round(effect.amount * 100), effect.duration / 1000), 'good');
+    }
+  },
+
+  damage_random(effect, { enemySystem, log, i18n }) {
+    enemySystem.dealDamageToRandom(effect.count, effect.amount);
+    if (effect.count >= 5) {
+      log(i18n.t('spell_arcane_storm', effect.count, effect.amount), 'good');
+    } else if (effect.count === 1) {
+      log(i18n.t('spell_void_bolt', effect.amount), 'good');
+    } else {
+      log(i18n.t('spell_lightning', effect.count, effect.amount), 'good');
+    }
+  },
+
+  chain_damage(effect, { enemySystem, log, i18n }) {
+    const CHAIN_RADIUS = 120;
+    const lead = enemySystem.dealDamageToLead(effect.damage);
+    if (lead) {
+      const nearby = enemySystem.getEnemiesInRange(lead.x, lead.y, CHAIN_RADIUS)
+        .filter(e => e.id !== lead.id)
+        .slice(0, effect.chainCount);
+      for (const e of nearby) enemySystem.dealDamage(e.id, effect.chainDmg);
+      log(i18n.t('spell_chain_bolt_hit', effect.damage, nearby.length, effect.chainDmg), 'good');
+    } else {
+      log(i18n.t('spell_chain_bolt_miss'), '');
+    }
+  },
+
+  heal_nexus(effect, { applyNexusHeal }) {
+    applyNexusHeal(effect.amount, { isSpell: true, goldOnFull: effect.goldOnFull ?? 0 });
+  },
+
+  draw(effect, { cardSystem, renderHand, log, i18n }) {
+    cardSystem.drawExtra(effect.count);
+    renderHand();
+    if (effect.count >= 4) {
+      log(i18n.t('spell_warden_call', effect.count), 'good');
+    } else {
+      log(i18n.t('spell_draw', effect.count), 'good');
+    }
+  },
+
+  speed_boost_all(effect, { towerSystem, log, i18n }) {
+    towerSystem.applyGlobalSpeedBoost(effect.mult, effect.duration);
+    if (effect.mult <= 0.34) {
+      log(i18n.t('spell_overdrive', effect.duration / 1000), 'good');
+    } else {
+      log(i18n.t('spell_speed_boost', Math.round(1 / effect.mult), effect.duration / 1000), 'good');
+    }
+  },
+
+  damage_boost_all(effect, { towerSystem, log, i18n }) {
+    towerSystem.applyGlobalDamageBoost(effect.mult, effect.duration);
+    log(i18n.t('spell_dmg_boost', effect.mult, effect.duration / 1000), 'good');
+  },
+
+  nova(effect, { enemySystem, log, i18n }) {
+    enemySystem.dealDamageToAll(effect.damage);
+    enemySystem.slowAll(effect.slowAmt, effect.slowDuration);
+    if (effect.damage <= 20) {
+      log(i18n.t('spell_ice_storm', effect.damage, Math.round(effect.slowAmt * 100), effect.slowDuration / 1000), 'good');
+    } else if (effect.damage <= 45) {
+      log(i18n.t('spell_ember_rain', effect.damage, Math.round(effect.slowAmt * 100), effect.slowDuration / 1000), 'good');
+    } else {
+      log(i18n.t('spell_nova', effect.damage, Math.round(effect.slowAmt * 100), effect.slowDuration / 1000), 'good');
+    }
+  },
+
+  gold_draw(effect, { addGold, cardSystem, renderHand, log, i18n }) {
+    addGold(effect.amount, null);
+    cardSystem.drawExtra(effect.draw);
+    renderHand();
+    if (effect.draw >= 2) {
+      log(i18n.t('spell_life_tap', effect.amount, effect.draw), 'gold');
+    } else {
+      log(i18n.t('spell_gold_draw', effect.amount, effect.draw), 'gold');
+    }
+  },
+
+  tower_rally(_effect, { towerSystem, log, i18n, audio }) {
+    for (const t of towerSystem.towers.values()) t.cooldown = 0;
+    log(i18n.t('spell_tower_rally'), 'good');
+    audio.play('wave_start');
+  },
+
+  gold_per_enemy(_effect, { enemySystem, addGold, log, i18n }) {
+    const count = enemySystem.enemies.length;
+    if (count > 0) {
+      addGold(count, null);
+      log(i18n.t('spell_soul_harvest', count), 'gold');
+    } else {
+      log(i18n.t('spell_no_enemies'), '');
+    }
+  },
+
+  nature_cycle(_effect, { cardSystem, renderHand, log, i18n }) {
+    cardSystem.discardHand();
+    cardSystem.drawExtra(5);
+    renderHand();
+    log(i18n.t('spell_nature_cycle'), 'good');
+  },
+
+  rally_cry(effect, { towerSystem, log, i18n }) {
+    towerSystem.applyGlobalDamageBoost(effect.dmgMult, effect.duration);
+    towerSystem.applyGlobalSpeedBoost(effect.spdMult, effect.duration);
+    log(i18n.t('spell_rally_cry', Math.round((effect.dmgMult - 1) * 100), effect.duration / 1000), 'good');
+  },
+
+  freeze_damage(effect, { enemySystem, log, i18n, audio }) {
+    enemySystem.freezeAll(effect.duration);
+    enemySystem.dealDamageToAll(effect.damage);
+    audio.play('spell_freeze');
+    log(i18n.t('spell_cryowave', effect.damage, (effect.duration / 1000).toFixed(1)), 'good');
+  },
+
+  teleport_all(_effect, { enemySystem, log, i18n, audio }) {
+    enemySystem.teleportToStart();
+    log(i18n.t('spell_void_rift'), 'good');
+    audio.play('spell_freeze');
+  },
+
+  // ── Shadow Warden 스펠 ───────────────────────────────
+
+  damage_all_gold_kill(effect, { enemySystem, addGold, log, i18n }) {
+    const beforeCount = enemySystem.enemies.length;
+    enemySystem.dealDamageToAll(effect.amount);
+    const killed = beforeCount - enemySystem.enemies.length;
+    if (killed > 0) addGold(killed, null, true);
+    log(i18n.t('spell_soul_drain', effect.amount, killed), killed > 0 ? 'gold' : 'good');
+  },
+
+  recall_discard(effect, { cardSystem, renderHand, log, i18n }) {
+    const available = cardSystem.discardPile.length;
+    const count = Math.min(effect.count, available);
+    if (count > 0) {
+      const recalled = cardSystem.discardPile.splice(-count);
+      cardSystem.hand.push(...recalled);
+      renderHand();
+      log(i18n.t('spell_grave_call', count), 'good');
+    } else {
+      log(i18n.t('spell_no_discard'), '');
+    }
+  },
+
+  percent_hp_damage(effect, { enemySystem, log, i18n }) {
+    const enemies = [...enemySystem.enemies];
+    let totalDmg = 0;
+    for (const e of enemies) {
+      const dmg = Math.max(1, Math.ceil(e.hp * effect.percent));
+      enemySystem.dealDamage(e.id, dmg);
+      totalDmg += dmg;
+    }
+    log(i18n.t('spell_entropy', Math.round(effect.percent * 100), totalDmg), 'good');
+  },
+
+  damage_highest_hp(effect, { enemySystem, log, i18n }) {
+    const sorted = [...enemySystem.enemies].sort((a, b) => b.hp - a.hp);
+    if (sorted.length > 0) {
+      enemySystem.dealDamage(sorted[0].id, effect.amount);
+      log(i18n.t('spell_dark_matter', effect.amount), 'good');
+    } else {
+      log(i18n.t('spell_no_enemies'), '');
+    }
+  },
+
+  void_echo(effect, { state, log, i18n, resolveSpell }) {
+    if (state.lastSpellEffect && state.lastSpellEffect.type !== 'void_echo') {
+      log(i18n.t('spell_void_echo', state.lastSpellEffect.type), 'good');
+      resolveSpell(state.lastSpellEffect);
+    } else {
+      log(i18n.t('spell_void_echo_empty'), '');
+    }
+  },
+
+  discard_for_gold(effect, { cardSystem, addGold, renderHand, log, i18n }) {
+    const handCount = cardSystem.hand.length;
+    cardSystem.discardHand();
+    renderHand();
+    const gained = handCount * effect.goldPerCard;
+    if (gained > 0) addGold(gained, null);
+    log(i18n.t('spell_sacrifice', handCount, gained), 'gold');
+  },
+
+  // ── DLC Shadow Realm 스펠 ───────────────────────────
+
+  darkness(effect, { enemySystem, towerSystem, log, i18n, audio }) {
+    enemySystem.slowAll(effect.slowAmt, effect.duration);
+    towerSystem.applyGlobalDamageBoost(1 + effect.dmgBoost, effect.duration);
+    audio.play('spell_freeze');
+    log(i18n.t('spell_darkness',
+      Math.round(effect.slowAmt * 100),
+      Math.round(effect.dmgBoost * 100),
+      effect.duration / 1000), 'good');
+  },
+
+  shadow_nova(effect, { enemySystem, log, i18n }) {
+    const enemies = [...enemySystem.enemies];
+    let totalDmg = 0;
+    for (const e of enemies) {
+      const missing = Math.max(0, e.maxHp - e.hp);
+      const dmg = Math.max(1, Math.ceil(missing * effect.pct));
+      enemySystem.dealDamage(e.id, dmg);
+      totalDmg += dmg;
+    }
+    log(i18n.t('spell_shadow_nova', totalDmg), 'good');
+  },
+
+  void_pulse(effect, { enemySystem, log, i18n, audio }) {
+    const sorted = [...enemySystem.enemies]
+      .sort((a, b) => (b.pathProgress ?? 0) - (a.pathProgress ?? 0))
+      .slice(0, effect.count ?? 3);
+    for (const e of sorted) {
+      enemySystem.pushBack(e.id, effect.steps ?? 3);
+    }
+    log(i18n.t('spell_void_pulse', sorted.length, effect.steps ?? 3), 'good');
+    audio.play('spell_freeze');
+  },
+
+  soul_feast(effect, { enemySystem, addGold, log, i18n }) {
+    const threshold = effect.hpThreshold ?? 0.25;
+    const goldEach  = effect.goldPerKill ?? 3;
+    const targets   = enemySystem.enemies.filter(e => e.hp / e.maxHp <= threshold);
+    let gained = 0;
+    for (const e of targets) {
+      enemySystem.dealDamage(e.id, e.hp + 9999);
+      gained += goldEach;
+    }
+    if (gained > 0) addGold(gained, null, true);
+    log(i18n.t('spell_soul_feast', targets.length, gained), targets.length > 0 ? 'gold' : '');
+  },
+
+  gold_per_wave_kill(_effect, { state, addGold, log, i18n }) {
+    const kills = state?.stats?.enemiesKilledThisWave ?? 0;
+    if (kills > 0) {
+      addGold(kills, null);
+      log(i18n.t('spell_death_toll', kills), 'gold');
+    } else {
+      log(i18n.t('spell_no_enemies'), '');
+    }
+  },
+};
+
+/**
+ * 스펠 하나를 처리합니다.
+ * @param {object} effect - 카드 effect 정의 (type, ...params)
+ * @param {object} ctx    - GameEngine에서 주입되는 의존성 묶음
+ */
+export function resolveSpell(effect, ctx) {
+  const handler = BASE_HANDLERS[effect.type];
+  if (handler) {
+    // void_echo가 재귀 호출할 수 있도록 ctx에 resolveSpell 자체를 포함
+    handler(effect, { ...ctx, resolveSpell: (e) => resolveSpell(e, ctx) });
+  } else {
+    ctx.log(`Unknown spell effect: ${effect.type}`, '');
+  }
+
+  // 모든 스펠 공통 후처리
+  if (effect.type !== 'void_echo' && ctx.state) {
+    ctx.state.lastSpellEffect = effect;
+  }
+  if (ctx.hasRelic('storm_circuit') && ctx.towerSystem && ctx.enemySystem?.enemies?.length > 0) {
+    const count = ctx.towerSystem.triggerAllTeslas();
+    if (count > 0) ctx.log(ctx.i18n.t('log_storm_circuit', count), 'good');
+  }
+}

@@ -1,9 +1,7 @@
 // 적 이동 및 상태 관리 시스템
 import { ENEMY_PATH, hexToPixel, svgEl } from '../rendering/MapRenderer.js';
 import { audio } from './AudioSystem.js';
-
-const HEX_SIZE = 34;
-const HEX_W = HEX_SIZE * 2;
+import { HEX_W } from '../config/constants.js'; // eslint-disable-line no-unused-vars
 
 // WAYPOINTS는 런 시작(startWave) 시점에 활성 경로로 재계산됨
 // 모듈 로드 시에는 기본 경로로 초기화
@@ -180,6 +178,7 @@ export class EnemySystem {
     this._spawnIntervalMult = 1;   // 스폰 간격 배율 (Novice: 1.25, Veteran: 0.85)
     this._veteranRegen     = false; // 재생 적 DPS 강화 여부
     this._noviceRegen      = false; // 재생 적 DPS 절반 여부
+    this._pool             = {};   // type → [{el, bodyEl, hpBar}] SVG 요소 풀
     this._injectStyles();
   }
 
@@ -196,6 +195,25 @@ export class EnemySystem {
       return Math.max(1, Math.round(baseDps * 0.5));
     }
     return baseDps;
+  }
+
+  // ── SVG 오브젝트 풀 ───────────────────────────────────
+  // 보스·쉴드 적(형태가 파괴 가능)은 풀 대상 제외
+  _canPool(def) { return !def.isBoss && !(def.shieldHits > 0); }
+
+  _poolGet(type) {
+    return this._pool[type]?.pop() ?? null;
+  }
+
+  _poolReturn(el, type, bodyEl, hpBar) {
+    if (!this._pool[type]) this._pool[type] = [];
+    if (this._pool[type].length < 10) {
+      el.setAttribute('transform', 'translate(-9999,-9999)');
+      el.removeAttribute('style');
+      this._pool[type].push({ el, bodyEl, hpBar });
+    } else {
+      el.remove();
+    }
   }
 
   // ── 유물: 감속/번 배율 설정 ─────────────────────────
@@ -392,6 +410,27 @@ export class EnemySystem {
       burns: [],
       el: null, hpBar: null, bodyEl: null, shieldEl: null,
     };
+
+    // 풀에서 같은 타입 SVG 요소 재사용 (보스·쉴드 적 제외)
+    if (this._canPool(def)) {
+      const pooled = this._poolGet(type);
+      if (pooled) {
+        const g = pooled.el;
+        g.id = id;
+        g.setAttribute('transform', `translate(${start.x.toFixed(1)},${start.y.toFixed(1)})`);
+        pooled.bodyEl.setAttribute('fill', def.color);
+        pooled.bodyEl.setAttribute('stroke', 'rgba(255,255,255,0.6)');
+        pooled.hpBar.setAttribute('x', String(-def.size));
+        pooled.hpBar.setAttribute('width', String(def.size * 2));
+        pooled.hpBar.setAttribute('fill', '#2ecc71');
+        enemy.el = g;
+        enemy.bodyEl = pooled.bodyEl;
+        enemy.hpBar = pooled.hpBar;
+        this.layer.appendChild(g);  // bring to front (z-order)
+        this.enemies.push(enemy);
+        return;
+      }
+    }
 
     const g = svgEl('g', { id, class: 'enemy-unit' });
 
@@ -624,6 +663,8 @@ export class EnemySystem {
     if (withAnim) {
       this._dying.add(e.id);
       this._playDeathAnim(e);
+    } else if (this._canPool(ENEMY_DEFS[e.type] ?? {})) {
+      this._poolReturn(e.el, e.type, e.bodyEl, e.hpBar);
     } else {
       e.el.remove();
     }
@@ -660,9 +701,15 @@ export class EnemySystem {
       setTimeout(() => document.getElementById(pid)?.remove(), 450);
     }
 
-    // 3) 정리
+    // 3) 정리 — 풀 가능한 타입은 반환, 아니면 제거
+    const { type, bodyEl, hpBar } = e;
+    const canPool = this._canPool(ENEMY_DEFS[type] ?? {});
     setTimeout(() => {
-      el.remove();
+      if (canPool) {
+        this._poolReturn(el, type, bodyEl, hpBar);
+      } else {
+        el.remove();
+      }
       this._dying.delete(e.id);
     }, 400);
   }
