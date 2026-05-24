@@ -26,63 +26,56 @@ import { CHALLENGE_DEFS, getChallengeXPBonus, getChallengeMods } from '../data/c
 import { resolveSpell as _resolveSpellImpl } from './SpellResolver.js';
 import { HEX_W } from '../config/constants.js';
 import { log, spawnFloatText, shakeNexus, setWaveButton } from './GameUtils.js';
+import { shared } from './GameState.js';
+import { updateHUD, renderHand, onBossUpdate, updateShadowChargeHUD, showClearBanner, updateMenuRank } from '../ui/HUDUpdater.js';
+import { showScreen, openWardenSelect, openDifficultySelect, openCodex } from '../ui/UIOrchestrator.js';
+import { registerDLC, hasDLC, clearDLCs } from '../systems/DLCRegistry.js';
 
 function rangeToPixel(hexRange) { return hexRange * HEX_W * 0.75; }
 
 // ── 상수 ──────────────────────────────────────────────
 const MAX_WAVES_BASE = 15;  // Act 1(5) + Act 2(5) + Act 3(5)
 const MAX_WAVES_DLC  = 23;  // + Act 4(8) — DLC Shadow Realm
-// DLC 소유 여부는 런 시작 시 결정
-let   MAX_WAVES      = MAX_WAVES_BASE;
 const ACT_SIZE    = 5;   // 액트당 웨이브 수
 const NEXUS_HP    = 3;
 const START_GOLD  = 25;
 const WAVE_GOLD   = 8;
 const BOSS_WAVES_BASE = new Set([5, 10, 15]);
 const BOSS_WAVES_DLC  = new Set([5, 10, 15, 23]);  // DLC 보스 웨이브
-let   BOSS_WAVES      = BOSS_WAVES_BASE;
 
 // ── DOM 참조 ───────────────────────────────────────────
 const $ = id => document.getElementById(id);
-const screens = {
+
+// ── 앱 싱글턴 + 공유 상태 초기화 ─────────────────────
+const meta  = new MetaSystem();
+const steam = new SteamSystem();
+
+shared.meta    = meta;
+shared.steam   = steam;
+shared.screens = {
   menu:     $('screen-menu'),
   game:     $('screen-game'),
   howto:    $('screen-howto'),
   gameover: $('screen-gameover'),
 };
+shared.selectedWarden     = WARDEN_DEFS[0];
+shared.selectedDifficulty = getDifficultyById('standard');
+shared.bossWaves          = new Set([5, 10, 15]);
+shared.maxWaves           = 15;
 
-// ── 게임 상태 ─────────────────────────────────────────
-let state = null;        // 현재 런 상태
-let renderer = null;
+// ── 런 시스템 레퍼런스 (startRun 시 교체 — shared에서 접근) ─
+// 이 모듈 스코프 변수들은 내부 클로저에서 편의상 유지됨
+let state       = null;
+let renderer    = null;
 let enemySystem = null;
 let towerSystem = null;
-let cardSystem = null;
+let cardSystem  = null;
 let shopUI      = null;
 let nodeUI      = null;
 let eventUI     = null;
 let restUI      = null;
 let summaryUI   = null;
 let relicUI     = null;
-
-// 싱글턴 시스템 — 앱 로드 시 한 번만 생성
-const meta     = new MetaSystem();
-const steam    = new SteamSystem();
-
-// 현재 선택된 Warden (기본: Iron)
-let selectedWarden = WARDEN_DEFS[0];
-// 현재 선택된 난이도 (기본: Standard)
-let selectedDifficulty = getDifficultyById('standard');
-// 현재 선택된 Ascension 레벨 (0 = 일반)
-let selectedAscension = 0;
-
-// 자동저장 복원 데이터 (Continue 버튼으로 런 재개 시 세팅)
-let _savedRunData = null;
-
-// renderHand dirty-flag: 핸드/상태가 동일하면 DOM 재생성 스킵
-let _lastHandKey = '';
-
-// 선택된 챌린지 ID 목록
-let selectedChallenges = [];
 
 // 튜토리얼 (런 시작 후 생성)
 let tutorial   = null;
@@ -93,7 +86,7 @@ let gameSpeed = 1;   // 1 = 1×, 2 = 2× (웨이브 중에만 적용)
 // ── 일시정지 / 재개 ───────────────────────────────────
 function pauseGame() {
   if (!state || state.phase === 'over' || state.phase === 'paused') return;
-  if (!screens.game.classList.contains('active')) return;
+  if (!shared.screens.game.classList.contains('active')) return;
 
   state._prevPhase = state.phase;
   state.phase = 'paused';
@@ -136,355 +129,10 @@ function _updateSpeedBtn() {
   btn.classList.toggle('speed-active', gameSpeed === 2);
 }
 
-// ── 화면 전환 ─────────────────────────────────────────
-function showScreen(name) {
-  Object.values(screens).forEach(s => { if (s) { s.classList.remove('active'); s.style.display = ''; } });
-  // 모든 오버레이 닫기
-  ['screen-howto','screen-gameover','screen-summary',
-   'screen-node','screen-shop','screen-event','screen-rest','screen-pause',
-   'screen-relic','screen-difficulty'
-  ].forEach(id => $(id)?.classList.add('hidden'));
 
-  if (name === 'menu')  {
-    screens.menu.classList.add('active');
-    screens.menu.style.display = 'flex';
-    updateMenuRank();
-    music.crossfadeTo('menu');
-  }
-  if (name === 'game')  { screens.game.classList.add('active'); screens.game.style.display = 'flex'; }
-  if (name === 'howto') { $('screen-howto').classList.remove('hidden'); }
-  if (name === 'gameover') { screens.gameover.classList.remove('hidden'); music.crossfadeTo('menu'); }
-}
 
-// ── Warden 선택 화면 ──────────────────────────────────
-function openWardenSelect() {
-  const overlay = $('screen-warden-select');
-  const row     = $('warden-cards-row');
-  overlay.classList.remove('hidden');
-  row.innerHTML = '';
 
-  for (const w of WARDEN_DEFS) {
-    const isDlcLocked = w.dlc ? !(steam?.isDlcOwned(w.dlc) ?? false) : false;
-    const isRankLocked = meta.rank < w.unlockRank;
-    const isLocked   = isRankLocked || isDlcLocked;
-    const isSelected = selectedWarden.id === w.id;
 
-    const card = document.createElement('div');
-    card.className = `warden-card${isLocked ? ' locked' : ''}${isSelected ? ' selected' : ''}${isDlcLocked ? ' dlc-locked' : ''}`;
-    card.style.setProperty('--warden-color', w.color);
-    card.style.setProperty('--warden-bg', w.accentBg);
-
-    const deckSize = w.buildDeck ? w.buildDeck().length : 0;
-    const btnLabel = isDlcLocked
-      ? (i18n.t('dlc_sr_warden_locked') ?? 'DLC Required')
-      : isRankLocked
-        ? i18n.t('warden_locked', w.unlockRank)
-        : isSelected ? i18n.t('warden_selected') : i18n.t('warden_select_btn');
-
-    card.innerHTML = `
-      ${isDlcLocked
-        ? `<div class="warden-lock-badge dlc-badge">💠 DLC</div>`
-        : isRankLocked
-          ? `<div class="warden-lock-badge">🔒 Rank ${w.unlockRank}</div>`
-          : ''
-      }
-
-      <div class="warden-card-head">
-        <div class="warden-icon">${w.icon}</div>
-        <div class="warden-head-text">
-          <div class="warden-name">${w.name}</div>
-          <div class="warden-title">${w.title}</div>
-        </div>
-      </div>
-
-      <div class="warden-tagline">${w.tagline}</div>
-      <div class="warden-desc">${typeof w.desc === 'object' ? (w.desc[i18n.lang] ?? w.desc.en) : w.desc}</div>
-
-      <div class="warden-stats">
-        <div class="warden-stat">🪙<span class="warden-stat-val">${w.startGold}g</span></div>
-        <div class="warden-stat">🤚<span class="warden-stat-val">${w.handSize}</span></div>
-        <div class="warden-stat">♥<span class="warden-stat-val">${w.nexusHp}HP</span></div>
-        <div class="warden-stat">🃏<span class="warden-stat-val">${deckSize}</span></div>
-      </div>
-
-      <div class="warden-passive-box">
-        <span class="warden-passive-label">${i18n.t('passive_label')}</span>
-        ${i18n.t(w.passiveKey)}
-      </div>
-
-      <button class="warden-select-btn" ${isLocked ? 'disabled' : ''}>${btnLabel}</button>
-    `;
-
-    if (!isLocked) {
-      card.querySelector('.warden-select-btn').addEventListener('click', () => {
-        selectedWarden = w;
-        overlay.classList.add('hidden');
-        openDifficultySelect();  // 워든 선택 → 난이도 선택
-      });
-    }
-
-    row.appendChild(card);
-  }
-}
-
-// ── 난이도 선택 화면 ──────────────────────────────────
-function openDifficultySelect() {
-  const overlay = $('screen-difficulty');
-  overlay.classList.remove('hidden');
-
-  const maxAsc = meta.maxSelectableAscension;  // 0 = Ascension 잠김
-
-  // Ascension 섹션 HTML (Rank 20 달성 시만 표시)
-  const ascHTML = maxAsc > 0 ? `
-    <div class="asc-section">
-      <div class="asc-section-title">${i18n.t('asc_section_title')}</div>
-      <div class="asc-section-sub">${i18n.t('asc_section_sub')}</div>
-      <div class="asc-choices">
-        <div class="asc-btn${selectedAscension === 0 ? ' selected' : ''}" data-asc="0">
-          <span class="asc-btn-icon">✕</span>
-          <span class="asc-btn-label">${i18n.t('asc_off')}</span>
-        </div>
-        ${ASCENSION_DEFS.map(a => {
-          const isAvail = a.level <= maxAsc;
-          const isSel   = selectedAscension === a.level;
-          return `<div class="asc-btn${isSel ? ' selected' : ''}${isAvail ? '' : ' locked'}" data-asc="${a.level}">
-            <span class="asc-btn-icon">${a.icon}</span>
-            <span class="asc-btn-label">${i18n.t('asc_' + a.level + '_title')}${isAvail ? '' : ' 🔒'}</span>
-          </div>`;
-        }).join('')}
-      </div>
-      <div class="asc-desc" id="asc-desc-text">
-        ${selectedAscension === 0
-          ? i18n.t('asc_off_desc')
-          : i18n.t('asc_' + selectedAscension + '_desc')}
-      </div>
-    </div>
-  ` : '';
-
-  // 챌린지 섹션 HTML
-  const catLabels = { tower: i18n.t('ch_cat_tower'), card: i18n.t('ch_cat_card'), economy: i18n.t('ch_cat_economy'), run: i18n.t('ch_cat_run') };
-  const cats = ['tower', 'card', 'economy', 'run'];
-  const challengeHTML = `
-    <div class="challenge-section">
-      <div class="challenge-section-header" id="challenge-toggle-btn">
-        <span>${i18n.t('challenge_section_title')}</span>
-        <span class="challenge-xp-badge" id="challenge-xp-total">${
-          selectedChallenges.length ? i18n.t('challenge_xp_bonus', Math.round(getChallengeXPBonus(selectedChallenges) * 100)) : i18n.t('challenge_xp_none')
-        }</span>
-        <span class="challenge-toggle-arrow" id="challenge-arrow">▶</span>
-      </div>
-      <div class="challenge-panel hidden" id="challenge-panel">
-        ${cats.map(cat => {
-          const defs = CHALLENGE_DEFS.filter(c => c.category === cat);
-          return `<div class="challenge-cat">
-            <div class="challenge-cat-label">${catLabels[cat]}</div>
-            <div class="challenge-btn-row">
-              ${defs.map(c => `
-                <div class="challenge-btn${selectedChallenges.includes(c.id) ? ' active' : ''}" data-cid="${c.id}"
-                     title="${i18n.t('ch_' + c.id + '_desc')}">
-                  <span class="ch-icon">${c.icon}</span>
-                  <span class="ch-name">${i18n.t('ch_' + c.id + '_name')}</span>
-                  <span class="ch-xp">+${Math.round(c.xpBonus * 100)}%</span>
-                </div>
-              `).join('')}
-            </div>
-          </div>`;
-        }).join('')}
-      </div>
-    </div>
-  `;
-
-  overlay.innerHTML = `
-    <div class="difficulty-box" style="animation:shopSlideIn 0.3s cubic-bezier(0.34,1.56,0.64,1)">
-      <div class="difficulty-header">
-        <div class="difficulty-title">${i18n.t('difficulty_title')}</div>
-        <div class="difficulty-sub">${i18n.t('difficulty_sub')}</div>
-      </div>
-      <div class="difficulty-choices">
-        ${DIFFICULTY_DEFS.map(d => `
-          <div class="diff-card${d.id === selectedDifficulty.id ? ' selected' : ''}" data-id="${d.id}">
-            <div class="diff-icon">${d.icon}</div>
-            <div class="diff-body">
-              <div class="diff-name">${i18n.t('diff_' + d.id)}</div>
-              <div class="diff-desc">${i18n.t('diff_' + d.id + '_desc')}</div>
-            </div>
-          </div>
-        `).join('')}
-      </div>
-      ${ascHTML}
-      ${challengeHTML}
-      <div class="diff-footer">
-        <button class="btn-secondary" id="diff-back">${i18n.t('diff_back')}</button>
-        <button class="btn-primary"   id="diff-confirm">${i18n.t('diff_confirm')}</button>
-      </div>
-    </div>
-  `;
-
-  // 난이도 카드 클릭
-  overlay.querySelectorAll('.diff-card').forEach(el => {
-    el.addEventListener('click', () => {
-      overlay.querySelectorAll('.diff-card').forEach(c => c.classList.remove('selected'));
-      el.classList.add('selected');
-      selectedDifficulty = getDifficultyById(el.dataset.id);
-    });
-  });
-
-  // Ascension 버튼 클릭
-  overlay.querySelectorAll('.asc-btn:not(.locked)').forEach(el => {
-    el.addEventListener('click', () => {
-      overlay.querySelectorAll('.asc-btn').forEach(b => b.classList.remove('selected'));
-      el.classList.add('selected');
-      selectedAscension = parseInt(el.dataset.asc, 10);
-      const descEl = overlay.querySelector('#asc-desc-text');
-      if (descEl) {
-        descEl.textContent = selectedAscension === 0
-          ? i18n.t('asc_off_desc')
-          : i18n.t('asc_' + selectedAscension + '_desc');
-      }
-    });
-  });
-
-  // 챌린지 패널 토글
-  overlay.querySelector('#challenge-toggle-btn').addEventListener('click', () => {
-    const panel = overlay.querySelector('#challenge-panel');
-    const arrow = overlay.querySelector('#challenge-arrow');
-    panel.classList.toggle('hidden');
-    arrow.textContent = panel.classList.contains('hidden') ? '▶' : '▼';
-  });
-
-  // 챌린지 버튼 클릭 → 토글
-  overlay.querySelectorAll('.challenge-btn').forEach(el => {
-    el.addEventListener('click', () => {
-      const cid = el.dataset.cid;
-      if (selectedChallenges.includes(cid)) {
-        selectedChallenges = selectedChallenges.filter(id => id !== cid);
-        el.classList.remove('active');
-      } else {
-        selectedChallenges.push(cid);
-        el.classList.add('active');
-      }
-      const bonus = getChallengeXPBonus(selectedChallenges);
-      const xpEl = overlay.querySelector('#challenge-xp-total');
-      if (xpEl) xpEl.textContent = bonus > 0
-        ? i18n.t('challenge_xp_bonus', Math.round(bonus * 100))
-        : i18n.t('challenge_xp_none');
-    });
-  });
-
-  $('diff-back').addEventListener('click', () => {
-    overlay.classList.add('hidden');
-    openWardenSelect();
-  });
-
-  $('diff-confirm').addEventListener('click', () => {
-    overlay.classList.add('hidden');
-    startRun();
-  });
-}
-
-// ── 메뉴 랭크 표시 업데이트 ──────────────────────────
-function updateMenuRank() {
-  const rankEl  = $('menu-rank-num');
-  const fillEl  = $('menu-xp-fill');
-  const runsEl  = $('menu-stat-runs');
-  const winsEl  = $('menu-stat-wins');
-  const killsEl = $('menu-stat-kills');
-  if (!rankEl) return;
-
-  rankEl.textContent  = meta.rank;
-  runsEl.textContent  = i18n.t('stat_runs',  meta.runsPlayed);
-  winsEl.textContent  = i18n.t('stat_wins',  meta.runsWon);
-  killsEl.textContent = i18n.t('stat_kills', meta.totalKills);
-
-  // data-i18n-n 업데이트 (DOM 자동 적용용)
-  if (runsEl.dataset.i18nN !== undefined)  runsEl.dataset.i18nN  = meta.runsPlayed;
-  if (winsEl.dataset.i18nN !== undefined)  winsEl.dataset.i18nN  = meta.runsWon;
-  if (killsEl.dataset.i18nN !== undefined) killsEl.dataset.i18nN = meta.totalKills;
-
-  const pct = meta.rank >= MAX_RANK ? 100 : meta.rankProgress * 100;
-  // 짧은 딜레이 후 XP 바 채우기 (CSS 트랜지션)
-  requestAnimationFrame(() => {
-    fillEl.style.width = pct.toFixed(1) + '%';
-  });
-
-  // Continue 버튼: 저장된 런이 있으면 표시
-  const continueBtn = $('btn-continue');
-  if (continueBtn) {
-    let saveData = null;
-    try { saveData = JSON.parse(localStorage.getItem('rw_autosave') || 'null'); } catch {}
-    if (saveData?.v && saveData.wave > 0) {
-      continueBtn.classList.remove('hidden');
-      continueBtn.textContent = i18n.t('btn_continue', saveData.wave, saveData.mapIcon ?? '🗺️', saveData.mapName ?? '');
-    } else {
-      continueBtn.classList.add('hidden');
-    }
-  }
-}
-
-// ── Codex 화면 열기 ───────────────────────────────────
-function openCodex() {
-  const container = $('screen-codex');
-  container.classList.remove('hidden');
-
-  const rank    = meta.rank;
-  const totalXP = meta.totalXP;
-  const pct     = rank >= MAX_RANK ? 100 : (meta.rankProgress * 100).toFixed(1);
-  const nextXP  = rank >= MAX_RANK ? 0 : xpForLevel(rank + 1) - totalXP;
-
-  container.innerHTML = `
-    <div class="codex-box" style="animation: shopSlideIn 0.3s cubic-bezier(0.34,1.56,0.64,1)">
-      <div class="codex-header">
-        <div class="codex-title">📖 ${i18n.t('btn_codex').replace(/^📖\s*/, '')}</div>
-        <div class="codex-rank-badge">⚜️ ${i18n.t('warden_rank')} ${rank}${rank >= MAX_RANK ? ' · MAX' : ''}</div>
-      </div>
-
-      <div class="codex-xp-section">
-        <div class="codex-xp-bar-track">
-          <div class="codex-xp-bar-fill" style="width:${pct}%"></div>
-        </div>
-        <div class="codex-xp-labels">
-          <span>${i18n.t('rank_num', rank)} · ${totalXP} XP</span>
-          <span>${rank < MAX_RANK ? i18n.t('codex_xp_to', nextXP, rank + 1) : i18n.t('codex_max_rank')}</span>
-        </div>
-      </div>
-
-      <div class="codex-stats">
-        <div class="codex-stat-item"><span>${meta.runsPlayed}</span> ${i18n.t('codex_stat_runs')}</div>
-        <div class="codex-stat-item"><span>${meta.runsWon}</span> ${i18n.t('codex_stat_wins')}</div>
-        <div class="codex-stat-item"><span>${meta.totalKills}</span> ${i18n.t('codex_stat_slain')}</div>
-        <div class="codex-stat-item"><span>${meta.runsPlayed > 0 ? ((meta.runsWon/meta.runsPlayed)*100).toFixed(0) : 0}%</span> ${i18n.t('codex_stat_winrate')}</div>
-      </div>
-
-      <div class="codex-grid">
-        ${CODEX_UNLOCKS.map(u => _buildCodexItem(u, rank)).join('')}
-      </div>
-
-      <div class="codex-footer">
-        <button class="btn-primary codex-close-btn" id="btn-codex-close">${i18n.t('howto_close')}</button>
-      </div>
-    </div>
-  `;
-
-  $('btn-codex-close').addEventListener('click', () => {
-    container.classList.add('hidden');
-  });
-}
-
-function _buildCodexItem(unlock, currentRank) {
-  const isUnlocked = currentRank >= unlock.rank;
-  return `
-    <div class="codex-item ${isUnlocked ? 'unlocked' : 'locked'}">
-      ${isUnlocked ? '<div class="codex-unlock-glow"></div>' : ''}
-      ${!isUnlocked ? '<span class="codex-lock-icon">🔒</span>' : ''}
-      <div class="codex-item-icon">${unlock.icon}</div>
-      <div class="codex-item-name">${i18n.lang === 'ko' ? (unlock.titleKo || unlock.title) : unlock.title}</div>
-      <div class="codex-item-rank ${isUnlocked ? 'unlocked-rank' : ''}">
-        ${isUnlocked ? i18n.t('codex_unlocked', unlock.rank) : i18n.t('codex_locked', unlock.rank)}
-      </div>
-      <div class="codex-item-desc">${i18n.lang === 'ko' ? (unlock.descKo || unlock.desc) : unlock.desc}</div>
-    </div>
-  `;
-}
 
 // ── 자동저장 ──────────────────────────────────────────
 function saveCheckpoint() {
@@ -573,24 +221,25 @@ function startRun() {
   ].forEach(id => $(id)?.classList.add('hidden'));
 
   // 핸드 dirty-flag 초기화 (새 런 강제 리렌더)
-  _lastHandKey = '';
+  shared._lastHandKey = '';
   // 이전 런 정리
   if (rafId) cancelAnimationFrame(rafId);
 
   // DLC 상태에 따라 최대 웨이브 / 보스 웨이브 결정
-  const hasShadowRealmDlc = steam?.isDlcOwned('shadow_realm') ?? false;
-  MAX_WAVES  = hasShadowRealmDlc ? MAX_WAVES_DLC  : MAX_WAVES_BASE;
-  BOSS_WAVES = hasShadowRealmDlc ? BOSS_WAVES_DLC : BOSS_WAVES_BASE;
+  clearDLCs();
+  if (steam?.isDlcOwned('shadow_realm')) registerDLC('shadow_realm');
+  shared.maxWaves  = hasDLC('shadow_realm') ? MAX_WAVES_DLC  : MAX_WAVES_BASE;
+  shared.bossWaves = hasDLC('shadow_realm') ? BOSS_WAVES_DLC : BOSS_WAVES_BASE;
 
   // Warden + 난이도 기반 시작 조건
   const bonuses    = meta.bonuses;
-  const warden     = selectedWarden;
-  const diff       = selectedDifficulty;
+  const warden     = shared.selectedWarden;
+  const diff       = shared.selectedDifficulty;
   const initGold   = Math.max(0, warden.startGold + (bonuses.startGold || 0) + diff.goldBonus);
   const initNexus  = Math.max(1, warden.nexusHp + (bonuses.nexusHp || 0) + diff.nexusHp);
 
-  const ascMods       = getAscensionMods(selectedAscension);
-  const challengeMods = getChallengeMods(selectedChallenges);
+  const ascMods       = getAscensionMods(shared.selectedAscension);
+  const challengeMods = getChallengeMods(shared.selectedChallenges);
 
   // 챌린지 poverty: 시작 골드 오버라이드
   const finalGold = challengeMods.startGold !== null
@@ -603,8 +252,8 @@ function startRun() {
     maxNexusHp:  initNexus,      // 이번 런 넥서스 최대 HP (heal 상한선)
     gold:        finalGold,
     difficulty:  diff,           // 런 내 난이도 참조
-    ascension:   selectedAscension,  // 런 내 Ascension 레벨
-    challenges:     [...selectedChallenges],
+    ascension:   shared.selectedAscension,  // 런 내 Ascension 레벨
+    challenges:     [...shared.selectedChallenges],
     challengeMods,
     ascMods,                     // 누적 핸디캡 mods
     phase:       'pre',
@@ -640,8 +289,8 @@ function startRun() {
   svg.innerHTML = '';
 
   // 맵 선택 — 자동저장 복원 시 저장된 맵 사용, 그 외 랜덤
-  const selectedMap = _savedRunData?.mapId
-    ? (getMapById(_savedRunData.mapId) ?? pickRandomMap())
+  const selectedMap = shared._savedRunData?.mapId
+    ? (getMapById(shared._savedRunData.mapId) ?? pickRandomMap())
     : pickRandomMap();
   setActiveMap(selectedMap.path);
   state.mapId   = selectedMap.id;
@@ -699,15 +348,24 @@ function startRun() {
   });
   relicUI.initHUD($('hud'));
 
+  shared.state      = state;
+  shared.renderer   = renderer;
+  shared.enemySystem = enemySystem;
+  shared.towerSystem = towerSystem;
+  shared.cardSystem  = cardSystem;
+  shared.relicUI     = relicUI;
+
   // UI 초기화
   showScreen('game');
+  shared.onCardClick = onCardClick;
+  shared.startRun    = startRun;
   updateHUD();
   cardSystem.drawHand();
   renderHand();
   setWaveButton(i18n.t('btn_start_wave'), false);
   log(`${warden.icon} ${i18n.t('log_run_start', warden.name)}`);
   log(`${selectedMap.icon} ${selectedMap.name}  ${diff.icon} ${i18n.t('log_difficulty', i18n.t('diff_' + diff.id))}`, 'gold');
-  if (selectedAscension > 0) log(i18n.t('log_ascension', selectedAscension), 'bad');
+  if (shared.selectedAscension > 0) log(i18n.t('log_ascension', shared.selectedAscension), 'bad');
   log(`Passive: ${i18n.t(warden.passiveKey)}`, 'gold');
   music.crossfadeTo('game');
 
@@ -716,9 +374,9 @@ function startRun() {
   rafId = requestAnimationFrame(gameLoop);
 
   // ── 자동저장 복원 또는 유물 선택/튜토리얼 ─────────────
-  if (_savedRunData) {
-    const saveData = _savedRunData;
-    _savedRunData = null;
+  if (shared._savedRunData) {
+    const saveData = shared._savedRunData;
+    shared._savedRunData = null;
     setTimeout(() => _restoreFromSave(saveData), 300);
   } else if (TutorialUI.isDone()) {
     setTimeout(() => _openRelicPicker(), 600);
@@ -909,50 +567,6 @@ function gameLoop(now) {
   rafId = requestAnimationFrame(gameLoop);
 }
 
-// ── 보스 HP 바 업데이트 ───────────────────────────────
-function onBossUpdate({ hp, maxHp, hidden, name }) {
-  const wrap      = $('boss-hpbar-wrap');
-  const fill      = $('boss-hpbar-fill');
-  const text      = $('boss-hp-text');
-  const nameLabel = $('boss-name-label');
-  const iconEl    = $('boss-icon');
-  if (!wrap) return;
-
-  if (hidden || (hp === 0 && maxHp === 1)) {
-    wrap.classList.add('hidden');
-    return;
-  }
-
-  wrap.classList.remove('hidden');
-
-  // 보스 종류별 스타일
-  if (name === 'Void Titan') {
-    wrap.style.borderColor = '#9B59B6';
-    if (nameLabel) nameLabel.textContent = 'VOID TITAN';
-    if (iconEl)    iconEl.textContent    = '🌑';
-    fill.style.background = 'linear-gradient(90deg,#4A235A,#9B59B6)';
-  } else if (name === 'Abyssal Dragon') {
-    // 2페이즈 체크
-    const isPhase2 = hp <= maxHp * 0.5;
-    wrap.style.borderColor = isPhase2 ? '#FF00FF' : '#330066';
-    if (nameLabel) nameLabel.textContent = isPhase2 ? 'ABYSSAL DRAGON — PHASE 2' : 'ABYSSAL DRAGON';
-    if (iconEl)    iconEl.textContent    = isPhase2 ? '🐉' : '🌀';
-    fill.style.background = isPhase2
-      ? 'linear-gradient(90deg,#330066,#FF00FF)'
-      : 'linear-gradient(90deg,#0D0030,#5500AA)';
-  } else {
-    wrap.style.borderColor = '#B8860B';
-    if (nameLabel) nameLabel.textContent = 'IRONCLAD';
-    if (iconEl)    iconEl.textContent    = '💀';
-    if (hp / maxHp > 0.5)      fill.style.background = 'linear-gradient(90deg,#8B0000,#FFD700)';
-    else if (hp / maxHp > 0.2) fill.style.background = 'linear-gradient(90deg,#8B0000,#FF6600)';
-    else                        fill.style.background = 'linear-gradient(90deg,#8B0000,#FF0000)';
-  }
-
-  const pct = Math.max(0, (hp / maxHp) * 100).toFixed(1);
-  fill.style.width = pct + '%';
-  text.textContent = `${Math.max(0, Math.round(hp))} / ${maxHp}`;
-}
 
 // ── 웨이브 시작 ───────────────────────────────────────
 function beginWave() {
@@ -971,7 +585,7 @@ function beginWave() {
   setWaveButton(i18n.t('btn_wave_in_progress'), true);
 
   // 보스 웨이브 특별 처리
-  const isBossWave = BOSS_WAVES.has(state.wave);
+  const isBossWave = shared.bossWaves.has(state.wave);
   const actNum     = Math.ceil(state.wave / ACT_SIZE);
 
   if (isBossWave) {
@@ -1059,7 +673,7 @@ function onWaveCleared() {
 
   $('boss-hpbar-wrap')?.classList.add('hidden');
 
-  const isFinal   = state.wave >= MAX_WAVES;
+  const isFinal   = state.wave >= shared.maxWaves;
   const isActEnd  = state.wave % ACT_SIZE === 0 && !isFinal;  // 액트 클리어 (보스)
 
   log(i18n.t('log_wave_clear', state.wave, totalWaveGold), 'good');
@@ -1085,48 +699,6 @@ function onWaveCleared() {
   // Act 전환: 1.5초 추가 대기 후 다음 Act 예고
   const delay = isActEnd ? 2500 : 1200;
   setTimeout(() => openNodeSelection(), delay);
-}
-
-// ── 웨이브 배너 ───────────────────────────────────────
-function showClearBanner(waveNum, isBossStart = false, isActEnd = false) {
-  const existing = document.getElementById('wave-clear-banner');
-  existing?.remove();
-
-  const banner   = document.createElement('div');
-  banner.id = 'wave-clear-banner';
-  const actNum   = Math.ceil(waveNum / ACT_SIZE);
-
-  if (isBossStart) {
-    const bossName = waveNum === 5 ? i18n.t('banner_boss_ironclad')
-                   : waveNum === 10 ? i18n.t('banner_boss_titan')
-                   : i18n.t('banner_boss_dragon');
-    banner.classList.add('boss-banner');
-    banner.innerHTML = `
-      ⚔️ ${i18n.t('banner_boss_act', actNum)} ⚔️
-      <div class="banner-sub" style="color:#FFD700">${bossName}</div>
-    `;
-  } else if (waveNum >= MAX_WAVES) {
-    banner.classList.add('victory-banner');
-    banner.innerHTML = `
-      ${i18n.t('banner_victory')}
-      <div class="banner-sub">${i18n.t('banner_all_clear')}</div>
-    `;
-  } else if (isActEnd) {
-    banner.classList.add('act-clear-banner');
-    banner.innerHTML = `
-      ${i18n.t('banner_act_clear', actNum)}
-      <div class="banner-sub">${i18n.t('banner_act_next', actNum + 1)}</div>
-    `;
-  } else {
-    banner.innerHTML = `
-      ${i18n.t('banner_wave_clear', waveNum)}
-      <div class="banner-sub">${i18n.t('banner_entering_shop')}</div>
-    `;
-  }
-
-  document.body.appendChild(banner);
-  const dur = (isBossStart || isActEnd) ? 2200 : 1100;
-  setTimeout(() => banner.remove(), dur);
 }
 
 // ── 노드 선택 화면 ────────────────────────────────────
@@ -1370,10 +942,10 @@ function onEnemyKilled(reward) {
   // ── Shadow Charge 패시브 (Shadow Realm Warden DLC) ──────
   if (state?.warden?.passive === 'shadow_charge') {
     state.shadowCharges = (state.shadowCharges ?? 0) + 1;
-    _updateShadowChargeHUD();
+    updateShadowChargeHUD();
     if (state.shadowCharges >= 10) {
       state.shadowCharges = 0;
-      _updateShadowChargeHUD();
+      updateShadowChargeHUD();
       _triggerShadowAutoSpell();
     }
   }
@@ -1658,76 +1230,6 @@ function spendGold(amount) {
   updateHUD();
 }
 
-// ── HUD 업데이트 ──────────────────────────────────────
-function updateHUD() {
-  const actNum    = Math.max(1, Math.ceil(state.wave / ACT_SIZE));
-  const waveInAct = state.wave > 0 ? ((state.wave - 1) % ACT_SIZE) + 1 : 1;
-  $('hud-wave').textContent = `A${actNum} W${waveInAct}/${ACT_SIZE}`;
-
-  // 넥서스 하트 동적 생성 (첫 호출 또는 최대 HP 변경 시)
-  const heartsContainer = $('nexus-hearts');
-  if (heartsContainer && state.nexusHp !== undefined) {
-    // state.maxNexusHp 우선 사용 (blood_price 등으로 감소될 수 있음)
-    const maxHp = state.maxNexusHp
-      ?? (state.difficulty ? (state.warden.nexusHp + (meta.bonuses.nexusHp||0) + state.difficulty.nexusHp) : 3);
-    const currentCount = heartsContainer.querySelectorAll('.heart').length;
-    if (currentCount !== Math.max(1, maxHp)) {
-      heartsContainer.innerHTML = Array.from({ length: Math.max(1, maxHp) },
-        (_, i) => `<span class="heart${i < state.nexusHp ? ' active' : ''}">♥</span>`
-      ).join('');
-    }
-  }
-
-  // Warden 배지 업데이트
-  const w = state.warden;
-  if (w) {
-    const iconEl = $('hud-warden-icon');
-    const nameEl = $('hud-warden-name');
-    const actEl  = $('hud-act-badge');
-    if (iconEl) iconEl.textContent = w.icon;
-    if (nameEl) nameEl.textContent = w.name;
-    // ACT 배지에 난이도 아이콘도 표시
-    const diffIcon = state.difficulty?.icon ?? '';
-    if (actEl)  actEl.textContent  = `ACT ${actNum} ${diffIcon}`;
-  }
-  $('hud-gold').textContent = state.gold;
-  $('hud-deck').textContent = cardSystem?.deckCount ?? 0;
-
-  // 넥서스 하트
-  const hearts = document.querySelectorAll('.heart');
-  hearts.forEach((h, i) => {
-    h.classList.toggle('active', i < state.nexusHp);
-  });
-
-  // 카드 어포더빌리티 갱신
-  renderHand();
-}
-
-// ── Shadow Charge HUD 업데이트 (DLC) ──────────────────
-function _updateShadowChargeHUD() {
-  let bar = document.getElementById('shadow-charge-bar');
-  if (state?.warden?.passive !== 'shadow_charge') {
-    if (bar) bar.style.display = 'none';
-    return;
-  }
-  if (!bar) {
-    // 최초 생성
-    bar = document.createElement('div');
-    bar.id = 'shadow-charge-bar';
-    bar.className = 'shadow-charge-bar';
-    const hud = document.getElementById('hud');
-    if (hud) hud.appendChild(bar);
-  }
-  bar.style.display = '';
-  const charges = state.shadowCharges ?? 0;
-  bar.innerHTML = `
-    <div class="sc-label">👁️ ${charges}/10</div>
-    <div class="sc-track">
-      <div class="sc-fill" style="width:${charges * 10}%"></div>
-    </div>
-  `;
-}
-
 // ── Shadow Charge 자동 주문 발동 (DLC) ─────────────────
 function _triggerShadowAutoSpell() {
   const SHADOW_AUTO_SPELLS = [
@@ -1749,74 +1251,6 @@ function _triggerShadowAutoSpell() {
   resolveSpell(card.effect);   // 무료 자동 발동 — 골드 소모 없음
 }
 
-// ── 카드 핸드 렌더링 ──────────────────────────────────
-function renderHand() {
-  // 핸드 구성·골드·선택 상태·웨이브 페이즈가 모두 동일하면 DOM 재생성 불필요
-  const handKey = [
-    state?.gold ?? 0,
-    state?.phase ?? '',
-    state?.selectedCard?.uid ?? '',
-    state?.ascMods?.extraSurcharge ?? 0,
-    i18n.lang,
-    cardSystem?.hand.map(c => c.uid).join(',') ?? '',
-  ].join('|');
-  if (handKey === _lastHandKey) return;
-  _lastHandKey = handKey;
-
-  const container = $('card-hand');
-  container.innerHTML = '';
-
-  const baseSurcharge = state.phase === 'wave' ? 1 + (state.ascMods?.extraSurcharge ?? 0) : 0;
-
-  for (const card of cardSystem.hand) {
-    // 주문 카드는 웨이브 중 추가 비용 없음 (웨이브 중 사용 목적)
-    const surcharge = (card.type === 'spell') ? 0 : baseSurcharge;
-    const arcaneDiscount = (card.type === 'spell' && state?.warden?.passive === PASSIVES.ARCANE_FLOW) ? 1 : 0;
-    const effectiveCost = Math.max(0, card.cost + surcharge - arcaneDiscount);
-    const canAfford = effectiveCost <= state.gold;
-    const isSelected = state.selectedCard?.uid === card.uid;
-    const isKo = i18n.lang === 'ko';
-    const cName = isKo ? (card.nameKo || card.name) : card.name;
-    const cDesc = isKo ? (card.descKo || card.desc) : card.desc;
-
-    // 챌린지 제한 여부 판별
-    const _cm = state.challengeMods;
-    let isBanned = false;
-    if (_cm) {
-      if (_cm.bannedCardTypes?.includes(card.type)) isBanned = true;
-      if (!isBanned && card.type === 'summon') {
-        const tid = TOWER_DEFS[card.tower]?.id ?? card.tower;
-        if (_cm.allowedTowers && !_cm.allowedTowers.includes(tid)) isBanned = true;
-        if (_cm.bannedTowers?.includes(tid)) isBanned = true;
-      }
-    }
-
-    const el = document.createElement('div');
-    el.className = `card${(!canAfford || isBanned) ? ' unaffordable' : ''}${isSelected ? ' selected' : ''}${isBanned ? ' challenge-banned' : ''}`;
-    el.dataset.rarity = card.rarity;
-    el.dataset.type   = card.type;
-
-    el.innerHTML = `
-      <div class="card-header">
-        <span class="card-name">${card.icon} ${cName}</span>
-        <span class="card-cost">${effectiveCost > 0 ? effectiveCost + 'g' : i18n.t('free').toUpperCase()}</span>
-      </div>
-      <div class="card-type-badge">${i18n.t('card_type_' + card.type) ?? card.type}${surcharge ? ' (' + i18n.t('card_surcharge_label') + ')' : ''}${isBanned ? ' 🚫' : ''}</div>
-      <div class="card-desc">${cDesc}</div>
-    `;
-
-    if ((canAfford || isSelected) && !isBanned) {
-      el.addEventListener('click', () => onCardClick(card));
-    }
-
-    container.appendChild(el);
-  }
-
-  if (cardSystem.hand.length === 0) {
-    container.innerHTML = `<div style="color:#555;font-size:0.8rem;padding:0.5rem;">${i18n.t('hand_empty')}</div>`;
-  }
-}
-
 // ── 이벤트 리스너 ─────────────────────────────────────
 // 첫 사용자 인터랙션에서 메뉴 BGM 시작 (Web Audio API 정책)
 let _bgmStarted = false;
@@ -1834,10 +1268,10 @@ $('btn-continue')?.addEventListener('click', () => {
   try { saveData = JSON.parse(localStorage.getItem('rw_autosave') || 'null'); } catch {}
   if (!saveData?.v) return;
   // 저장된 Warden·난이도·Ascension 복원 후 런 시작
-  selectedWarden     = getWardenById(saveData.wardenId);
-  selectedDifficulty = getDifficultyById(saveData.diffId) ?? getDifficultyById('standard');
-  selectedAscension  = saveData.asc ?? 0;
-  _savedRunData      = saveData;
+  shared.selectedWarden     = getWardenById(saveData.wardenId);
+  shared.selectedDifficulty = getDifficultyById(saveData.diffId) ?? getDifficultyById('standard');
+  shared.selectedAscension  = saveData.asc ?? 0;
+  shared._savedRunData      = saveData;
   audio.play('ui_click');
   startRun();
 });
@@ -1848,7 +1282,7 @@ $('btn-how').addEventListener('click', () => {
 $('btn-codex').addEventListener('click', openCodex);
 $('btn-replay-tut').addEventListener('click', () => {
   TutorialUI.reset();
-  selectedWarden = WARDEN_DEFS[0];  // 튜토리얼은 Iron Warden으로
+  shared.selectedWarden = WARDEN_DEFS[0];  // 튜토리얼은 Iron Warden으로
   startRun();
 });
 $('btn-howto-close').addEventListener('click', () => {
@@ -1912,12 +1346,12 @@ document.addEventListener('keydown', (e) => {
     if (phase === 'paused')  { resumeGame(); return; }
     if (phase === 'shop')    { $('screen-shop').querySelector('#shop-leave')?.click(); return; }
     if (phase === 'rest')    { $('screen-rest').querySelector('#rest-leave')?.click(); return; }
-    if (screens.game.classList.contains('active') && phase !== 'over') { pauseGame(); }
+    if (shared.screens.game.classList.contains('active') && phase !== 'over') { pauseGame(); }
     return;
   }
 
   // ── 메인 메뉴 ─────────────────────────────────────
-  if (screens.menu.classList.contains('active')) {
+  if (shared.screens.menu.classList.contains('active')) {
     if (key === 'Enter') { $('btn-start')?.click(); return; }
     if (key === 'c' || key === 'C') {
       const cont = $('btn-continue');
@@ -1941,7 +1375,7 @@ document.addEventListener('keydown', (e) => {
     return;
   }
 
-  if (!screens.game.classList.contains('active')) return;
+  if (!shared.screens.game.classList.contains('active')) return;
 
   // ── Tab: 게임 속도 토글 (웨이브 중) ──────────────
   if (key === 'Tab') {

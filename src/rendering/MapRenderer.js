@@ -57,13 +57,14 @@ export function hexToPixel(col, row) {
   return { x, y };
 }
 
+// Pre-computed offsets for flat-top hexagon corners (angles 0°, 60°, 120°, 180°, 240°, 300°)
+const _HEX_CORNERS = Array.from({ length: 6 }, (_, i) => {
+  const a = (Math.PI / 180) * (60 * i);
+  return [HEX_SIZE * Math.cos(a), HEX_SIZE * Math.sin(a)];
+});
+
 function hexCorners(cx, cy) {
-  const pts = [];
-  for (let i = 0; i < 6; i++) {
-    const angle = (Math.PI / 180) * (60 * i);
-    pts.push(`${cx + HEX_SIZE * Math.cos(angle)},${cy + HEX_SIZE * Math.sin(angle)}`);
-  }
-  return pts.join(' ');
+  return _HEX_CORNERS.map(([dx, dy]) => `${(cx + dx).toFixed(2)},${(cy + dy).toFixed(2)}`).join(' ');
 }
 
 // ── SVG 유틸 ──────────────────────────────────────────
