@@ -1,6 +1,6 @@
 /**
- * Shadow Realm DLC — 카드 데이터 (37종)
- * Summon(10) / Augment(14) / Spell(13)
+ * Shadow Realm DLC — 카드 데이터 (38종)
+ * Summon(11) / Augment(14) / Spell(13)
  * 테마: Shadow / Void / Death
  */
 
@@ -88,6 +88,14 @@ export const SHADOW_CARDS = [
     desc:   'Place a Phantom Archer. Moderate damage, fast attack. Shadow energy enhances every 5th shot.',
     descKo: '환영 궁수를 배치합니다. 중간 피해, 빠른 공속. 5번째 공격마다 그림자 에너지 강화.',
     tower: 'bone_archer', dlc: 'shadow_realm',
+  },
+  {
+    id:     'summon_soul_reaper',
+    name:   'Soul Reaper',     nameKo: '영혼 수확자',
+    type: 'summon', rarity: 'legendary', cost: 6, icon: '💀',
+    desc:   'Place a Soul Reaper. Applies 60% slow (3.5s), 14 DPS shadow decay (6s), and 25% armor penetration. Minimal direct damage — extends enemy exposure time dramatically.',
+    descKo: '영혼 수확자를 배치합니다. 60% 감속(3.5초), 초당 14 그림자 붕괴(6초), 방어력 25% 관통을 부여합니다. 직접 피해는 낮지만, 적의 사거리 노출 시간을 대폭 연장합니다.',
+    tower: 'soul_reaper', dlc: 'shadow_realm',
   },
 
   // ════════════════════════════════════════════════════

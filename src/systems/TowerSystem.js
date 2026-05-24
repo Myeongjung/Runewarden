@@ -106,6 +106,20 @@ export class TowerSystem {
     return count;
   }
 
+  // Void Echo Relic: 특정 태그를 가진 모든 타워 즉시 발사
+  triggerAllByTag(tag) {
+    let count = 0;
+    for (const t of this.towers.values()) {
+      if (!t.def.tags?.includes(tag)) continue;
+      const target = this.enemySystem.getLeadEnemy(t.x, t.y, t.range);
+      if (!target) continue;
+      this._fireAt(t, target);
+      t.cooldown = t.attackSpeed * this._globalSpeedMult;
+      count++;
+    }
+    return count;
+  }
+
   _injectStyles() {
     if (document.getElementById('tower-fx-style')) return;
     const s = document.createElement('style');

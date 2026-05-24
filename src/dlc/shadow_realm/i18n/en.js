@@ -39,11 +39,12 @@ export default {
   relic_shadow_pact:           'Shadow Pact',
   relic_shadow_pact_desc:      'With 2+ Shadow towers, all Shadow damage +30%.',
   relic_void_echo_relic:       'Void Echo',
-  relic_void_echo_relic_desc:  'Casting a spell fires all Void towers immediately.',
+  relic_void_echo_relic_desc:  'Casting a spell fires all Void towers immediately. (8s cooldown)',
+  log_void_echo_relic:         (n) => `Void Echo! ${n} Void tower(s) fired!`,
   relic_charge_crystal:        'Charge Crystal',
   relic_charge_crystal_desc:   'Shadow Warden: Shadow Charge triggers at 8 instead of 10.',
   relic_undying_will:          'Undying Will',
-  relic_undying_will_desc:     'Draw 2 extra cards after each wave clear.',
+  relic_undying_will_desc:     'Shadow Warden only: every 5 kills grant +1 bonus Shadow Charge. Reach the auto-cast threshold faster.',
 
   // ── Map names ──────────────────────────────────────
   dlc_sr_map_void_corridor:    'Void Corridor',

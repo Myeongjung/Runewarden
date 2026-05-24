@@ -38,11 +38,12 @@ export default {
   relic_shadow_pact:           '그림자 협약',
   relic_shadow_pact_desc:      '그림자 타워 2개 이상 활성 시, 그림자 피해 +30%.',
   relic_void_echo_relic:       '공허 메아리',
-  relic_void_echo_relic_desc:  '주문 시전 후 모든 Void 타워가 즉시 발사합니다.',
+  relic_void_echo_relic_desc:  '주문 시전 후 모든 Void 타워가 즉시 발사합니다. (8초 쿨다운)',
+  log_void_echo_relic:         (n) => `공허 메아리! Void 타워 ${n}기 즉시 발사!`,
   relic_charge_crystal:        '충전 수정',
   relic_charge_crystal_desc:   '그림자 워든: 그림자 충전이 10 대신 8에서 발동됩니다.',
   relic_undying_will:          '불굴의 의지',
-  relic_undying_will_desc:     '웨이브 클리어 후 카드 2장을 즉시 드로우합니다.',
+  relic_undying_will_desc:     '그림자 워든 전용: 적 5처치마다 그림자 충전 +1 보너스. 자동 시전까지 더 빠르게 도달합니다.',
 
   // ── 맵 이름 ──────────────────────────────────────────
   dlc_sr_map_void_corridor:    '공허 회랑',

@@ -217,7 +217,8 @@ export class EnemySystem {
   }
 
   // ── 유물: 감속/번 배율 설정 ─────────────────────────
-  setSlowBonus(mult) { this._slowBonus = mult; }
+  // 복수 slow_bonus 유물 스택 시 곱연산, 상한 1.40으로 캡 (95% 슬로우 버그 방지)
+  setSlowBonus(mult) { this._slowBonus = Math.min(1.40, this._slowBonus * mult); }
   setBurnBonus(extraDps, extraDuration) {
     this._burnExtraDps      = (this._burnExtraDps ?? 0) + extraDps;
     this._burnExtraDuration = (this._burnExtraDuration ?? 0) + extraDuration;
