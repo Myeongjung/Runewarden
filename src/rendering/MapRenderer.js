@@ -1,12 +1,9 @@
 // SVG 헥스 그리드 렌더러 — flat-top 헥사곤 사용
 // 헥스 좌표계: offset(col, row), 픽셀 변환 포함
 
-const SVG_NS = 'http://www.w3.org/2000/svg';
+import { HEX_SIZE, HEX_W, HEX_H } from '../config/constants.js';
 
-// 헥스 크기 (flat-top: width = size*2, height = size*√3)
-const HEX_SIZE = 34;
-const HEX_W = HEX_SIZE * 2;
-const HEX_H = Math.sqrt(3) * HEX_SIZE;
+const SVG_NS = 'http://www.w3.org/2000/svg';
 
 // 맵 크기
 export const COLS = 14;

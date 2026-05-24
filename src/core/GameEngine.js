@@ -24,8 +24,9 @@ import { DIFFICULTY_DEFS, getDifficultyById } from '../data/difficulty.js';
 import { ASCENSION_DEFS, getAscensionMods }   from '../data/ascension.js';
 import { CHALLENGE_DEFS, getChallengeXPBonus, getChallengeMods } from '../data/challenges.js';
 import { resolveSpell as _resolveSpellImpl } from './SpellResolver.js';
+import { HEX_W } from '../config/constants.js';
+import { log, spawnFloatText, shakeNexus, setWaveButton } from './GameUtils.js';
 
-const HEX_W = 34 * 2;
 function rangeToPixel(hexRange) { return hexRange * HEX_W * 0.75; }
 
 // ── 상수 ──────────────────────────────────────────────
@@ -1813,61 +1814,6 @@ function renderHand() {
 
   if (cardSystem.hand.length === 0) {
     container.innerHTML = `<div style="color:#555;font-size:0.8rem;padding:0.5rem;">${i18n.t('hand_empty')}</div>`;
-  }
-}
-
-// ── 웨이브 버튼 ───────────────────────────────────────
-function setWaveButton(label, disabled) {
-  const btn = $('btn-wave');
-  btn.textContent = label;
-  btn.disabled = disabled;
-  btn.classList.toggle('active', disabled);
-}
-
-// ── 로그 ──────────────────────────────────────────────
-function log(msg, cls = '') {
-  const log = $('status-log');
-  const entry = document.createElement('div');
-  entry.className = `log-entry${cls ? ' ' + cls : ''}`;
-  entry.textContent = msg;
-  log.appendChild(entry);
-  log.scrollTop = log.scrollHeight;
-  // 최대 20줄
-  while (log.children.length > 20) log.removeChild(log.firstChild);
-}
-
-// ── 부유 텍스트 ───────────────────────────────────────
-function spawnFloatText(text, x, y, cls = '') {
-  const el = document.createElement('div');
-  el.className = `float-text${cls ? ' ' + cls : ''}`;
-  el.textContent = text;
-  el.style.left = x + 'px';
-  el.style.top  = y + 'px';
-  // 데미지 숫자 크기 스케일링 (임팩트 비례)
-  const num = parseInt(text);
-  if (!isNaN(num) && num > 0) {
-    if      (num >= 150) el.style.fontSize = '1.2rem';
-    else if (num >= 80)  el.style.fontSize = '1.05rem';
-    else if (num >= 40)  el.style.fontSize = '0.9rem';
-    // 기본: 0.78rem (CSS에서 정의)
-  }
-  $('float-container').appendChild(el);
-  setTimeout(() => el.remove(), 900);
-}
-
-// ── 넥서스 피격 이펙트 ────────────────────────────────
-function shakeNexus() {
-  const hearts = document.querySelectorAll('.heart');
-  hearts.forEach(h => {
-    h.style.animation = 'none';
-    h.offsetHeight;
-    h.style.animation = 'heartPulse 0.4s ease-out';
-  });
-  if (!document.getElementById('heart-pulse-style')) {
-    const s = document.createElement('style');
-    s.id = 'heart-pulse-style';
-    s.textContent = `@keyframes heartPulse { 0%{transform:scale(1)} 50%{transform:scale(1.5)} 100%{transform:scale(1)} }`;
-    document.head.appendChild(s);
   }
 }
 

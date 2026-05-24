@@ -1,8 +1,7 @@
 // 타워 배치·공격·강화 시스템
 import { hexToPixel, svgEl } from '../rendering/MapRenderer.js';
 import { audio } from './AudioSystem.js';
-
-const HEX_W = 34 * 2;
+import { HEX_W } from '../config/constants.js';
 
 // SVG 필터 정의 (글로우 이펙트)
 function ensureFilters(svg) {

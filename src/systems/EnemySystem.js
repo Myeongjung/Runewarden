@@ -1,9 +1,7 @@
 // 적 이동 및 상태 관리 시스템
 import { ENEMY_PATH, hexToPixel, svgEl } from '../rendering/MapRenderer.js';
 import { audio } from './AudioSystem.js';
-
-const HEX_SIZE = 34;
-const HEX_W = HEX_SIZE * 2;
+import { HEX_W } from '../config/constants.js'; // eslint-disable-line no-unused-vars
 
 // WAYPOINTS는 런 시작(startWave) 시점에 활성 경로로 재계산됨
 // 모듈 로드 시에는 기본 경로로 초기화
