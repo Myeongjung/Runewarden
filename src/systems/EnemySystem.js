@@ -175,18 +175,27 @@ export class EnemySystem {
     this._slowBonus   = 1;    // 유물 감속 배율
     this._hpScale          = 1.15; // 난이도 HP 스케일 (기본: Standard)
     this._eliteBonus       = 0;    // 엘리트 추가 HP 배율
-    this._bossHpScale      = 1;    // 보스 HP 스케일 (Veteran: 1.25)
-    this._enrageMult       = 1.8;  // 격노 속도 배율 (Veteran: 2.0)
-    this._spawnIntervalMult = 1;   // 스폰 간격 배율 (Veteran: 0.85, wave 4+)
+    this._bossHpScale      = 1;    // 보스 HP 스케일 (Novice: 0.80, Veteran: 1.25)
+    this._enrageMult       = 1.8;  // 격노 속도 배율 (Novice: 1.3, Veteran: 2.0)
+    this._spawnIntervalMult = 1;   // 스폰 간격 배율 (Novice: 1.25, Veteran: 0.85)
     this._veteranRegen     = false; // 재생 적 DPS 강화 여부
+    this._noviceRegen      = false; // 재생 적 DPS 절반 여부
     this._injectStyles();
   }
 
-  // Veteran 재생 강화: Necromancer 6→10, Void Reaper 8→14, Void Herald 5→8
+  // 난이도별 재생 DPS 조정
+  // Veteran: Necromancer 6→10, Void Reaper 8→14, Void Herald 5→8
+  // Novice: 모든 재생 적 DPS 절반 (학습 곡선 완화)
   _applyVeteranRegen(type, baseDps) {
-    if (!this._veteranRegen || baseDps === 0) return baseDps;
-    const table = { necromancer: 10, void_reaper: 14, void_herald: 8 };
-    return table[type] ?? baseDps;
+    if (baseDps === 0) return baseDps;
+    if (this._veteranRegen) {
+      const table = { necromancer: 10, void_reaper: 14, void_herald: 8 };
+      return table[type] ?? baseDps;
+    }
+    if (this._noviceRegen) {
+      return Math.max(1, Math.round(baseDps * 0.5));
+    }
+    return baseDps;
   }
 
   // ── 유물: 감속/번 배율 설정 ─────────────────────────
@@ -243,7 +252,8 @@ export class EnemySystem {
   // spawnDelay: 첫 스폰까지 추가 대기 ms (extra_prep 이벤트)
   // spawnSpeedMult: 적 기본 속도 배율 (slow_next_wave 이벤트, 예: 0.75 = 25% 감속)
   startWave(waveIndex, hpScale = 1.15, eliteBonus = 0, spawnDelay = 0, spawnSpeedMult = 1,
-            bossHpScale = 1, enrageMult = 1.8, spawnIntervalMult = 1, veteranRegen = false) {
+            bossHpScale = 1, enrageMult = 1.8, spawnIntervalMult = 1, veteranRegen = false,
+            noviceRegen = false, spawnIntervalStartWave = 3) {
     // 활성 맵 경로로 웨이포인트 갱신
     WAYPOINTS = ENEMY_PATH.current.map(([c, r]) => hexToPixel(c, r));
     this._hpScale           = hpScale;
@@ -252,8 +262,9 @@ export class EnemySystem {
     this._bossHpScale       = bossHpScale;
     this._enrageMult        = enrageMult;
     this._veteranRegen      = veteranRegen;
-    // Wave 4(index 3)부터 스폰 간격 압박 적용
-    this._spawnIntervalMult = waveIndex >= 3 ? spawnIntervalMult : 1;
+    this._noviceRegen       = noviceRegen;
+    // 난이도별 스폰 간격 적용 시작 웨이브 (Novice: 0, Veteran: 3)
+    this._spawnIntervalMult = waveIndex >= spawnIntervalStartWave ? spawnIntervalMult : 1;
 
     const config = WAVE_CONFIGS[Math.min(waveIndex, WAVE_CONFIGS.length - 1)];
     this._spawnQueue = [];
