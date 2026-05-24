@@ -83,6 +83,20 @@ let rafId = null;
 let lastTime = 0;
 let gameSpeed = 1;   // 1 = 1×, 2 = 2× (웨이브 중에만 적용)
 
+// ── QW#3: 히트스톱 ────────────────────────────────────
+// 연속 처치(스플래시) 시 중첩 방지: 복원할 속도를 별도 저장
+let _hitStopTargetSpeed = 1;
+let _hitStopTimer       = null;
+function hitStop(ms) {
+  if (!_hitStopTimer) _hitStopTargetSpeed = gameSpeed;
+  clearTimeout(_hitStopTimer);
+  gameSpeed = 0;
+  _hitStopTimer = setTimeout(() => {
+    gameSpeed = _hitStopTargetSpeed;
+    _hitStopTimer = null;
+  }, ms);
+}
+
 // ── 일시정지 / 재개 ───────────────────────────────────
 function pauseGame() {
   if (!state || state.phase === 'over' || state.phase === 'paused') return;
@@ -679,6 +693,13 @@ function onWaveCleared() {
   log(i18n.t('log_wave_clear', state.wave, totalWaveGold), 'good');
   audio.play(isFinal ? 'victory' : 'wave_clear');
   if (!isFinal) music.crossfadeTo('game');
+  // QW#1: 웨이브 클리어 골드 플래시
+  const mapArea = document.getElementById('map-area');
+  if (mapArea) {
+    mapArea.classList.remove('screen-flash-gold');
+    void mapArea.offsetWidth;
+    mapArea.classList.add('screen-flash-gold');
+  }
 
   // ── Steam 업적: 웨이브 클리어 관련 ─────────────────────
   if (!state._nexusHitThisWave) {
@@ -921,6 +942,10 @@ function onEnemyReachEnd() {
 }
 
 function onEnemyKilled(reward) {
+  // QW#3: 적 등급별 히트스톱 (보스 75ms, 엘리트/탱크 40ms — 일반 적은 생략)
+  if (reward >= 20) hitStop(75);
+  else if (reward >= 3) hitStop(40);
+
   // Bloodlust 패시브: Storm Warden — 적 처치 골드 +1
   let bonus = 0;
   if (state?.warden?.passive === PASSIVES.BLOODLUST) {
@@ -1222,7 +1247,16 @@ function addGold(amount, xy, silent = false) {
   if (state?.stats) state.stats.goldEarned += amount;
   updateHUD();
   if (xy) spawnFloatText(`+${amount}`, xy.x, xy.y, 'gold');
-  if (amount > 0 && !silent) audio.play('gold_gain');
+  if (amount > 0 && !silent) {
+    audio.play('gold_gain');
+    // QW#1: 골드 HUD 펀치 애니메이션
+    const goldEl = document.getElementById('hud-gold');
+    if (goldEl) {
+      goldEl.classList.remove('gold-punch');
+      void goldEl.offsetWidth;
+      goldEl.classList.add('gold-punch');
+    }
+  }
 }
 
 function spendGold(amount) {

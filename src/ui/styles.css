@@ -2446,3 +2446,88 @@ kbd {
   min-height: 1.2em;
   transition: opacity 0.2s;
 }
+
+/* ═══════════════════════════════════════════════════════
+   VISUAL POLISH — QW#1 Color Grading / QW#2 Rim Glow / QW#3 Juiciness
+   ═══════════════════════════════════════════════════════ */
+
+/* ── QW#1: Map Area Vignette (AO fake) ──────────────────── */
+#map-area { position: relative; }
+#map-area::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 50%,
+    transparent 36%,
+    rgba(6, 4, 16, 0.54) 100%
+  );
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* QW#1: Subtle contrast + saturation lift on the SVG field */
+#game-svg { filter: contrast(1.07) saturate(1.13); }
+
+/* QW#1: Nexus critical (HP=1) — pulsing red vignette */
+@keyframes criticalPulseFade {
+  from { opacity: 0.45; }
+  to   { opacity: 1.0; }
+}
+#map-area.nexus-critical::after {
+  background: radial-gradient(ellipse at 50% 50%,
+    transparent 22%,
+    rgba(120, 0, 0, 0.42) 100%
+  );
+  animation: criticalPulseFade 1.35s ease-in-out infinite alternate;
+}
+
+/* QW#1: Wave-clear gold screen flash */
+@keyframes screenFlashGold {
+  0%   { box-shadow: inset 0 0 75px rgba(212,175,55,0.52); }
+  100% { box-shadow: inset 0 0  0px rgba(212,175,55,0); }
+}
+#map-area.screen-flash-gold { animation: screenFlashGold 0.70s ease-out forwards; }
+
+/* QW#1: Gold HUD punch */
+@keyframes goldPunch {
+  0%   { transform: scale(1);    color: var(--gold); }
+  42%  { transform: scale(1.40); color: #FFEF6E; text-shadow: 0 0 10px rgba(255,220,50,0.9); }
+  100% { transform: scale(1);    color: var(--gold); }
+}
+.gold-punch {
+  display: inline-block;
+  animation: goldPunch 0.34s cubic-bezier(0.34,1.56,0.64,1) forwards;
+}
+
+/* QW#1: Wave clear banner depth shadows */
+#wave-clear-banner { text-shadow: 0 2px 10px rgba(0,0,0,0.95); }
+.boss-banner    { box-shadow: 0 0 55px rgba(255, 55, 55, 0.50); }
+.victory-banner { box-shadow: 0 0 75px rgba(212,175,55,0.65); }
+.act-clear-banner { box-shadow: 0 0 48px rgba(80,180,255,0.38); }
+
+/* ── QW#2: Enemy Enrage Rim Glow ────────────────────────── */
+@keyframes enragedPulse {
+  from { filter: drop-shadow(0 0 3px var(--enrage-glow, #FF2200)) brightness(1.08); }
+  to   { filter: drop-shadow(0 0 10px var(--enrage-glow, #FF2200)) brightness(1.24); }
+}
+.enemy-enraged { animation: enragedPulse 0.52s ease-in-out infinite alternate; }
+
+/* QW#2: Abyssal Dragon Phase 2 */
+@keyframes phase2Pulse {
+  from { filter: drop-shadow(0 0 5px #EE00EE) brightness(1.15); }
+  to   { filter: drop-shadow(0 0 16px #FF44FF) brightness(1.38); }
+}
+.enemy-phase2 { animation: phase2Pulse 0.38s ease-in-out infinite alternate; }
+
+/* ── QW#3: Impact Decal Flash (SVG <g> wrapper) ─────────── */
+@keyframes impactBurst {
+  0%   { opacity: 0.85; transform: scale(0.08); }
+  100% { opacity: 0;    transform: scale(1.65); }
+}
+
+/* ── QW#3: Enhanced death particle (elite / boss) ───────── */
+@keyframes deathParticleElite {
+  0%   { opacity: 0.95; transform: scale(1.0); }
+  55%  { opacity: 0.8;  transform: scale(1.25); }
+  100% { opacity: 0;    transform: scale(0.2); }
+}

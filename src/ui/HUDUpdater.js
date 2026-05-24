@@ -81,6 +81,12 @@ export function updateHUD() {
   const hearts = document.querySelectorAll('.heart');
   hearts.forEach((h, i) => { h.classList.toggle('active', i < state.nexusHp); });
 
+  // QW#1: 넥서스 HP=1 → 지속 붉은 비네트
+  $('map-area')?.classList.toggle(
+    'nexus-critical',
+    state.nexusHp === 1 && state.phase !== 'over'
+  );
+
   renderHand();
 }
 
