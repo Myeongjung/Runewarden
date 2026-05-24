@@ -173,9 +173,20 @@ export class EnemySystem {
     this._dying = new Set();
     this._boss        = null;
     this._slowBonus   = 1;    // 유물 감속 배율
-    this._hpScale     = 1.15; // 난이도 HP 스케일 (기본: Standard)
-    this._eliteBonus  = 0;    // 엘리트 추가 HP 배율 (Veteran: 0.2)
+    this._hpScale          = 1.15; // 난이도 HP 스케일 (기본: Standard)
+    this._eliteBonus       = 0;    // 엘리트 추가 HP 배율
+    this._bossHpScale      = 1;    // 보스 HP 스케일 (Veteran: 1.25)
+    this._enrageMult       = 1.8;  // 격노 속도 배율 (Veteran: 2.0)
+    this._spawnIntervalMult = 1;   // 스폰 간격 배율 (Veteran: 0.85, wave 4+)
+    this._veteranRegen     = false; // 재생 적 DPS 강화 여부
     this._injectStyles();
+  }
+
+  // Veteran 재생 강화: Necromancer 6→10, Void Reaper 8→14, Void Herald 5→8
+  _applyVeteranRegen(type, baseDps) {
+    if (!this._veteranRegen || baseDps === 0) return baseDps;
+    const table = { necromancer: 10, void_reaper: 14, void_herald: 8 };
+    return table[type] ?? baseDps;
   }
 
   // ── 유물: 감속/번 배율 설정 ─────────────────────────
@@ -231,12 +242,18 @@ export class EnemySystem {
   // ── 웨이브 시작 ───────────────────────────────────────
   // spawnDelay: 첫 스폰까지 추가 대기 ms (extra_prep 이벤트)
   // spawnSpeedMult: 적 기본 속도 배율 (slow_next_wave 이벤트, 예: 0.75 = 25% 감속)
-  startWave(waveIndex, hpScale = 1.15, eliteBonus = 0, spawnDelay = 0, spawnSpeedMult = 1) {
+  startWave(waveIndex, hpScale = 1.15, eliteBonus = 0, spawnDelay = 0, spawnSpeedMult = 1,
+            bossHpScale = 1, enrageMult = 1.8, spawnIntervalMult = 1, veteranRegen = false) {
     // 활성 맵 경로로 웨이포인트 갱신
     WAYPOINTS = ENEMY_PATH.current.map(([c, r]) => hexToPixel(c, r));
-    this._hpScale        = hpScale;
-    this._eliteBonus     = eliteBonus;
-    this._spawnSpeedMult = spawnSpeedMult;  // slow_next_wave 이벤트 효과
+    this._hpScale           = hpScale;
+    this._eliteBonus        = eliteBonus;
+    this._spawnSpeedMult    = spawnSpeedMult;  // slow_next_wave 이벤트 효과
+    this._bossHpScale       = bossHpScale;
+    this._enrageMult        = enrageMult;
+    this._veteranRegen      = veteranRegen;
+    // Wave 4(index 3)부터 스폰 간격 압박 적용
+    this._spawnIntervalMult = waveIndex >= 3 ? spawnIntervalMult : 1;
 
     const config = WAVE_CONFIGS[Math.min(waveIndex, WAVE_CONFIGS.length - 1)];
     this._spawnQueue = [];
@@ -244,7 +261,7 @@ export class EnemySystem {
     for (const group of config) {
       for (let i = 0; i < group.count; i++) {
         this._spawnQueue.push({ type: group.type, at: cumDelay });
-        cumDelay += group.interval;
+        cumDelay += group.interval * this._spawnIntervalMult;
       }
     }
     // extra_prep: 첫 스폰을 spawnDelay ms 뒤로 미룸 (음수 타이머 시작)
@@ -338,8 +355,8 @@ export class EnemySystem {
     const start = WAYPOINTS[0];
     const id = `enemy-${++this._idCounter}`;
 
-    // 난이도 HP 스케일링: 보스는 적용 안 함 (디자인 기준이 이미 맞춤)
-    const hpScale  = def.isBoss ? 1 : (this._hpScale ?? 1.15);
+    // 난이도 HP 스케일링: 보스도 bossHpScale 적용
+    const hpScale  = def.isBoss ? (this._bossHpScale ?? 1) : (this._hpScale ?? 1.15);
     const eliteAdd = (def.isElite && !def.isBoss) ? (this._eliteBonus ?? 0) : 0;
     const scaledHp = Math.round(def.hp * (hpScale * (1 + eliteAdd)));
 
@@ -357,7 +374,7 @@ export class EnemySystem {
       slowImmune: def.slowImmune ?? false,           // Juggernaut, Stone Golem, Siege Beast, Colossus
       enrageThreshold: def.enrageThreshold ?? null,  // Berserker, Shadow Elite, Void Stalker, Colossus
       enraged:   false,
-      regenDps:        def.regenDps        ?? 0,     // Necromancer: 초당 HP 회복
+      regenDps:        this._applyVeteranRegen(type, def.regenDps ?? 0),
       damageReduction: def.damageReduction ?? 0,     // Plague Carrier, Phantom: 피해 감소율
       waypointIndex: 1, reached: false,
       frozen: 0, slowTimer: 0, slowAmt: 0,
@@ -700,7 +717,7 @@ export class EnemySystem {
     const enrageThreshold = e.enrageThreshold ?? (e.type === 'berserker' ? 0.4 : null);
     if (enrageThreshold && !e.enraged && e.hp <= e.maxHp * enrageThreshold) {
       e.enraged = true;
-      e.speed   = e.baseSpeed * 1.8;
+      e.speed   = e.baseSpeed * (this._enrageMult ?? 1.8);
       const enrageColor = {
         shadow_elite: '#CC00FF',
         void_stalker: '#AA00FF',
@@ -709,10 +726,12 @@ export class EnemySystem {
       if (e.bodyEl) e.bodyEl.setAttribute('fill', enrageColor);
     }
 
-    // Abyssal Dragon 2페이즈: HP 50% 이하에서 속도 1.6배 + 색상 변경
-    if (e.type === 'abyssal_dragon' && !e.phase2 && e.hp <= e.maxHp * 0.5) {
+    // Abyssal Dragon 2페이즈: Veteran에서 HP 60% 이하 조기 전환, 속도 1.9배
+    const dragonPhase2Threshold = this._bossHpScale > 1 ? 0.6 : 0.5;
+    const dragonPhase2SpeedMult = this._bossHpScale > 1 ? 1.9 : 1.6;
+    if (e.type === 'abyssal_dragon' && !e.phase2 && e.hp <= e.maxHp * dragonPhase2Threshold) {
       e.phase2 = true;
-      e.speed  = e.baseSpeed * 1.6;
+      e.speed  = e.baseSpeed * dragonPhase2SpeedMult;
       if (e.bodyEl) {
         e.bodyEl.setAttribute('fill', '#5500AA');
         e.bodyEl.setAttribute('stroke', '#FF00FF');

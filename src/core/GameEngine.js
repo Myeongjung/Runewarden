@@ -1000,6 +1000,10 @@ function beginWave() {
   // 난이도 스케일링 + 이벤트 효과 전달
   const hpScale    = state.difficulty?.hpScale ?? 1.15;
   const eliteBonus = state.difficulty?.eliteBonus ?? 0;
+  const bossHpScale       = state.difficulty?.bossHpScale ?? 1;
+  const enrageMult        = state.difficulty?.enrageMult ?? 1.8;
+  const spawnIntervalMult = state.difficulty?.spawnIntervalMult ?? 1;
+  const veteranRegen      = state.difficulty?.veteranRegen ?? false;
 
   // slow_next_wave 이벤트: 적 기본 속도 감소 (예: 0.25 → 75% 속도)
   const spawnSpeedMult = state.nextWaveSlowMult
@@ -1012,7 +1016,8 @@ function beginWave() {
   state.nextWaveSlowMult  = 0;
   state.extraPrepSeconds  = 0;
 
-  enemySystem.startWave(state.wave - 1, hpScale, eliteBonus, spawnDelay, spawnSpeedMult);
+  enemySystem.startWave(state.wave - 1, hpScale, eliteBonus, spawnDelay, spawnSpeedMult,
+                        bossHpScale, enrageMult, spawnIntervalMult, veteranRegen);
   updateHUD();
   tutorial?.triggerEvent('wave_started');
 }

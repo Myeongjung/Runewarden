@@ -26,12 +26,16 @@ export const DIFFICULTY_DEFS = [
   {
     id:       'veteran',
     icon:     '💀',
-    hpScale:  1.22,   // 더 빠른 스케일링
-    nexusHp:  -1,     // 넥서스 HP -1
-    goldBonus: -3,    // 시작 골드 감소
+    hpScale:  1.40,          // 1.22 → 1.40: Standard(1.15) 대비 실질적인 격차
+    nexusHp:  -1,            // 넥서스 HP -1
+    goldBonus: -7,           // -3 → -7: 초반 경제 압박 실질화 (18g 시작)
     shopDiscount: 0,
-    waveGoldBonus: -1, // 웨이브 보상 감소
-    eliteBonus: 0.2,   // 엘리트 HP 추가 20%
+    waveGoldBonus: -3,       // -1 → -3: 웨이브 클리어 보상 5g로 감소
+    eliteBonus: 0.35,        // 0.20 → 0.35: 엘리트 HP 추가 35%
+    bossHpScale: 1.25,       // 신규: 보스 HP 1.25× 스케일링
+    enrageMult: 2.0,         // 신규: 격노 속도 배율 1.8 → 2.0
+    spawnIntervalMult: 0.85, // 신규: 스폰 간격 15% 단축 (Wave 4부터)
+    veteranRegen: true,      // 신규: 재생 적 DPS 강화 플래그
   },
 ];
 
