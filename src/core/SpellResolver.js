@@ -305,4 +305,17 @@ export function resolveSpell(effect, ctx) {
     const count = ctx.towerSystem.triggerAllTeslas();
     if (count > 0) ctx.log(ctx.i18n.t('log_storm_circuit', count), 'good');
   }
+
+  // Void Echo Relic: Void 태그 타워 즉시 발사 (8초 쿨다운)
+  if (ctx.hasRelic('void_echo_relic') && ctx.towerSystem && ctx.enemySystem?.enemies?.length > 0) {
+    const now = Date.now();
+    const lastFired = ctx.state?._voidEchoLastFired ?? 0;
+    const relicEffect = ctx.state?.relics?.find(r => r.id === 'void_echo_relic')?.effect;
+    const cd = relicEffect?.cooldownMs ?? 8000;
+    if (now - lastFired >= cd) {
+      if (ctx.state) ctx.state._voidEchoLastFired = now;
+      const count = ctx.towerSystem.triggerAllByTag('Void');
+      if (count > 0) ctx.log(ctx.i18n.t('log_void_echo_relic', count), 'good');
+    }
+  }
 }

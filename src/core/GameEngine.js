@@ -1004,6 +1004,22 @@ function onEnemyKilled(reward) {
       updateShadowChargeHUD();
       _triggerShadowAutoSpell();
     }
+
+    // undying_will 유물: 5처치마다 보너스 충전 +1
+    const undyingEffect = getRelicEffect('shadow_charge_on_kills');
+    if (undyingEffect) {
+      state._undyingWillKills = (state._undyingWillKills ?? 0) + 1;
+      if (state._undyingWillKills >= undyingEffect.killsPerCharge) {
+        state._undyingWillKills = 0;
+        state.shadowCharges = (state.shadowCharges ?? 0) + 1;
+        updateShadowChargeHUD();
+        if (state.shadowCharges >= 10) {
+          state.shadowCharges = 0;
+          updateShadowChargeHUD();
+          _triggerShadowAutoSpell();
+        }
+      }
+    }
   }
 
   if (!state?.stats) return;

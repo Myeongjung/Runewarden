@@ -29,7 +29,7 @@ export const SHADOW_WARDENS = [
     },
 
     // 시작 조건
-    startGold:  20,    // 적은 골드 — 고위험 고보상
+    startGold:  15,    // souls_purse(+15) 스택 시 30g → Standard(25g) +5g 이내로 유지
     handSize:   6,     // 패 1장 추가 (많은 카드 필요)
     nexusHp:    2,     // 위험한 시작 — 실수 1번이 치명적
     passive:    'shadow_charge',

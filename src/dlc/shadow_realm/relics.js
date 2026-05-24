@@ -97,8 +97,8 @@ export const SHADOW_RELICS = [
   {
     id: 'void_echo_relic',
     icon: '🔊', rarity: 'rare', category: 'synergy',
-    // 주문 시전 후 모든 Void 타워 즉시 발사 (Storm Circuit의 Shadow 버전)
-    effect: { type: 'storm_circuit', towerTag: 'Void' },
+    // 주문 시전 후 모든 Void 타워 즉시 발사 — 8초 쿨다운으로 연속 버스트 방지
+    effect: { type: 'storm_circuit', towerTag: 'Void', cooldownMs: 8000 },
     dlc: 'shadow_realm',
   },
 
@@ -113,8 +113,8 @@ export const SHADOW_RELICS = [
   {
     id: 'undying_will',
     icon: '🩸', rarity: 'uncommon', category: 'special',
-    // 웨이브 클리어 후 카드 2장 즉시 드로우
-    effect: { type: 'wave_draw', amount: 2 },
+    // Shadow Warden 전용: 5처치마다 Shadow Charge +1 보너스 충전
+    effect: { type: 'shadow_charge_on_kills', killsPerCharge: 5 },
     dlc: 'shadow_realm',
   },
 ];
