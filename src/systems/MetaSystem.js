@@ -147,7 +147,8 @@ export class MetaSystem {
       runsPlayed:           0,
       runsWon:              0,
       totalKills:           0,
-      maxAscensionCleared:  0,   // 클리어한 최고 어센션 레벨 (0 = 미클리어)
+      maxAscensionCleared:  0,
+      runHistory:           [],
       unlockedCards: [
         // Summon (common)
         'summon_archer', 'summon_cannon',
@@ -172,6 +173,7 @@ export class MetaSystem {
   get totalKills()    { return this._data.totalKills; }
   get unlockedCards() { return this._data.unlockedCards; }
   get bonuses()       { return this._data.bonuses; }
+  get runHistory()    { return this._data.runHistory ?? []; }
 
   // 현재 레벨의 진행도 (0~1)
   get rankProgress() {
@@ -254,6 +256,14 @@ export class MetaSystem {
     if (unlock.type === 'badge') {
       this._data.badges.push(unlock.title);
     }
+  }
+
+  // ── 런 히스토리 기록 (최근 5건) ──────────────────
+  recordRun(entry) {
+    if (!this._data.runHistory) this._data.runHistory = [];
+    this._data.runHistory.unshift(entry);
+    if (this._data.runHistory.length > 5) this._data.runHistory.pop();
+    this._save();
   }
 
   // ── 개발용: 리셋 ──────────────────────────────────

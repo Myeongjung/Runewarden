@@ -9,10 +9,13 @@
  */
 export class AudioSystem {
   constructor() {
-    this._ctx    = null;
-    this._master = null;   // GainNode
-    this._muted  = false;
-    this._volume = 0.7;
+    this._ctx     = null;
+    this._master  = null;   // GainNode
+    this._sfxGain = null;   // SFX 전용 GainNode (→ _master)
+    this._muted   = false;
+    this._volume  = 0.7;
+    this._sfxVol  = 0.70;
+    this._bgmVol  = 0.28;
     this._init();
   }
 
@@ -23,6 +26,17 @@ export class AudioSystem {
       this._master = this._ctx.createGain();
       this._master.gain.value = this._volume;
       this._master.connect(this._ctx.destination);
+
+      this._sfxGain = this._ctx.createGain();
+      this._sfxGain.connect(this._master);
+
+      // localStorage에서 저장된 볼륨 복원
+      try {
+        const saved = JSON.parse(localStorage.getItem('rw_audio_v1') || '{}');
+        if (saved.sfx !== undefined) this._sfxVol = Math.max(0, Math.min(1, saved.sfx));
+        if (saved.bgm !== undefined) this._bgmVol = Math.max(0, Math.min(1, saved.bgm));
+      } catch {}
+      this._sfxGain.gain.value = this._sfxVol;
     } catch (e) {
       console.warn('[AudioSystem] Web Audio API 미지원:', e.message);
     }
@@ -39,6 +53,29 @@ export class AudioSystem {
     if (this._master && this._ctx) {
       this._master.gain.setTargetAtTime(this._volume, this._ctx.currentTime, 0.01);
     }
+  }
+
+  setSFXVolume(v) {
+    this._sfxVol = Math.max(0, Math.min(1, v));
+    if (this._sfxGain && this._ctx) {
+      this._sfxGain.gain.setTargetAtTime(this._sfxVol, this._ctx.currentTime, 0.01);
+    }
+    this._saveAudioSettings();
+  }
+
+  getSFXVolume() { return this._sfxVol; }
+
+  setBGMVolume(v) {
+    this._bgmVol = Math.max(0, Math.min(1, v));
+    this._saveAudioSettings();
+  }
+
+  getBGMVolume() { return this._bgmVol; }
+
+  _saveAudioSettings() {
+    try {
+      localStorage.setItem('rw_audio_v1', JSON.stringify({ bgm: this._bgmVol, sfx: this._sfxVol }));
+    } catch {}
   }
 
   toggleMute() {
@@ -65,7 +102,7 @@ export class AudioSystem {
   _gain(vol = 1) {
     const g = this._ctx.createGain();
     g.gain.value = vol;
-    g.connect(this._master);
+    g.connect(this._sfxGain ?? this._master);
     return g;
   }
 

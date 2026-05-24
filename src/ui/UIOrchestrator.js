@@ -250,6 +250,65 @@ export function openDifficultySelect() {
   });
 }
 
+// ── 덱 뷰 오버레이 ────────────────────────────────────
+export function openDeckView() {
+  const { cardSystem } = shared;
+  if (!cardSystem) return;
+  const overlay = $('screen-deck-view');
+  if (!overlay) return;
+
+  const all  = [...cardSystem.drawPile, ...cardSystem.discardPile];
+  const isKo = i18n.lang === 'ko';
+
+  const groups = { summon: [], augment: [], spell: [] };
+  for (const card of all) {
+    if (groups[card.type] !== undefined) groups[card.type].push(card);
+    else groups.summon.push(card);
+  }
+
+  const typeLabel = type => i18n.t('card_type_' + type) ?? type;
+  const renderGroup = (type, cards) => {
+    if (!cards.length) return '';
+    const items = cards.map(c => {
+      const name = isKo ? (c.nameKo || c.name) : c.name;
+      return `<div class="deck-card-item" data-rarity="${c.rarity}">${c.icon} ${name} <span class="deck-card-cost">${c.cost}g</span></div>`;
+    }).join('');
+    return `<div class="deck-section">
+      <div class="deck-section-title">${typeLabel(type)} (${cards.length})</div>
+      <div class="deck-card-list">${items}</div>
+    </div>`;
+  };
+
+  overlay.innerHTML = `
+    <div class="deck-view-box">
+      <div class="deck-view-header">
+        <div class="deck-view-title">🃏 ${isKo ? '현재 덱' : 'Your Deck'} (${all.length})</div>
+        <div class="deck-view-piles">
+          <span>${isKo ? '드로우' : 'Draw'}: ${cardSystem.drawPile.length}</span>
+          &nbsp;|&nbsp;
+          <span>${isKo ? '버림' : 'Discard'}: ${cardSystem.discardPile.length}</span>
+        </div>
+        <button class="deck-view-close" id="btn-deck-close">✕</button>
+      </div>
+      <div class="deck-view-content">
+        ${renderGroup('summon', groups.summon)}
+        ${renderGroup('augment', groups.augment)}
+        ${renderGroup('spell',   groups.spell)}
+      </div>
+    </div>
+  `;
+
+  overlay.classList.remove('hidden');
+
+  const close = () => {
+    overlay.classList.add('hidden');
+    document.removeEventListener('keydown', escHandler);
+  };
+  const escHandler = (e) => { if (e.key === 'Escape') { e.stopImmediatePropagation(); close(); } };
+  $('btn-deck-close').addEventListener('click', close);
+  document.addEventListener('keydown', escHandler);
+}
+
 // ── Codex 화면 ────────────────────────────────────────
 export function openCodex() {
   const { meta } = shared;
@@ -285,6 +344,7 @@ export function openCodex() {
       <div class="codex-grid">
         ${CODEX_UNLOCKS.map(u => _buildCodexItem(u, rank)).join('')}
       </div>
+      ${_buildCodexRunHistory(meta)}
       <div class="codex-footer">
         <button class="btn-primary codex-close-btn" id="btn-codex-close">${i18n.t('howto_close')}</button>
       </div>
@@ -294,6 +354,26 @@ export function openCodex() {
   $('btn-codex-close').addEventListener('click', () => {
     container.classList.add('hidden');
   });
+}
+
+function _buildCodexRunHistory(meta) {
+  const history = meta.runHistory;
+  if (!history?.length) return '';
+  const isKo = i18n.lang === 'ko';
+  const items = history.map(r => {
+    const result = r.victory ? '✅' : '❌';
+    const asc    = r.ascension > 0 ? ` ⚡${r.ascension}` : '';
+    return `<div class="run-history-item">
+      <span class="rhi-result">${result}</span>
+      <span>${r.wardenIcon ?? '🛡️'} ${r.wardenName ?? r.wardenId}</span>
+      <span>${r.diffIcon ?? ''} ${r.diffName ?? r.diffId}</span>
+      <span>W${r.wavesCleared}${asc}</span>
+    </div>`;
+  }).join('');
+  return `<div class="codex-run-history">
+    <div class="codex-run-history-title">${isKo ? '최근 런' : 'Recent Runs'}</div>
+    <div class="codex-run-history-list">${items}</div>
+  </div>`;
 }
 
 function _buildCodexItem(unlock, currentRank) {

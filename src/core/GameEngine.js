@@ -28,7 +28,7 @@ import { HEX_W } from '../config/constants.js';
 import { log, spawnFloatText, shakeNexus, setWaveButton } from './GameUtils.js';
 import { shared } from './GameState.js';
 import { updateHUD, renderHand, onBossUpdate, updateShadowChargeHUD, showClearBanner, updateMenuRank } from '../ui/HUDUpdater.js';
-import { showScreen, openWardenSelect, openDifficultySelect, openCodex } from '../ui/UIOrchestrator.js';
+import { showScreen, openWardenSelect, openDifficultySelect, openCodex, openDeckView } from '../ui/UIOrchestrator.js';
 import { registerDLC, hasDLC, clearDLCs } from '../systems/DLCRegistry.js';
 
 function rangeToPixel(hexRange) { return hexRange * HEX_W * 0.75; }
@@ -118,7 +118,7 @@ function resumeGame() {
   state.phase = state._prevPhase ?? 'pre';
   delete state._prevPhase;
 
-  music.setVolume(0.28);   // BGM 볼륨 복원
+  music.setVolume(audio.getBGMVolume());   // BGM 볼륨 복원
   $('screen-pause').classList.add('hidden');
 
   lastTime = performance.now();
@@ -1077,11 +1077,38 @@ function endGame(victory) {
     totalKills: meta.totalKills,
   };
 
+  // 런 히스토리 기록
+  meta.recordRun({
+    wardenId:    state.warden.id,
+    diffId:      state.difficulty.id,
+    ascension:   state.ascension,
+    wavesCleared: state.wave,
+    victory,
+    ts:          Date.now(),
+    wardenIcon:  state.warden.icon,
+    wardenName:  state.warden.name,
+    diffIcon:    state.difficulty.icon,
+    diffName:    i18n.t('diff_' + state.difficulty.id),
+  });
+
   // 기존 게임오버 화면 대신 요약 화면 표시
-  summaryUI.show(runStats, metaResult, {
+  summaryUI.show(runStats, { ...metaResult, runHistory: meta.runHistory }, {
     onContinue: () => startRun(),
     onMenu:     () => showScreen('menu'),
+    onRetry:    () => quickRestart(),
   });
+}
+
+function quickRestart() {
+  const last = meta.runHistory[0];
+  if (!last) { startRun(); return; }
+  const warden = getWardenById(last.wardenId);
+  const diff   = getDifficultyById(last.diffId);
+  if (warden) shared.selectedWarden     = warden;
+  if (diff)   shared.selectedDifficulty = diff;
+  shared.selectedAscension  = last.ascension ?? 0;
+  shared.selectedChallenges = [];
+  startRun();
 }
 
 // ── 카드 클릭 처리 ────────────────────────────────────
@@ -1340,12 +1367,29 @@ $('btn-pause-howto').addEventListener('click', () => {
   $('screen-howto').classList.remove('hidden');
   $('screen-howto').style.zIndex = '600';  // pause(500)보다 위
 });
-// 볼륨 슬라이더 — SFX + BGM 동시 조절
-$('volume-slider').addEventListener('input', e => {
-  const v = e.target.value / 100;
-  audio.setMasterVolume(v);
-  // BGM은 마스터의 40% 수준 유지
-  music.setVolume(v * 0.4);
+// BGM / SFX 분리 볼륨 슬라이더
+(() => {
+  const bgmSlider = $('bgm-slider');
+  const sfxSlider = $('sfx-slider');
+  if (bgmSlider) {
+    bgmSlider.value = Math.round(audio.getBGMVolume() * 100);
+    bgmSlider.addEventListener('input', e => {
+      const v = e.target.value / 100;
+      audio.setBGMVolume(v);
+      music.setVolume(v);
+    });
+  }
+  if (sfxSlider) {
+    sfxSlider.value = Math.round(audio.getSFXVolume() * 100);
+    sfxSlider.addEventListener('input', e => {
+      audio.setSFXVolume(e.target.value / 100);
+    });
+  }
+})();
+
+// HUD 덱 카운터 클릭 → 덱 뷰 오버레이
+$('hud-deck')?.addEventListener('click', () => {
+  if (state?.phase !== 'wave') openDeckView();
 });
 $('btn-mute').addEventListener('click', () => {
   const muted = audio.toggleMute();
@@ -1371,6 +1415,9 @@ document.addEventListener('keydown', (e) => {
 
   // ── ESC ───────────────────────────────────────────
   if (key === 'Escape') {
+    if (!$('screen-deck-view')?.classList.contains('hidden')) {
+      $('screen-deck-view').classList.add('hidden'); return;
+    }
     if (!$('screen-howto').classList.contains('hidden')) {
       $('btn-howto-close')?.click(); return;
     }
@@ -1415,6 +1462,12 @@ document.addEventListener('keydown', (e) => {
   if (key === 'Tab') {
     e.preventDefault();
     if (phase === 'wave') toggleGameSpeed();
+    return;
+  }
+
+  // ── D: 덱 뷰 (웨이브 중 제외) ────────────────────
+  if (key === 'd' || key === 'D') {
+    if (phase !== 'wave') openDeckView();
     return;
   }
 
