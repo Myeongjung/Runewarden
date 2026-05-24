@@ -663,7 +663,10 @@ function beginWave() {
     state.stats.enemiesKilledThisWave = 0;
   }
   // 난이도 스케일링 + 이벤트 효과 전달
-  const hpScale    = state.difficulty?.hpScale ?? 1.15;
+  // Wave HP compound growth: +6% per wave to prevent Act 3 reverse-difficulty
+  const waveHpMult = Math.pow(1.06, Math.max(0, state.wave - 1));
+  const ascHpScale = state.ascMods?.hpScaleMult ?? 0;
+  const hpScale    = ((state.difficulty?.hpScale ?? 1.15) + ascHpScale) * waveHpMult;
   const eliteBonus = state.difficulty?.eliteBonus ?? 0;
   const bossHpScale            = state.difficulty?.bossHpScale ?? 1;
   const enrageMult             = state.difficulty?.enrageMult ?? 1.8;

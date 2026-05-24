@@ -26,6 +26,16 @@ export const ASCENSION_DEFS = [
     icon:  '👑',
     mods:  { extraSurcharge: 1 },
   },
+  {
+    level: 4,
+    icon:  '🔥',
+    mods:  { hpScaleMult: 0.12 },
+  },
+  {
+    level: 5,
+    icon:  '☠️',
+    mods:  { hpScaleMult: 0.12 },
+  },
 ];
 
 export function getAscensionDef(level) {
@@ -36,12 +46,13 @@ export function getAscensionDef(level) {
  * 누적 mods 반환 — 레벨 N은 1~N 모두 누적 적용
  */
 export function getAscensionMods(level) {
-  const mods = { shopSize: 3, noInterest: false, extraSurcharge: 0 };
+  const mods = { shopSize: 3, noInterest: false, extraSurcharge: 0, hpScaleMult: 0 };
   for (const def of ASCENSION_DEFS) {
     if (def.level > level) break;
-    if (def.mods.shopSize      !== undefined) mods.shopSize      = def.mods.shopSize;
-    if (def.mods.noInterest    !== undefined) mods.noInterest    = def.mods.noInterest;
+    if (def.mods.shopSize       !== undefined) mods.shopSize       = def.mods.shopSize;
+    if (def.mods.noInterest     !== undefined) mods.noInterest     = def.mods.noInterest;
     if (def.mods.extraSurcharge !== undefined) mods.extraSurcharge += def.mods.extraSurcharge;
+    if (def.mods.hpScaleMult    !== undefined) mods.hpScaleMult    += def.mods.hpScaleMult;
   }
   return mods;
 }

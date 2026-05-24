@@ -113,7 +113,7 @@ export function renderHand() {
   const container = $('card-hand');
   container.innerHTML = '';
 
-  const baseSurcharge = state.phase === 'wave' ? 1 + (state.ascMods?.extraSurcharge ?? 0) : 0;
+  const baseSurcharge = state.phase === 'wave' ? Math.min(2, 1 + (state.ascMods?.extraSurcharge ?? 0)) : 0;
 
   for (const card of cardSystem.hand) {
     const surcharge = (card.type === 'spell') ? 0 : baseSurcharge;
