@@ -78,6 +78,12 @@ export function updateHUD() {
   $('hud-gold').textContent = state.gold;
   $('hud-deck').textContent = cardSystem?.deckCount ?? 0;
 
+  // 상태 기반 HUD 피드백: 골드 0 경고, 덱 카드 수 경고
+  $('hud-gold')?.classList.toggle('gold-empty', state.gold === 0 && state.phase !== 'over');
+  const deckTotal = (cardSystem?.drawPile?.length ?? 0) + (cardSystem?.discardPile?.length ?? 0);
+  $('hud-deck')?.classList.toggle('deck-low',  deckTotal > 0 && deckTotal <= 3);
+  $('hud-deck')?.classList.toggle('deck-empty', deckTotal === 0 && state.phase !== 'over');
+
   const hearts = document.querySelectorAll('.heart');
   hearts.forEach((h, i) => { h.classList.toggle('active', i < state.nexusHp); });
 
@@ -156,7 +162,7 @@ export function renderHand() {
 }
 
 // ── 보스 HP 바 ────────────────────────────────────────
-export function onBossUpdate({ hp, maxHp, hidden, name }) {
+export function onBossUpdate({ hp, maxHp, hidden, name, phase2 }) {
   const wrap      = $('boss-hpbar-wrap');
   const fill      = $('boss-hpbar-fill');
   const text      = $('boss-hp-text');
@@ -178,7 +184,9 @@ export function onBossUpdate({ hp, maxHp, hidden, name }) {
   } else if (name === 'Abyssal Dragon') {
     const isPhase2 = hp <= maxHp * 0.5;
     wrap.style.borderColor = isPhase2 ? '#FF00FF' : '#330066';
-    if (nameLabel) nameLabel.textContent = isPhase2 ? 'ABYSSAL DRAGON — PHASE 2' : 'ABYSSAL DRAGON';
+    if (nameLabel) nameLabel.textContent = isPhase2
+      ? 'ABYSSAL DRAGON — PHASE 2 ❄️ FROST RESIST'
+      : 'ABYSSAL DRAGON';
     if (iconEl)    iconEl.textContent    = isPhase2 ? '🐉' : '🌀';
     fill.style.background = isPhase2
       ? 'linear-gradient(90deg,#330066,#FF00FF)'
@@ -195,6 +203,16 @@ export function onBossUpdate({ hp, maxHp, hidden, name }) {
   const pct = Math.max(0, (hp / maxHp) * 100).toFixed(1);
   fill.style.width = pct + '%';
   text.textContent = `${Math.max(0, Math.round(hp))} / ${maxHp}`;
+
+  // Phase 2 전환 시 화면 플래시 (보라색)
+  if (phase2) {
+    const mapArea = document.getElementById('map-area');
+    if (mapArea) {
+      mapArea.classList.remove('screen-flash-phase2');
+      void mapArea.offsetWidth;
+      mapArea.classList.add('screen-flash-phase2');
+    }
+  }
 }
 
 // ── Shadow Charge HUD (DLC) ───────────────────────────

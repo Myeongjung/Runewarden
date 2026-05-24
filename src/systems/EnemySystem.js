@@ -366,6 +366,18 @@ export class EnemySystem {
     const speedMult = e.slowTimer > 0 ? (1 - e.slowAmt) : 1;
     if (e.slowTimer > 0) e.slowTimer -= delta;
 
+    // Ironclad shield timer decay
+    if (e.name === 'Ironclad') {
+      if (e.ironShielding > 0) {
+        e.ironShielding -= delta;
+        if (e.ironShielding <= 0) {
+          e.ironShielding = 0;
+          e.el?.classList.remove('boss-shielding');
+        }
+      }
+      if (e.ironShieldCd > 0) e.ironShieldCd -= delta;
+    }
+
     const target = WAYPOINTS[e.waypointIndex];
     const dx = target.x - e.x;
     const dy = target.y - e.y;
@@ -411,6 +423,7 @@ export class EnemySystem {
       damageReduction: def.damageReduction ?? 0,     // Plague Carrier, Phantom: 피해 감소율
       waypointIndex: 1, reached: false,
       frozen: 0, slowTimer: 0, slowAmt: 0,
+      ironShieldCd: 0, ironShielding: 0,
       burns: [],
       el: null, hpBar: null, bodyEl: null, shieldEl: null,
     };
@@ -766,6 +779,17 @@ export class EnemySystem {
       ? Math.max(1, Math.round(amount * (1 - e.damageReduction)))
       : amount;
 
+    // Ironclad: 주기적 충격 방어막 — 피격 시 미활성이면 0.8s 방어막 생성 (60% 피해 감소)
+    if (e.name === 'Ironclad') {
+      if (e.ironShielding > 0) {
+        finalDmg = Math.max(1, Math.round(finalDmg * 0.40));
+      } else if (e.ironShieldCd <= 0) {
+        e.ironShielding = 800;
+        e.ironShieldCd  = 3500;
+        e.el?.classList.add('boss-shielding');
+      }
+    }
+
     // 실드 적: 피해 추가 50% 감소 (피해 감소 이후 적용), 실드 히트 차감
     if (e.shieldHits > 0) {
       finalDmg = Math.max(1, Math.round(finalDmg * 0.5));
@@ -894,16 +918,22 @@ export class EnemySystem {
   slowAll(amount, duration) {
     const boosted = Math.min(0.95, amount * this._slowBonus);
     for (const e of this.enemies) {
-      if (e.slowImmune) continue;    // Juggernaut: 슬로우 면역
-      e.slowAmt   = Math.max(e.slowAmt, boosted);
+      if (e.slowImmune) continue;
+      // Abyssal Dragon Phase 2: 70% 냉기/감속 저항
+      const eff = (e.type === 'abyssal_dragon' && e.phase2) ? boosted * 0.30 : boosted;
+      if (eff < 0.01) continue;
+      e.slowAmt   = Math.max(e.slowAmt, eff);
       e.slowTimer = Math.max(e.slowTimer, duration);
     }
   }
 
   applySlow(enemyId, amount, duration) {
     const e = this.enemies.find(x => x.id === enemyId);
-    if (!e || e.slowImmune) return;   // Juggernaut: 슬로우 면역
-    const boosted = Math.min(0.95, amount * this._slowBonus);
+    if (!e || e.slowImmune) return;
+    // Abyssal Dragon Phase 2: 70% 냉기/감속 저항
+    const effective = (e.type === 'abyssal_dragon' && e.phase2) ? amount * 0.30 : amount;
+    if (effective < 0.01) return;
+    const boosted = Math.min(0.95, effective * this._slowBonus);
     e.slowAmt = boosted; e.slowTimer = duration;
   }
 

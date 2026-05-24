@@ -179,11 +179,21 @@ function saveCheckpoint() {
 }
 
 function _restoreFromSave(save) {
+  // 버전·필수 필드 검증 — 손상 세이브 조기 차단
+  const required = ['v', 'wave', 'gold', 'nexusHp', 'deck', 'towers', 'wardenId', 'diffId'];
+  const missing  = required.filter(f => save?.[f] === undefined || save?.[f] === null);
+  if (!save?.v || save.v < 2 || missing.length > 0) {
+    console.warn('[AutoSave] Invalid save — missing:', missing);
+    log('⚠️ 저장 데이터 손상 — 이전 체크포인트를 사용할 수 없습니다.', 'bad');
+    localStorage.removeItem('rw_autosave');
+    setTimeout(() => _openRelicPicker(), 600);
+    return;
+  }
   try {
-    state.wave       = save.wave;
-    state.gold       = save.gold;
-    state.nexusHp    = save.nexusHp;
-    state.maxNexusHp = save.maxNexusHp;
+    state.wave       = Math.max(0, Math.min(shared.maxWaves, save.wave));
+    state.gold       = Math.max(0, save.gold);
+    state.nexusHp    = Math.max(1, Math.min(save.maxNexusHp ?? save.nexusHp, save.nexusHp));
+    state.maxNexusHp = Math.max(1, save.maxNexusHp ?? state.maxNexusHp);
     state.stats = { ...save.stats, towerTypesUsed: new Set(save.stats.towerTypesUsed) };
 
     // 유물 복원
@@ -373,6 +383,13 @@ function startRun() {
   showScreen('game');
   shared.onCardClick = onCardClick;
   shared.startRun    = startRun;
+
+  // 워든별 HUD CSS 테마 적용
+  const hudEl = $('hud');
+  const mapEl = $('map-area');
+  if (hudEl)  hudEl.style.setProperty('--warden-color', warden.color);
+  if (mapEl)  mapEl.style.setProperty('--warden-color', warden.color);
+
   updateHUD();
   cardSystem.drawHand();
   renderHand();
@@ -381,6 +398,17 @@ function startRun() {
   log(`${selectedMap.icon} ${selectedMap.name}  ${diff.icon} ${i18n.t('log_difficulty', i18n.t('diff_' + diff.id))}`, 'gold');
   if (shared.selectedAscension > 0) log(i18n.t('log_ascension', shared.selectedAscension), 'bad');
   log(`Passive: ${i18n.t(warden.passiveKey)}`, 'gold');
+
+  // 초보자 카드 타입 힌트 (첫 2런까지만 표시)
+  if (meta.runsPlayed <= 1 && TutorialUI.isDone()) {
+    const isKo = i18n.lang === 'ko';
+    setTimeout(() => {
+      log(isKo
+        ? '💡 소환(타워 배치) · 강화(타워 업그레이드) · 주문(즉시 발동)'
+        : '💡 Summon (place tower) · Augment (upgrade tower) · Spell (instant)', 'gold');
+    }, 1800);
+  }
+
   music.crossfadeTo('game');
 
   // 게임 루프 시작

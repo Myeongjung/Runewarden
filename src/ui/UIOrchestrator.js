@@ -42,6 +42,31 @@ export function openWardenSelect() {
   overlay.classList.remove('hidden');
   row.innerHTML = '';
 
+  // 첫 런 플레이어를 위한 Quick Start 배너
+  overlay.querySelector('.first-run-banner')?.remove();
+  if (meta.runsPlayed === 0) {
+    const isKo = i18n.lang === 'ko';
+    const banner = document.createElement('div');
+    banner.className = 'first-run-banner';
+    banner.innerHTML = `
+      <div class="first-run-label">🔰 ${isKo ? '처음 플레이하시나요?' : 'First time?'}</div>
+      <button class="btn-primary first-run-btn" id="btn-quick-start">
+        ▶ ${isKo ? '추천 설정으로 바로 시작' : 'Quick Start (Recommended)'}
+      </button>
+      <div class="first-run-sub">${isKo ? 'Iron Warden · Standard 난이도 · 최적 입문 설정' : 'Iron Warden · Standard · Best for beginners'}</div>
+    `;
+    const header = overlay.querySelector('.warden-select-header');
+    if (header) header.after(banner);
+    document.getElementById('btn-quick-start')?.addEventListener('click', () => {
+      shared.selectedWarden     = WARDEN_DEFS[0];
+      shared.selectedDifficulty = getDifficultyById('standard');
+      shared.selectedAscension  = 0;
+      shared.selectedChallenges = [];
+      overlay.classList.add('hidden');
+      shared.startRun();
+    });
+  }
+
   for (const w of WARDEN_DEFS) {
     const isDlcLocked = w.dlc ? !(steam?.isDlcOwned(w.dlc) ?? false) : false;
     const isRankLocked = meta.rank < w.unlockRank;
@@ -94,6 +119,13 @@ export function openWardenSelect() {
         shared.selectedWarden = w;
         overlay.classList.add('hidden');
         openDifficultySelect();
+      });
+      // 워든 카드 호버 시 오버레이 배경 미리보기
+      card.addEventListener('mouseenter', () => {
+        overlay.style.background = `radial-gradient(ellipse at 50% 30%, ${w.accentBg.replace('linear-gradient(135deg,', '').split(',')[0].trim()} 0%, #0D0030 65%)`;
+      });
+      card.addEventListener('mouseleave', () => {
+        overlay.style.background = '';
       });
     }
     row.appendChild(card);
