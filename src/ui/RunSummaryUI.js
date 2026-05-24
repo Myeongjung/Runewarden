@@ -137,7 +137,7 @@ export class RunSummaryUI {
       const asc    = r.ascension > 0 ? ` ⚡${r.ascension}` : '';
       return `<div class="run-history-item">
         <span class="rhi-result">${result}</span>
-        <span>${r.wardenIcon ?? '🛡️'} ${r.wardenName ?? r.wardenId}</span>
+        <span>${r.wardenIcon ?? '🛡️'} ${isKo ? (r.wardenNameKo ?? r.wardenName ?? r.wardenId) : (r.wardenName ?? r.wardenId)}</span>
         <span>${r.diffIcon ?? ''} ${r.diffName ?? r.diffId}</span>
         <span>${waves}${asc}</span>
       </div>`;

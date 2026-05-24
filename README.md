@@ -5,7 +5,7 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue)](#system-requirements)
 [![Steam Deck](https://img.shields.io/badge/Steam%20Deck-Planned-1b2838?logo=steam)](#)
 [![License](https://img.shields.io/badge/license-UNLICENSED-red)](#)
-[![Version](https://img.shields.io/badge/version-0.2.0-gold)](#)
+[![Version](https://img.shields.io/badge/version-0.3.0-gold)](#)
 
 A **Tower Defense × Deck Building × Roguelike** hybrid — every card you play is a tower action.
 
@@ -52,13 +52,21 @@ After each wave, choose a node:
 - **Event** — 10 random events with risk/reward tradeoffs
 - **Rest Site** — Remove a card from your deck or scavenge gold
 
-### ⚔️ 5 Wardens (Characters)
+### ⚔️ 4 Wardens (Characters)
 Each Warden starts with a unique deck and passive ability, unlocked through meta progression.
+
+| Warden | Style | Passive |
+|--------|-------|---------|
+| 🛡️ Iron Warden | Balanced | Standard starting conditions |
+| ⚡ Storm Warden | Aggressive | +1 gold per kill, 6-card hand |
+| 🔮 Arcane Warden | Control | All spell costs −1 |
+| 🌑 Shadow Warden | Sacrifice | +1 gold per card discarded at wave end |
 
 ### 📈 Meta Progression
 - Warden Rank 1–20 (XP across runs)
 - Codex unlocks: new cards, tower bonuses, passive upgrades
 - Difficulty Ascension system (I–III) for hardcore runs
+- Run history tracking with Quick Restart
 
 ### ⚔️ Challenge System
 Optional self-imposed handicaps that stack XP bonuses on completion.
@@ -72,8 +80,40 @@ Optional self-imposed handicaps that stack XP bonuses on completion.
 
 Stack multiple challenges to multiply XP rewards — e.g. Perfect Defense + Silence = **×1.75 XP**.
 
+### 🎨 Visual Polish
+- Color grading + ambient occlusion vignette on the map
+- Enemy enrage rim glow (color-coded per type)
+- Hit-stop on boss/elite kills with impact flash burst
+- Nexus critical pulse when HP = 1
+- Wave-clear gold flash + HUD gold punch animation
+- Enhanced death particles
+
 ### 🏆 20 Steam Achievements
 *Ironclad Breaker · Flawless Warden · Swift Justice · and more*
+
+---
+
+## QoL Features
+
+| Feature | Description |
+|---------|-------------|
+| 🃏 Deck View | Press `D` during a run to inspect your full deck by type |
+| ⚡ Quick Restart | Restart instantly with the same Warden + difficulty from the run summary |
+| 🔊 Split Volume | BGM and SFX volume controlled independently in the pause menu |
+| 🏃 2× Speed | Toggle fast-forward during waves with `Tab` |
+| 💾 Auto-Save | Run progress saved automatically — resume where you left off |
+
+---
+
+## Difficulty
+
+| Difficulty | Description |
+|------------|-------------|
+| 🌿 Novice | Reduced enemy HP (×0.85), slower spawns, generous gold and shop discounts |
+| ⚔️ Standard | Balanced experience — the intended run |
+| 💀 Veteran | Higher HP scaling (×1.40), compressed spawns, elite HP bonus, tighter economy |
+
+Veteran difficulty features enemy regen, boss HP scaling, and enrage at ×2.0 speed.
 
 ---
 
@@ -96,6 +136,7 @@ Stack multiple challenges to multiply XP rewards — e.g. Perfect Defense + Sile
 | `1`–`5` | Select / play card from hand |
 | `F` | Deselect card |
 | `Tab` | Toggle 2× speed (during wave) |
+| `D` | Open Deck View |
 | `1`–`3` | Node choice · Shop buy · Event pick |
 | `R` | Reroll shop |
 | `L` / `Esc` | Leave shop / Pause |
@@ -131,6 +172,9 @@ npm run dev
 
 # Run in production mode
 npm start
+
+# Run unit tests
+npm test
 
 # Build Windows installer
 npm run build:win

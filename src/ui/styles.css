@@ -1627,7 +1627,7 @@ kbd {
   justify-content: center;
 }
 .summary-buttons .btn-primary,
-.summary-buttons .btn-secondary { min-width: 130px; }
+.summary-buttons .btn-secondary { min-width: 130px; white-space: nowrap; }
 
 /* ── Challenge System ─────────────────────────────────── */
 .challenge-section {

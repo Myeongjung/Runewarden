@@ -62,6 +62,7 @@ shared.selectedWarden     = WARDEN_DEFS[0];
 shared.selectedDifficulty = getDifficultyById('standard');
 shared.bossWaves          = new Set([5, 10, 15]);
 shared.maxWaves           = 15;
+shared.startRun           = startRun;
 
 // ── 런 시스템 레퍼런스 (startRun 시 교체 — shared에서 접근) ─
 // 이 모듈 스코프 변수들은 내부 클로저에서 편의상 유지됨
@@ -382,7 +383,6 @@ function startRun() {
   // UI 초기화
   showScreen('game');
   shared.onCardClick = onCardClick;
-  shared.startRun    = startRun;
 
   // 워든별 HUD CSS 테마 적용
   const hudEl = $('hud');
@@ -1113,9 +1113,10 @@ function endGame(victory) {
     wavesCleared: state.wave,
     victory,
     ts:          Date.now(),
-    wardenIcon:  state.warden.icon,
-    wardenName:  state.warden.name,
-    diffIcon:    state.difficulty.icon,
+    wardenIcon:   state.warden.icon,
+    wardenName:   state.warden.name,
+    wardenNameKo: state.warden.nameKo ?? state.warden.name,
+    diffIcon:     state.difficulty.icon,
     diffName:    i18n.t('diff_' + state.difficulty.id),
   });
 

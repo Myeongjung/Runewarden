@@ -34,6 +34,7 @@ const _BASE_WARDEN_DEFS = [
   {
     id:        'iron',
     name:      'Iron Warden',
+    nameKo:    '철의 워든',
     title:     'The Balanced',
     icon:      '🛡️',
     color:     '#D4AF37',
@@ -69,6 +70,7 @@ const _BASE_WARDEN_DEFS = [
   {
     id:        'storm',
     name:      'Storm Warden',
+    nameKo:    '폭풍의 워든',
     title:     'The Aggressive',
     icon:      '⚡',
     color:     '#E74C3C',
@@ -102,6 +104,7 @@ const _BASE_WARDEN_DEFS = [
   {
     id:        'arcane',
     name:      'Arcane Warden',
+    nameKo:    '비전의 워든',
     title:     'The Controller',
     icon:      '🔮',
     color:     '#8E44AD',
@@ -136,6 +139,7 @@ const _BASE_WARDEN_DEFS = [
   {
     id:        'shadow',
     name:      'Shadow Warden',
+    nameKo:    '어둠의 워든',
     title:     'The Forsaken',
     icon:      '🌑',
     color:     '#9B59B6',

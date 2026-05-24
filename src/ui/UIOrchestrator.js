@@ -95,7 +95,7 @@ export function openWardenSelect() {
       <div class="warden-card-head">
         <div class="warden-icon">${w.icon}</div>
         <div class="warden-head-text">
-          <div class="warden-name">${w.name}</div>
+          <div class="warden-name">${i18n.lang === 'ko' ? (w.nameKo ?? w.name) : w.name}</div>
           <div class="warden-title">${w.title}</div>
         </div>
       </div>
@@ -397,7 +397,7 @@ function _buildCodexRunHistory(meta) {
     const asc    = r.ascension > 0 ? ` ⚡${r.ascension}` : '';
     return `<div class="run-history-item">
       <span class="rhi-result">${result}</span>
-      <span>${r.wardenIcon ?? '🛡️'} ${r.wardenName ?? r.wardenId}</span>
+      <span>${r.wardenIcon ?? '🛡️'} ${i18n.lang === 'ko' ? (r.wardenNameKo ?? r.wardenName ?? r.wardenId) : (r.wardenName ?? r.wardenId)}</span>
       <span>${r.diffIcon ?? ''} ${r.diffName ?? r.diffId}</span>
       <span>W${r.wavesCleared}${asc}</span>
     </div>`;
