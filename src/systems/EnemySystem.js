@@ -366,6 +366,9 @@ export class EnemySystem {
     const speedMult = e.slowTimer > 0 ? (1 - e.slowAmt) : 1;
     if (e.slowTimer > 0) e.slowTimer -= delta;
 
+    // Abyssal Dragon Phase 2: accumulate elapsed time for frost resistance ramp
+    if (e.phase2) e.phase2ElapsedMs = (e.phase2ElapsedMs ?? 0) + delta;
+
     // Ironclad shield timer decay
     if (e.name === 'Ironclad') {
       if (e.ironShielding > 0) {
@@ -424,6 +427,7 @@ export class EnemySystem {
       waypointIndex: 1, reached: false,
       frozen: 0, slowTimer: 0, slowAmt: 0,
       ironShieldCd: 0, ironShielding: 0,
+      phase2ElapsedMs: 0,
       burns: [],
       el: null, hpBar: null, bodyEl: null, shieldEl: null,
     };
@@ -919,8 +923,12 @@ export class EnemySystem {
     const boosted = Math.min(0.95, amount * this._slowBonus);
     for (const e of this.enemies) {
       if (e.slowImmune) continue;
-      // Abyssal Dragon Phase 2: 70% 냉기/감속 저항
-      const eff = (e.type === 'abyssal_dragon' && e.phase2) ? boosted * 0.30 : boosted;
+      let eff = boosted;
+      if (e.type === 'abyssal_dragon' && e.phase2) {
+        // Phase 2 frost resistance ramps from 0% → 70% over 8 seconds
+        const rampFraction = Math.min(1, (e.phase2ElapsedMs ?? 0) / 8000);
+        eff = boosted * (1 - rampFraction * 0.70);
+      }
       if (eff < 0.01) continue;
       e.slowAmt   = Math.max(e.slowAmt, eff);
       e.slowTimer = Math.max(e.slowTimer, duration);
@@ -930,8 +938,12 @@ export class EnemySystem {
   applySlow(enemyId, amount, duration) {
     const e = this.enemies.find(x => x.id === enemyId);
     if (!e || e.slowImmune) return;
-    // Abyssal Dragon Phase 2: 70% 냉기/감속 저항
-    const effective = (e.type === 'abyssal_dragon' && e.phase2) ? amount * 0.30 : amount;
+    let effective = amount;
+    if (e.type === 'abyssal_dragon' && e.phase2) {
+      // Phase 2 frost resistance ramps from 0% → 70% over 8 seconds
+      const rampFraction = Math.min(1, (e.phase2ElapsedMs ?? 0) / 8000);
+      effective = amount * (1 - rampFraction * 0.70);
+    }
     if (effective < 0.01) return;
     const boosted = Math.min(0.95, effective * this._slowBonus);
     e.slowAmt = boosted; e.slowTimer = duration;

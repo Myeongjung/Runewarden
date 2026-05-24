@@ -36,7 +36,7 @@ export const DIFFICULTY_DEFS = [
     nexusHp:  -1,            // 넥서스 HP -1
     goldBonus: -7,           // -3 → -7: 초반 경제 압박 실질화 (18g 시작)
     shopDiscount: 0,
-    waveGoldBonus: -3,       // -1 → -3: 웨이브 클리어 보상 5g로 감소
+    waveGoldBonus: -2,       // -1 → -3 → -2: Asc3 서차지 복합 경제 압박 완화
     eliteBonus: 0.35,        // 0.20 → 0.35: 엘리트 HP 추가 35%
     bossHpScale: 1.25,       // 신규: 보스 HP 1.25× 스케일링
     enrageMult: 2.0,         // 신규: 격노 속도 배율 1.8 → 2.0
