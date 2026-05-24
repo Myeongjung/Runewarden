@@ -13,6 +13,7 @@ export class RunSummaryUI {
   show(stats, meta, callbacks) {
     this._onContinue = callbacks.onContinue;
     this._onMenu     = callbacks.onMenu;
+    this._onRetry    = callbacks.onRetry;
 
     this.container.classList.remove('hidden');
     this.container.innerHTML = this._buildHTML(stats, meta);
@@ -114,13 +115,37 @@ export class RunSummaryUI {
           <span>${i18n.t('lifetime_kills', meta.totalKills)}</span>
         </div>
 
+        <!-- 최근 런 히스토리 -->
+        ${this._buildRunHistory(meta.runHistory)}
+
         <!-- 버튼 -->
         <div class="summary-buttons">
           <button class="btn-primary" id="sum-continue">▶ ${i18n.t('btn_play_again')}</button>
+          ${this._onRetry ? `<button class="btn-secondary btn-retry-same" id="sum-retry">⚡ ${i18n.lang === 'ko' ? '동일 조건 재시작' : 'Quick Restart'}</button>` : ''}
           <button class="btn-secondary" id="sum-menu">${i18n.t('btn_main_menu')}</button>
         </div>
       </div>
     `;
+  }
+
+  _buildRunHistory(history) {
+    if (!history?.length) return '';
+    const isKo = i18n.lang === 'ko';
+    const items = history.map(r => {
+      const result = r.victory ? '✅' : '❌';
+      const waves  = `W${r.wavesCleared}`;
+      const asc    = r.ascension > 0 ? ` ⚡${r.ascension}` : '';
+      return `<div class="run-history-item">
+        <span class="rhi-result">${result}</span>
+        <span>${r.wardenIcon ?? '🛡️'} ${r.wardenName ?? r.wardenId}</span>
+        <span>${r.diffIcon ?? ''} ${r.diffName ?? r.diffId}</span>
+        <span>${waves}${asc}</span>
+      </div>`;
+    }).join('');
+    return `<div class="summary-run-history">
+      <div class="run-history-title">${isKo ? '최근 런' : 'Recent Runs'}</div>
+      <div class="run-history-list">${items}</div>
+    </div>`;
   }
 
   _xpPercent(rank, xp) {
@@ -236,6 +261,10 @@ export class RunSummaryUI {
     document.getElementById('sum-continue')?.addEventListener('click', () => {
       this.container.classList.add('hidden');
       this._onContinue?.();
+    });
+    document.getElementById('sum-retry')?.addEventListener('click', () => {
+      this.container.classList.add('hidden');
+      this._onRetry?.();
     });
     document.getElementById('sum-menu')?.addEventListener('click', () => {
       this.container.classList.add('hidden');

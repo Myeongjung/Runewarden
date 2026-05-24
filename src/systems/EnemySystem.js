@@ -247,7 +247,7 @@ export class EnemySystem {
       }
       @keyframes hitFlash {
         0%,100% { filter: none; }
-        50%      { filter: brightness(4) saturate(0); }
+        50%      { filter: brightness(5) saturate(0); }
       }
       @keyframes dmgFloat {
         0%   { opacity: 1; transform: translateY(0) scale(1); }
@@ -261,6 +261,10 @@ export class EnemySystem {
       @keyframes splashRing {
         0%   { opacity: 0.7; transform: scale(0.3); }
         100% { opacity: 0;   transform: scale(1); }
+      }
+      @keyframes impactBurst {
+        0%   { opacity: 0.85; transform: scale(0.08); }
+        100% { opacity: 0;    transform: scale(1.65); }
       }
     `;
     document.head.appendChild(s);
@@ -434,10 +438,10 @@ export class EnemySystem {
 
     const g = svgEl('g', { id, class: 'enemy-unit' });
 
-    // 그림자
+    // 그림자 (QW#1: 불투명도 + 크기 강화 — 볼륨감 향상)
     const shadow = svgEl('ellipse', {
-      cx: 0, cy: def.size * 0.7, rx: def.size * 0.8, ry: def.size * 0.3,
-      fill: 'rgba(0,0,0,0.3)', 'pointer-events': 'none',
+      cx: 0, cy: def.size * 0.72, rx: def.size * 0.85, ry: def.size * 0.32,
+      fill: 'rgba(0,0,0,0.45)', 'pointer-events': 'none',
     });
     g.appendChild(shadow);
 
@@ -681,25 +685,30 @@ export class EnemySystem {
     el.style.transformOrigin = `${cx}px ${cy}px`;
     el.style.animation = 'enemyDeath 0.4s ease-out forwards';
 
-    // 2) 파티클 (4~6개 작은 원)
-    const count = 4 + Math.floor(Math.random() * 3);
+    // 2) 파티클 — QW#3: 수 증가(6~10), 크기 1.7× 확대, 엘리트/보스는 추가 버스트
+    const isBig = e.isElite || e.isBoss;
+    const count = isBig ? (7 + Math.floor(Math.random() * 4)) : (6 + Math.floor(Math.random() * 3));
+    const particleDur = isBig ? 0.62 : 0.48;
+    const anim = isBig ? 'deathParticleElite' : 'deathParticle';
     for (let i = 0; i < count; i++) {
-      const angle = (Math.PI * 2 * i) / count + Math.random() * 0.5;
-      const dist  = e.size * (1.2 + Math.random() * 1.5);
+      const angle = (Math.PI * 2 * i) / count + Math.random() * 0.6;
+      const dist  = e.size * (1.5 + Math.random() * 2.0);
       const px = cx + Math.cos(angle) * dist;
       const py = cy + Math.sin(angle) * dist;
-      const r  = 2 + Math.random() * 3;
+      const r  = (isBig ? 3.5 : 2.2) + Math.random() * (isBig ? 3.5 : 2.5);
 
       const pid = `particle-${this._idCounter}-${i}`;
       const particle = svgEl('circle', {
         id: pid, cx: px.toFixed(1), cy: py.toFixed(1), r: r.toFixed(1),
         fill: e.color, opacity: 0.9,
         'pointer-events': 'none',
-        style: `animation: deathParticle 0.45s ease-out forwards`,
+        style: `animation: ${anim} ${particleDur}s ease-out forwards`,
       });
       this.layer.appendChild(particle);
-      setTimeout(() => document.getElementById(pid)?.remove(), 450);
+      setTimeout(() => document.getElementById(pid)?.remove(), Math.round(particleDur * 1000) + 10);
     }
+    // 보스/엘리트 사망 시 큰 방사형 플래시
+    if (isBig) this._spawnImpactFlash(cx, cy, e.color, true);
 
     // 3) 정리 — 풀 가능한 타입은 반환, 아니면 제거
     const { type, bodyEl, hpBar } = e;
@@ -770,6 +779,8 @@ export class EnemySystem {
 
     e.hp -= finalDmg;
     this._hitFlash(e);
+    // QW#3: 타격 위치 임팩트 플래시 (보스는 자체 splash 있으므로 제외)
+    if (!e.isBoss) this._spawnImpactFlash(e.x, e.y, e.color);
 
     // 격노 메커닉: berserker(40%) + shadow_elite(60%) + void_stalker(50%) + colossus(35%)
     const enrageThreshold = e.enrageThreshold ?? (e.type === 'berserker' ? 0.4 : null);
@@ -782,6 +793,11 @@ export class EnemySystem {
         colossus:     '#FF4400',
       }[e.type] ?? '#FF2200';
       if (e.bodyEl) e.bodyEl.setAttribute('fill', enrageColor);
+      // QW#2: 격노 Rim Glow — CSS 클래스 + 커스텀 컬러 변수
+      if (e.el) {
+        e.el.style.setProperty('--enrage-glow', enrageColor);
+        e.el.classList.add('enemy-enraged');
+      }
     }
 
     // Abyssal Dragon 2페이즈: Veteran에서 HP 60% 이하 조기 전환, 속도 1.9배
@@ -794,6 +810,8 @@ export class EnemySystem {
         e.bodyEl.setAttribute('fill', '#5500AA');
         e.bodyEl.setAttribute('stroke', '#FF00FF');
       }
+      // QW#2: 페이즈2 전환 Rim Glow
+      e.el?.classList.add('enemy-phase2');
       this.onBossUpdate?.({ hp: Math.max(0, e.hp), maxHp: e.maxHp, name: e.name, phase2: true });
       audio.play('boss_warning');
     }
@@ -944,6 +962,24 @@ export class EnemySystem {
     // splashRing 키프레임은 TowerSystem에서 이미 정의됨
     this.layer.appendChild(el);
     setTimeout(() => document.getElementById(id)?.remove(), 400);
+  }
+
+  // ── QW#3: 타격 위치 임팩트 플래시 ──────────────────────
+  // isBig=true: 엘리트/보스 사망 버스트 (스케일 2배)
+  _spawnImpactFlash(x, y, color, isBig = false) {
+    const cx = x.toFixed(1);
+    const cy = y.toFixed(1);
+    const r  = isBig ? 20 : 13;
+    const dur = isBig ? 0.28 : 0.20;
+    // <g>를 타격 좌표로 translate — transform-origin: 0 0 이 곧 중심이 됨
+    const g = svgEl('g', {
+      'pointer-events': 'none',
+      style: `transform-origin: ${cx}px ${cy}px; animation: impactBurst ${dur}s ease-out forwards`,
+    });
+    g.appendChild(svgEl('circle', { cx, cy, r: String(r),       fill: color,     opacity: '0.45' }));
+    g.appendChild(svgEl('circle', { cx, cy, r: String(r * 0.45), fill: '#ffffff', opacity: '0.60' }));
+    this.layer.appendChild(g);
+    setTimeout(() => g.remove(), Math.round(dur * 1000) + 10);
   }
 
   getEnemiesInRange(px, py, radiusPx) {

@@ -177,6 +177,9 @@
     <!-- Rest overlay -->
     <div id="screen-rest" class="overlay hidden"></div>
 
+    <!-- Deck View overlay -->
+    <div id="screen-deck-view" class="overlay hidden"></div>
+
     <!-- How to Play overlay -->
     <div id="screen-howto" class="overlay hidden">
       <div class="overlay-box">
@@ -215,9 +218,15 @@
           <button class="btn-primary" id="btn-resume" data-i18n="btn_resume">▶ Resume</button>
           <button class="btn-secondary" id="btn-pause-howto" data-i18n="btn_how_pause">📖 How to Play</button>
           <div class="pause-volume-row">
-            <span class="pause-vol-label" data-i18n="vol_label">🔊 Volume</span>
-            <input type="range" id="volume-slider" min="0" max="100" value="70" class="volume-slider">
-            <button class="btn-mute" id="btn-mute">🔊</button>
+            <div class="pause-vol-row">
+              <span class="pause-vol-label">🎵 BGM</span>
+              <input type="range" id="bgm-slider" min="0" max="100" value="28" class="volume-slider">
+            </div>
+            <div class="pause-vol-row">
+              <span class="pause-vol-label">🔊 SFX</span>
+              <input type="range" id="sfx-slider" min="0" max="100" value="70" class="volume-slider">
+              <button class="btn-mute" id="btn-mute">🔊</button>
+            </div>
           </div>
           <button class="btn-secondary btn-danger" id="btn-quit-menu" data-i18n="btn_quit_menu">✕ Quit to Menu</button>
         </div>
