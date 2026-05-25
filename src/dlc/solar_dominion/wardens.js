@@ -18,6 +18,7 @@ export const SOLAR_WARDENS = [
   {
     id:         'solar_dominion',
     name:       'Solar Warden',
+    nameKo:     '태양의 워든',
     title:      'The Radiant',
     icon:       '☀️',
     color:      '#F5C518',

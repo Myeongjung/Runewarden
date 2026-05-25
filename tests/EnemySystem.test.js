@@ -250,10 +250,12 @@ describe('applyBurn()', () => {
 
 // ── setSlowBonus / setBurnBonus ──────────────────────────────────────────────
 describe('setSlowBonus() / setBurnBonus()', () => {
-  it('setSlowBonus updates _slowBonus', () => {
+  it('setSlowBonus multiplies _slowBonus capped at 1.40', () => {
     const es = makeES();
-    es.setSlowBonus(1.5);
-    expect(es._slowBonus).toBe(1.5);
+    es.setSlowBonus(1.3);
+    expect(es._slowBonus).toBeCloseTo(1.3);
+    es.setSlowBonus(1.3); // 1.3*1.3=1.69 → capped at 1.40
+    expect(es._slowBonus).toBeCloseTo(1.40);
   });
 
   it('setBurnBonus accumulates _burnExtraDps and _burnExtraDuration', () => {

@@ -5,7 +5,7 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue)](#system-requirements)
 [![Steam Deck](https://img.shields.io/badge/Steam%20Deck-Planned-1b2838?logo=steam)](#)
 [![License](https://img.shields.io/badge/license-UNLICENSED-red)](#)
-[![Version](https://img.shields.io/badge/version-0.3.0-gold)](#)
+[![Version](https://img.shields.io/badge/version-0.4.0-gold)](#)
 
 A **Tower Defense × Deck Building × Roguelike** hybrid — every card you play is a tower action.
 
@@ -117,14 +117,27 @@ Veteran difficulty features enemy regen, boss HP scaling, and enrage at ×2.0 sp
 
 ---
 
-## DLC — Shadow Realm
+## DLC 1 — Shadow Realm
 
 **Runewarden: Shadow Realm** expands the base game with:
 
 - Act 4 (8 additional waves) with a new Shadow Realm biome
 - 3 new towers with dark-magic mechanics
 - New spell and augment cards
-- Shadow Warden character with unique passive
+- 🌑 Shadow Warden character with unique passive
+
+---
+
+## DLC 2 — Solar Dominion
+
+**Runewarden: Solar Dominion** (태양 지배령) expands the game with radiant power:
+
+- Act 5 (8 additional waves, waves 24–31) with a new Solar biome
+- 12 new solar enemies including the 3-phase **Sun God** final boss
+- 4 new towers: Divine Cannon, Solar Scythe, Light Prism, Crusader
+- 38 new cards (summons, augments, spells) — solar DoT, divine shield, stun
+- 15 new relics
+- ☀️ **Solar Warden** — charges Solar Energy with every cost-2+ spell; 8 charges auto-fire Solar Beam
 
 ---
 
@@ -173,7 +186,7 @@ npm run dev
 # Run in production mode
 npm start
 
-# Run unit tests
+# Run unit tests (105 tests across 5 files)
 npm test
 
 # Build Windows installer
