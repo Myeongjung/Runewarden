@@ -1,5 +1,6 @@
 // Warden 메타 진행 시스템 — localStorage 영구 저장
-const SAVE_KEY = 'runewarden_meta_v1';
+const SAVE_KEY     = 'runewarden_meta_v1';
+const SAVE_VERSION = 2; // 저장 포맷 버전 — 변경 시 증가
 
 // ── 레벨 임계값 (레벨 n에 필요한 누적 XP) ─────────────
 // threshold(n) = 80*n + 20*n²  → 부드러운 상승 곡선
@@ -131,17 +132,49 @@ export class MetaSystem {
   _load() {
     try {
       const raw = localStorage.getItem(SAVE_KEY);
-      if (raw) return JSON.parse(raw);
-    } catch {}
-    return this._defaultData();
+      if (!raw) return this._defaultData();
+      const parsed = JSON.parse(raw);
+      return this._validate(parsed) ? this._migrate(parsed) : this._defaultData();
+    } catch {
+      console.warn('[MetaSystem] 저장 데이터 손상 — 기본값으로 초기화합니다.');
+      return this._defaultData();
+    }
+  }
+
+  _validate(data) {
+    if (!data || typeof data !== 'object') return false;
+    if (typeof data.totalXP    !== 'number' || data.totalXP < 0)   return false;
+    if (typeof data.rank       !== 'number' || data.rank < 0)       return false;
+    if (!Array.isArray(data.unlockedCards))                         return false;
+    if (!data.bonuses || typeof data.bonuses !== 'object')          return false;
+    return true;
+  }
+
+  _migrate(data) {
+    // 구버전 세이브에 없는 필드를 기본값으로 채움
+    const def = this._defaultData();
+    return {
+      ...def,
+      ...data,
+      bonuses:     { ...def.bonuses,  ...(data.bonuses  ?? {}) },
+      runHistory:  Array.isArray(data.runHistory)  ? data.runHistory  : [],
+      badges:      Array.isArray(data.badges)      ? data.badges      : [],
+      maxAscensionCleared: data.maxAscensionCleared ?? 0,
+      runsWon:     data.runsWon    ?? 0,
+      totalKills:  data.totalKills ?? 0,
+      _version:    SAVE_VERSION,
+    };
   }
 
   _save() {
-    try { localStorage.setItem(SAVE_KEY, JSON.stringify(this._data)); } catch {}
+    try {
+      localStorage.setItem(SAVE_KEY, JSON.stringify({ ...this._data, _version: SAVE_VERSION }));
+    } catch {}
   }
 
   _defaultData() {
     return {
+      _version:             SAVE_VERSION,
       totalXP:              0,
       rank:                 0,
       runsPlayed:           0,
