@@ -37,11 +37,17 @@ export class TowerSystem {
     this._relicDmgBonus    = {};   // { towerType: mult }
     this._relicRangeBonus  = {};
     this._relicSpeedBonus  = {};
-    this._chainBonus       = 0;    // Tesla 추가 체인 수
-    this._druidAuraBonus   = 0;    // Druid 버프 추가 배율
-    this._relicSiegeSplash = 1;    // Cannon 폭발 반경 배율 (1 = 기본)
-    this._relicFirePact    = 0;    // Fire Pact 추가 배율 (0 = 비활성)
-    this._fireDrakeCount   = 0;    // 배치된 Fire Drake 수 캐시 (Fire Pact 최적화)
+    this._chainBonus          = 0;    // Tesla 추가 체인 수
+    this._druidAuraBonus      = 0;    // Druid 버프 추가 배율
+    this._relicSiegeSplash    = 1;    // Cannon 폭발 반경 배율 (1 = 기본)
+    this._relicFirePact       = 0;    // Fire Pact 추가 배율 (0 = 비활성)
+    this._fireDrakeCount      = 0;    // 배치된 Fire Drake 수 캐시 (Fire Pact 최적화)
+    // DLC 2 Solar Dominion
+    this._solarPact           = 0;    // Solar Pact 추가 배율
+    this._solarPactTag        = 'Solar';
+    this._lightPrismBuff      = 1;    // Light Prism aura 누적 배율 (cap ×1.51)
+    this._lightPrismExtraRadius = 0;  // Prism Lens 유물 추가 반경
+    this._crusaderStunBonus   = 0;    // Crusader 스턴 추가 ms
     ensureFilters(projectileLayer.ownerSVGElement);
     this._injectStyles();
   }
@@ -90,6 +96,23 @@ export class TowerSystem {
   // Fire Pact: Fire Drake 데미지 보너스 설정
   addFirePact(extraMult) {
     this._relicFirePact = extraMult;
+  }
+
+  // DLC 2 Solar Pact: Solar/Holy 태그 타워 피해 보너스
+  addSolarPact(extraMult, tag = 'Solar') {
+    this._solarPact    += extraMult;
+    this._solarPactTag  = tag;
+  }
+
+  // DLC 2 Light Prism aura 보너스 (cap ×1.51)
+  addLightPrismBonus(extraDmg, extraRadius = 0) {
+    this._lightPrismBuff = Math.min(1.51, this._lightPrismBuff * (1 + (extraDmg ?? 0.10)));
+    this._lightPrismExtraRadius += extraRadius;
+  }
+
+  // DLC 2 Crusader 스턴 보너스
+  addCrusaderStunBonus(extraMs) {
+    this._crusaderStunBonus += extraMs;
   }
 
   // Storm Circuit: 모든 Tesla 즉시 발사
@@ -227,12 +250,25 @@ export class TowerSystem {
   _fireAt(tower, enemy) {
     // Druid 오라 효과: 인접 Druid 타워가 있으면 대미지 +auraDmgMult
     const druidMult = this._getDruidAuraMult(tower);
+    // Light Prism 오라: 인접 Light Prism 타워가 있으면 대미지 보너스 (cap ×1.51)
+    const lightPrismMult = this._getLightPrismAuraMult(tower);
     // Fire Pact: Fire Drake 2개 이상 배치 시 데미지 +extraMult
     let firePactMult = 1;
     if (this._relicFirePact > 0 && tower.def.id === 'fire_drake' && this._fireDrakeCount >= 2) {
       firePactMult = 1 + this._relicFirePact;
     }
-    let dmg = Math.round(tower.damage * this._globalDmgMult * druidMult * firePactMult);
+    // Solar Pact: Solar/Holy 태그 타워 2개+ 배치 시 데미지 보너스
+    let solarPactMult = 1;
+    if (this._solarPact > 0 && tower.def.tags?.includes(this._solarPactTag)) {
+      const tagCount = [...this.towers.values()].filter(t => t.def.tags?.includes(this._solarPactTag)).length;
+      if (tagCount >= 2) solarPactMult = 1 + this._solarPact;
+    }
+    // Solar Scythe 탱커 슬레이어 보너스: HP 500+ 적에게 +50% 추가 피해
+    let tankSlayMult = 1;
+    if (tower.def.tankSlayBonus && enemy.hp >= (tower.def.tankSlayHpThreshold ?? 500)) {
+      tankSlayMult = 1 + tower.def.tankSlayBonus;
+    }
+    let dmg = Math.round(tower.damage * this._globalDmgMult * druidMult * lightPrismMult * firePactMult * solarPactMult * tankSlayMult);
 
     // ── DLC: critOnSlow — 감속 적에게 크리티컬 ─────────────
     if (tower.def.critOnSlow && enemy.slowTimer > 0) {
@@ -303,14 +339,58 @@ export class TowerSystem {
     } else if (tid === 'ballista' || tid === 'marksman') {
       this._spawnArrow(tx, ty, ex, ey, tower.def.accentColor);
       audio.play(tid === 'ballista' ? 'cannon_fire' : 'arrow_shoot');
+
+    } else if (tid === 'crusader') {
+      // DLC 2: Crusader — 범위 공격 + 스턴
+      this._spawnCannonball(tx, ty, ex, ey);
+      audio.play('cannon_fire');
+      const splashPx = tower.def.splash * HEX_W * 0.75;
+      setTimeout(() => {
+        this._spawnSplashRing(ex, ey, splashPx, '#DAA520');
+        const inSplash = this.enemySystem.getEnemiesInRange(ex, ey, splashPx);
+        const stunDur  = (tower.def.stunDuration ?? 400) + this._crusaderStunBonus;
+        const towerId  = `${tower.col ?? 0},${tower.row ?? 0}`;
+        for (const e of inSplash) {
+          if (e.id !== enemy.id) this.enemySystem.dealDamage(e.id, Math.round(dmg * 0.7));
+          this.enemySystem.applyStun?.(e.id, stunDur, towerId);
+        }
+      }, 180);
+
+    } else if (tid === 'divine_cannon') {
+      // DLC 2: Divine Cannon — 태양 빔 이펙트
+      this._spawnArrow(tx, ty, ex, ey, '#F5C518');
+      audio.play('cannon_fire');
+
+    } else if (tid === 'solar_scythe') {
+      // DLC 2: Solar Scythe — 황금 화살
+      this._spawnArrow(tx, ty, ex, ey, '#E8791A');
+      audio.play('arrow_shoot');
+
+    } else if (tid === 'light_prism') {
+      // DLC 2: Light Prism — 빛 볼트
+      this._spawnArrow(tx, ty, ex, ey, '#C9B1FF');
+      audio.play('druid_shoot');
+
     } else {
       this._spawnArrow(tx, ty, ex, ey, tower.def.accentColor);
       audio.play('arrow_shoot');
     }
 
-    // ── DLC: shadowDotDps — Shadow DoT 적용 ───────────────
+    // ── DLC 1: shadowDotDps — Shadow DoT 적용 ────────────
     if (tower.def.shadowDotDps && tower.def.shadowDotDur) {
       this.enemySystem.applyBurn(enemy.id, tower.def.shadowDotDps, tower.def.shadowDotDur);
+    }
+
+    // ── DLC 2: Solar tower special behaviors ─────────────
+    // Solar Pact: Solar/Holy 태그 타워 피해 보너스 (이미 dmg에 반영됨 — 위 _fireAt 로직에서 처리)
+    // Solar DoT (Divine Cannon 등)
+    if (tower.def.solarDotDps && tower.def.solarDotDur) {
+      this.enemySystem.applySolarDot?.(enemy.id, tower.def.solarDotDps, tower.def.solarDotDur);
+    }
+    // Crusader 스턴
+    if (tower.def.stunDuration) {
+      const stunDur = tower.def.stunDuration + this._crusaderStunBonus;
+      this.enemySystem.applyStun?.(enemy.id, stunDur, tower.id ?? `${tower.col},${tower.row}`);
     }
 
     this._spawnMuzzleFlash(tx, ty, tower.def.accentColor);
@@ -332,6 +412,25 @@ export class TowerSystem {
       }
     }
     return 1;
+  }
+
+  // ── Light Prism 오라 계산 (DLC 2) ───────────────────
+  // 인접 Light Prism 타워가 있으면 dmg 배율 반환 (1 이상, cap ×1.51)
+  _getLightPrismAuraMult(tower) {
+    if (tower.def.id === 'light_prism') return 1;  // Light Prism 자신에겐 미적용
+    let totalMult = 1;
+    for (const other of this.towers.values()) {
+      if (!other.def.lightPrismAura) continue;
+      const dx = tower.x - other.x;
+      const dy = tower.y - other.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const auraRangePx = ((other.def.lightPrismRadius ?? 2.5) + this._lightPrismExtraRadius) * HEX_W * 0.75;
+      if (dist <= auraRangePx) {
+        const baseMult = (other.def.lightPrismDmgMult ?? 1.20) - 1;  // 0.20
+        totalMult = Math.min(this._lightPrismBuff, totalMult * (1 + baseMult));
+      }
+    }
+    return totalMult;
   }
 
   // ── 화살 (Archer) ────────────────────────────────────

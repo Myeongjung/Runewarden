@@ -1,5 +1,6 @@
 /** Runewarden — English (en) */
 import dlcShadowEn from '../dlc/shadow_realm/i18n/en.js';
+import dlcSolarEn  from '../dlc/solar_dominion/i18n/en.js';
 
 const _BASE_EN = {
   // ── 메인 메뉴 ───────────────────────────────────────
@@ -731,5 +732,5 @@ const _BASE_EN = {
   ],
 };
 
-// DLC 번역 병합 (DLC 키는 'dlc_sr_' 프리픽스로 기존 키와 충돌 없음)
-export default { ..._BASE_EN, ...dlcShadowEn };
+// DLC 번역 병합
+export default { ..._BASE_EN, ...dlcShadowEn, ...dlcSolarEn };

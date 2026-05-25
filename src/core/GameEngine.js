@@ -34,14 +34,16 @@ import { registerDLC, hasDLC, clearDLCs } from '../systems/DLCRegistry.js';
 function rangeToPixel(hexRange) { return hexRange * HEX_W * 0.75; }
 
 // ── 상수 ──────────────────────────────────────────────
-const MAX_WAVES_BASE = 15;  // Act 1(5) + Act 2(5) + Act 3(5)
-const MAX_WAVES_DLC  = 23;  // + Act 4(8) — DLC Shadow Realm
+const MAX_WAVES_BASE  = 15;  // Act 1(5) + Act 2(5) + Act 3(5)
+const MAX_WAVES_DLC   = 23;  // + Act 4(8) — DLC Shadow Realm
+const MAX_WAVES_DLC2  = 31;  // + Act 5(8) — DLC Solar Dominion
 const ACT_SIZE    = 5;   // 액트당 웨이브 수
 const NEXUS_HP    = 3;
 const START_GOLD  = 25;
 const WAVE_GOLD   = 8;
 const BOSS_WAVES_BASE = new Set([5, 10, 15]);
-const BOSS_WAVES_DLC  = new Set([5, 10, 15, 23]);  // DLC 보스 웨이브
+const BOSS_WAVES_DLC  = new Set([5, 10, 15, 23]);       // DLC1 보스 웨이브
+const BOSS_WAVES_DLC2 = new Set([5, 10, 15, 23, 31]);   // DLC2 보스 웨이브 (Solar Titan: W28도 특수)
 
 // ── DOM 참조 ───────────────────────────────────────────
 const $ = id => document.getElementById(id);
@@ -251,11 +253,20 @@ function startRun() {
   // 이전 런 정리
   if (rafId) cancelAnimationFrame(rafId);
 
-  // DLC 상태에 따라 최대 웨이브 / 보스 웨이브 결정
+  // DLC 상태에 따라 최대 웨이브 / 보스 웨이브 결정 (DLC2 > DLC1 > base)
   clearDLCs();
-  if (steam?.isDlcOwned('shadow_realm')) registerDLC('shadow_realm');
-  shared.maxWaves  = hasDLC('shadow_realm') ? MAX_WAVES_DLC  : MAX_WAVES_BASE;
-  shared.bossWaves = hasDLC('shadow_realm') ? BOSS_WAVES_DLC : BOSS_WAVES_BASE;
+  if (steam?.isDlcOwned('shadow_realm'))    registerDLC('shadow_realm');
+  if (steam?.isDlcOwned('solar_dominion'))  registerDLC('solar_dominion');
+  if (hasDLC('solar_dominion')) {
+    shared.maxWaves  = MAX_WAVES_DLC2;
+    shared.bossWaves = BOSS_WAVES_DLC2;
+  } else if (hasDLC('shadow_realm')) {
+    shared.maxWaves  = MAX_WAVES_DLC;
+    shared.bossWaves = BOSS_WAVES_DLC;
+  } else {
+    shared.maxWaves  = MAX_WAVES_BASE;
+    shared.bossWaves = BOSS_WAVES_BASE;
+  }
 
   // Warden + 난이도 기반 시작 조건
   const bonuses    = meta.bonuses;
@@ -290,6 +301,15 @@ function startRun() {
     _nexusHitThisWave:     false,  // 이번 웨이브 넥서스 피격 여부 (PERFECT_WAVE 업적)
     _acceptedCurse:        false,  // cursed_gold 이벤트 수락 여부 (CURSED_WIN 업적)
     lastSpellEffect:       null,   // Void Echo: 마지막 시전 스펠 효과 추적
+    // DLC 2 Solar Charge 상태
+    _solarChargeCount:     0,
+    _solarChargeMax:       8,
+    _solarChargeExtraOnHighCost: 0,
+    _divineShieldActive:   false,
+    _divineShieldExpiry:   0,
+    _investGoldReturn:     0,      // invest_gold 이벤트 저장 (다음 웨이브 클리어 시 지급)
+    _tempDmgBonusWaves:    0,      // temp_dmg_bonus 잔여 웨이브 수
+    _tempDmgBonusMult:     1,      // temp_dmg_bonus 배율
     // 런 통계
     stats: {
       enemiesKilled:         0,
@@ -510,6 +530,16 @@ function _applyRelicToTowers(relic) {
       case 'fire_pact':
         towerSystem.addFirePact(e.extraMult);
         break;
+      // DLC 2 Solar cases
+      case 'solar_pact':
+        towerSystem.addSolarPact?.(e.extraMult, e.towerTag ?? 'Solar');
+        break;
+      case 'light_prism_bonus':
+        towerSystem.addLightPrismBonus?.(e.extraDmg, e.extraRadius ?? 0);
+        break;
+      case 'crusader_stun_bonus':
+        towerSystem.addCrusaderStunBonus?.(e.extraMs);
+        break;
     }
   }
   if (enemySystem) {
@@ -518,6 +548,18 @@ function _applyRelicToTowers(relic) {
     }
     if (e.type === 'burn_bonus') {
       enemySystem.setBurnBonus(e.extraDps, e.extraDuration);
+    }
+    if (e.type === 'solar_dot_bonus') {
+      enemySystem.setSolarDotBonus?.(e.extraDps, e.extraDuration);
+    }
+  }
+  // State-level DLC 2 relic effects
+  if (state) {
+    if (e.type === 'solar_charge_reduce') {
+      state._solarChargeMax = Math.min(state._solarChargeMax ?? 8, e.newMax);
+    }
+    if (e.type === 'solar_charge_on_spell') {
+      state._solarChargeExtraOnHighCost = (state._solarChargeExtraOnHighCost ?? 0) + e.extraCharge;
     }
   }
 }
@@ -707,6 +749,24 @@ function onWaveCleared() {
   const totalWaveGold  = WAVE_GOLD + (badgeEffect ? badgeEffect.amount : 0) + diffWaveBonus;
   addGold(Math.max(1, totalWaveGold), null);
 
+  // DLC 2: invest_gold 이벤트 회수
+  if (state._investGoldReturn > 0) {
+    const returnAmt = state._investGoldReturn;
+    state._investGoldReturn = 0;
+    addGold(returnAmt, null);
+    log(i18n.t('event_invest_gold_return', returnAmt) ?? `황금 투자 회수! +${returnAmt} 골드!`, 'gold');
+  }
+
+  // DLC 2: temp_dmg_bonus 만료 처리
+  if (state._tempDmgBonusWaves > 0) {
+    state._tempDmgBonusWaves--;
+    if (state._tempDmgBonusWaves === 0 && state._tempDmgBonusMult !== 1) {
+      // 반전 배율 적용 (효과 제거)
+      if (towerSystem) towerSystem.addRelicDmgBonus('__all__', 1 / state._tempDmgBonusMult);
+      state._tempDmgBonusMult = 1;
+    }
+  }
+
   // Warden's Sigil: 웨이브 클리어 후 즉시 카드 추가 드로우
   if (hasRelic('wardens_sigil') && cardSystem) {
     const sigilEffect = getRelicEffect('wave_draw');
@@ -868,6 +928,25 @@ function onEventEffect(effect) {
         _applyNexusHeal(effect.amount);
       }
       break;
+    // DLC 2 Solar Dominion event effects
+    case 'invest_gold': {
+      const cost = effect.cost ?? 10;
+      if (state.gold >= cost) {
+        spendGold(cost);
+        state._investGoldReturn = (state._investGoldReturn ?? 0) + (effect.returnAmount ?? 18);
+        log(`투자 완료! 다음 웨이브 클리어 시 ${effect.returnAmount}골드 획득.`, 'good');
+      } else {
+        log(i18n.t('log_not_enough_gold', cost, state.gold), 'bad');
+      }
+      break;
+    }
+    case 'temp_dmg_bonus':
+      state._tempDmgBonusWaves = (state._tempDmgBonusWaves ?? 0) + (effect.waves ?? 1);
+      state._tempDmgBonusMult  = effect.mult ?? 1.20;
+      // Apply to TowerSystem immediately
+      if (towerSystem) towerSystem.addRelicDmgBonus('__all__', effect.mult ?? 1.20);
+      log(`✨ 다음 ${effect.waves}웨이브 동안 모든 타워 피해 +${Math.round((effect.mult - 1) * 100)}%!`, 'good');
+      break;
     case 'nothing':
     default:
       log(i18n.t('log_nothing'), '');
@@ -923,6 +1002,16 @@ function onShopLeave() {
 // ── 적 처리 콜백 ──────────────────────────────────────
 function onEnemyReachEnd() {
   state._nexusHitThisWave = true;  // PERFECT_WAVE 업적: 이번 웨이브 넥서스 피격 기록
+
+  // DLC 2: Divine Shield — 넥서스 무적 상태
+  if (state._divineShieldActive && Date.now() < state._divineShieldExpiry) {
+    log(i18n.t('log_divine_shield_block') ?? '✨ Divine Shield blocked the hit!', 'good');
+    return;
+  }
+  if (state._divineShieldActive && Date.now() >= state._divineShieldExpiry) {
+    state._divineShieldActive = false;
+  }
+
   // 넥서스 피격 화면 테두리 빨강 비네트
   const _appEl = document.getElementById('app');
   if (_appEl) {
@@ -1207,6 +1296,7 @@ function onCardClick(card) {
     cardSystem.playCard(card.uid);
     audio.play('spell_cast');
     resolveSpell(card.effect);
+    _triggerSolarCharge({ ...card, cost });  // DLC 2: Solar Charge 충전 (원본 cost 전달)
     if (state?.stats) {
       state.stats.spellsThisWave++;
       state.stats.maxSpellsInWave = Math.max(
@@ -1343,7 +1433,61 @@ function spendGold(amount) {
   updateHUD();
 }
 
-// ── Shadow Charge 자동 주문 발동 (DLC) ─────────────────
+// ── Solar Charge 충전 & 자동 시전 (DLC 2) ──────────────
+function _triggerSolarCharge(card) {
+  if (!state || !card) return;
+  if (state.warden?.passive !== PASSIVES.SOLAR_CHARGE_SOLAR) return;
+  if (card.type !== 'spell') return;
+  if (card._isAutocast) return;            // 자동 시전 연쇄 차단
+  const originalCost = card.cost ?? 0;
+  if (originalCost < 2) return;           // cost < 2 주문은 충전 안 됨
+
+  // Radiant Will 유물: cost 4+ 주문은 +1 추가 충전
+  let extra = 0;
+  if (originalCost >= 4 && state._solarChargeExtraOnHighCost > 0) {
+    extra = state._solarChargeExtraOnHighCost;
+  }
+  state._solarChargeCount += 1 + extra;
+
+  const max = state._solarChargeMax ?? 8;
+  log(i18n.t('dlc_sd_log_solar_charge', state._solarChargeCount, max), 'info');
+
+  if (state._solarChargeCount >= max) {
+    state._solarChargeCount = 0;
+    _triggerSolarAutoSpell();
+  }
+  _updateSolarChargeHUD();
+}
+
+function _updateSolarChargeHUD() {
+  const n   = state?._solarChargeCount ?? 0;
+  const max = state?._solarChargeMax   ?? 8;
+  // reuse shadow HUD or call dedicated Solar HUD if available
+  const hudFn = typeof updateSolarChargeHUD === 'function'
+    ? updateSolarChargeHUD
+    : (typeof updateShadowChargeHUD === 'function' ? updateShadowChargeHUD : null);
+  hudFn?.(n, max);
+}
+
+function _triggerSolarAutoSpell() {
+  const SOLAR_AUTO_SPELLS = [
+    'spell_solar_beam', 'spell_radiant_burst',
+    'spell_solar_flare', 'spell_solar_nova',
+  ];
+  const available = SOLAR_AUTO_SPELLS.filter(id => CARD_DEFS.find(c => c.id === id));
+  if (!available.length) return;
+
+  const spellId = 'spell_solar_beam';  // Solar Beam은 항상 자동 시전 고정
+  const card    = CARD_DEFS.find(c => c.id === spellId);
+  if (!card) return;
+
+  const spellName = i18n.lang === 'ko' ? (card.nameKo || card.name) : card.name;
+  log(i18n.t('dlc_sd_log_auto_cast', spellName), 'gold');
+  audio?.play('spell_cast');
+  resolveSpell({ ...card.effect, _isAutocast: true });
+}
+
+// ── Shadow Charge 자동 주문 발동 (DLC 1) ────────────────
 function _triggerShadowAutoSpell() {
   const SHADOW_AUTO_SPELLS = [
     'spell_darkness', 'spell_shadow_nova',

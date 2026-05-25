@@ -1,5 +1,6 @@
 // 타워 기본 스탯 정의 — v0.5 (12종 기본 + DLC)
 import { SHADOW_TOWER_DEFS } from '../dlc/shadow_realm/towers.js';
+import { SOLAR_TOWER_DEFS }  from '../dlc/solar_dominion/towers.js';
 
 const _BASE_TOWER_DEFS = {
   // ── 기존 타워 ─────────────────────────────────────────
@@ -186,4 +187,4 @@ const _BASE_TOWER_DEFS = {
 };
 
 // DLC 타워 병합
-export const TOWER_DEFS = { ..._BASE_TOWER_DEFS, ...SHADOW_TOWER_DEFS };
+export const TOWER_DEFS = { ..._BASE_TOWER_DEFS, ...SHADOW_TOWER_DEFS, ...SOLAR_TOWER_DEFS };

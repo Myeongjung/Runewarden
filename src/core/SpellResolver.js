@@ -281,6 +281,104 @@ const BASE_HANDLERS = {
       log(i18n.t('spell_no_enemies'), '');
     }
   },
+
+  // ── DLC 2 Solar Dominion 스펠 핸들러 ─────────────────
+
+  solar_beam(effect, { enemySystem, log, i18n }) {
+    enemySystem.dealDamageToAll(effect.damage ?? 50);
+    if (effect.slow > 0) enemySystem.slowAll(effect.slow, effect.slowDur ?? 3000);
+    log(i18n.t('spell_solar_beam', effect.damage ?? 50, Math.round((effect.slow ?? 0.30) * 100), (effect.slowDur ?? 3000) / 1000), 'good');
+  },
+
+  divine_shield(effect, { state, log, i18n }) {
+    if (!state) return;
+    const dur = effect.duration ?? 10000;
+    state._divineShieldActive = true;
+    state._divineShieldExpiry = Date.now() + dur;
+    setTimeout(() => { if (state) state._divineShieldActive = false; }, dur);
+    log(i18n.t('spell_divine_shield', dur / 1000), 'good');
+  },
+
+  solar_dot_all(effect, { enemySystem, log, i18n }) {
+    enemySystem.applySolarDotAll?.(effect.dps ?? 15, effect.duration ?? 4000);
+    log(i18n.t('spell_solar_flare', effect.dps ?? 15, (effect.duration ?? 4000) / 1000), 'good');
+  },
+
+  solar_tithe(effect, { state, enemySystem, addGold, spendGold, log, i18n }) {
+    if (!state) return;
+    const spend = Math.floor(state.gold * (effect.goldPct ?? 0.25));
+    if (spend > 0 && spendGold) spendGold(spend);
+    log(i18n.t('spell_solar_tithe', spend), 'gold');
+    // DLC 2: enemies take ×2 damage — apply as a state flag (handled per-hit in TowerSystem or via temp stun)
+    // Simple approach: deal immediate bonus damage to all enemies
+    if (effect.damageMult && effect.damageMult > 1) {
+      for (const e of [...enemySystem.enemies]) {
+        enemySystem.dealDamage(e.id, Math.floor(e.maxHp * 0.04));  // 즉시 타격 4% 최대 HP
+      }
+    }
+  },
+
+  damage_lead(effect, { enemySystem, log, i18n }) {
+    const lead = enemySystem.dealDamageToLead(effect.amount);
+    if (effect.slow > 0 && lead) {
+      enemySystem.applySlow(lead.id, effect.slow, effect.slowDur ?? 3000);
+    }
+    if (effect.slow > 0) {
+      log(i18n.t('spell_sunburst', effect.amount, Math.round((effect.slow ?? 0.40) * 100), (effect.slowDur ?? 4000) / 1000), 'good');
+    } else {
+      log(i18n.t('spell_divine_wrath', effect.amount), 'good');
+    }
+  },
+
+  gold_per_enemy(effect, { enemySystem, addGold, log, i18n }) {
+    const count  = enemySystem.enemies.length;
+    if (count === 0) { log(i18n.t('spell_no_enemies'), ''); return; }
+    const gained = count * (effect.mult ?? 1);
+    addGold(gained, null);
+    log(i18n.t('spell_gold_tithe', gained), 'gold');
+  },
+
+  damage_all_solar_bonus(effect, { enemySystem, log, i18n }) {
+    for (const e of [...enemySystem.enemies]) {
+      const dmg = (e.solarDots?.length > 0)
+        ? Math.floor(effect.amount * (effect.solarBonusMult ?? 2))
+        : effect.amount;
+      enemySystem.dealDamage(e.id, dmg);
+    }
+    log(i18n.t('spell_solar_nova', effect.amount), 'good');
+  },
+
+  heal_nexus_gold(effect, { applyNexusHeal, addGold, log, i18n }) {
+    applyNexusHeal(effect.healAmount ?? 1, { isSpell: true });
+    if (effect.goldAmount > 0) addGold(effect.goldAmount, null);
+    log(i18n.t('spell_heavenly_light', effect.healAmount ?? 1, effect.goldAmount ?? 10), 'good');
+  },
+
+  freeze_all(effect, { enemySystem, log, i18n, audio }) {
+    enemySystem.freezeAll(effect.duration ?? 2500);
+    audio.play('spell_freeze');
+    log(i18n.t('spell_blinding_light', (effect.duration ?? 2500) / 1000), 'good');
+  },
+
+  tower_speed_temp(effect, { towerSystem, log, i18n }) {
+    if (!towerSystem) return;
+    const pct  = Math.round((1 / (effect.mult ?? 0.625) - 1) * 100);
+    const dur  = effect.duration ?? 5000;
+    towerSystem.addRelicSpeedBonus?.('__all__', effect.mult ?? 0.625);
+    setTimeout(() => towerSystem.addRelicSpeedBonus?.('__all__', 1 / (effect.mult ?? 0.625)), dur);
+    log(i18n.t('spell_solar_surge', pct, dur / 1000), 'good');
+  },
+
+  solar_dot_all_charge(effect, { enemySystem, state, log, i18n }) {
+    enemySystem.applySolarDotAll?.(effect.dps ?? 12, effect.duration ?? 3000);
+    if (state && effect.bonusCharge > 0) {
+      state._solarChargeCount = Math.min(
+        (state._solarChargeCount ?? 0) + effect.bonusCharge,
+        (state._solarChargeMax ?? 8) - 1
+      );
+    }
+    log(i18n.t('spell_solar_corona', effect.dps ?? 12, (effect.duration ?? 3000) / 1000), 'good');
+  },
 };
 
 /**
@@ -301,13 +399,16 @@ export function resolveSpell(effect, ctx) {
   if (effect.type !== 'void_echo' && ctx.state) {
     ctx.state.lastSpellEffect = effect;
   }
-  if (ctx.hasRelic('storm_circuit') && ctx.towerSystem && ctx.enemySystem?.enemies?.length > 0) {
-    const count = ctx.towerSystem.triggerAllTeslas();
-    if (count > 0) ctx.log(ctx.i18n.t('log_storm_circuit', count), 'good');
+  // _isAutocast 가드: 자동 시전 주문은 storm_circuit/void_echo_relic 연쇄 트리거 차단
+  if (!effect._isAutocast) {
+    if (ctx.hasRelic('storm_circuit') && ctx.towerSystem && ctx.enemySystem?.enemies?.length > 0) {
+      const count = ctx.towerSystem.triggerAllTeslas();
+      if (count > 0) ctx.log(ctx.i18n.t('log_storm_circuit', count), 'good');
+    }
   }
 
-  // Void Echo Relic: Void 태그 타워 즉시 발사 (8초 쿨다운)
-  if (ctx.hasRelic('void_echo_relic') && ctx.towerSystem && ctx.enemySystem?.enemies?.length > 0) {
+  // Void Echo Relic: Void 태그 타워 즉시 발사 (8초 쿨다운) — autocast 연쇄 차단
+  if (!effect._isAutocast && ctx.hasRelic('void_echo_relic') && ctx.towerSystem && ctx.enemySystem?.enemies?.length > 0) {
     const now = Date.now();
     const lastFired = ctx.state?._voidEchoLastFired ?? 0;
     const relicEffect = ctx.state?.relics?.find(r => r.id === 'void_echo_relic')?.effect;
