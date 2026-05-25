@@ -201,6 +201,7 @@ function _restoreFromSave(save) {
     state.relics = save.relicIds.map(id => RELIC_DEFS.find(r => r.id === id)).filter(Boolean);
     relicUI.updateHUD(state.relics);
     for (const r of state.relics) {
+      _applyRelicToTowers(r);
       if (r.effect.type === 'card_draw_bonus') {
         cardSystem.bonusHandSize = (cardSystem.bonusHandSize || 0) + r.effect.amount;
       }
@@ -594,8 +595,10 @@ function startTutorial() {
 
 // ── 게임 루프 ─────────────────────────────────────────
 function gameLoop(now) {
-  const delta = (now - lastTime) * gameSpeed;
+  const delta = Math.min(200, now - lastTime) * gameSpeed;
   lastTime = now;
+
+  if (!state) { rafId = requestAnimationFrame(gameLoop); return; }
 
   if (state.phase === 'wave') {
     enemySystem.update(delta);
@@ -1230,6 +1233,7 @@ function onCardClick(card) {
   const _cName = i18n.lang === 'ko' ? (card.nameKo || card.name) : card.name;
   log(card.type === 'summon' ? i18n.t('log_select_summon', _cName) : i18n.t('log_select_augment', _cName));
   tutorial?.triggerEvent('card_selected');
+  if (card.type === 'summon') tutorial?.triggerEvent('card_selected_summon');
 }
 
 // ── 셀 hover → 사거리 미리보기 ────────────────────────

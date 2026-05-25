@@ -48,7 +48,7 @@ function getSteps() {
       text:  i18n.t('tut_select_text'),
       btnLabel: null,   // 액션 대기
       position: 'left',
-      triggerEvent: 'card_selected',
+      triggerEvent: 'card_selected_summon',
     },
     {
       id: 'place_tower',
@@ -262,7 +262,8 @@ export class TutorialUI {
 
     const btnHtml = step.btnLabel
       ? `<button class="tut-btn" id="tut-next-btn">${step.btnLabel}</button>`
-      : `<div class="tut-waiting">${i18n.t('tut_waiting')} <span class="tut-pulse">●</span></div>`;
+      : `<div class="tut-waiting">${i18n.t('tut_waiting')} <span class="tut-pulse">●</span></div>
+         <button class="tut-alt-btn" id="tut-alt-btn">${i18n.t('tut_manual_advance')}</button>`;
 
     this._bubble.innerHTML = `
       <div class="tut-progress">${progress}</div>
@@ -312,6 +313,7 @@ export class TutorialUI {
 
     // 버튼 이벤트
     document.getElementById('tut-next-btn')?.addEventListener('click', () => this._nextStep());
+    document.getElementById('tut-alt-btn')?.addEventListener('click',  () => this._nextStep());
     document.getElementById('tut-skip-btn')?.addEventListener('click', () => this._complete());
 
     // 등장 애니메이션
@@ -456,6 +458,21 @@ export class TutorialUI {
         text-align: center;
       }
       .tut-skip-btn:hover { color: rgba(255,255,255,0.5); }
+
+      .tut-alt-btn {
+        font-family: 'Cinzel', serif;
+        font-size: 0.72rem;
+        letter-spacing: 0.06em;
+        padding: 0.35rem 0.9rem;
+        background: transparent;
+        border: 1px solid rgba(212,175,55,0.35);
+        border-radius: 5px;
+        color: rgba(212,175,55,0.6);
+        cursor: pointer;
+        transition: border-color 0.15s, color 0.15s;
+        width: 100%;
+      }
+      .tut-alt-btn:hover { border-color: rgba(212,175,55,0.7); color: #D4AF37; }
 
       .tut-waiting {
         font-size: 0.78rem;
