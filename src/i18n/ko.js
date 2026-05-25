@@ -1,5 +1,6 @@
 /** Runewarden — 한국어 (ko) */
 import dlcShadowKo from '../dlc/shadow_realm/i18n/ko.js';
+import dlcSolarKo  from '../dlc/solar_dominion/i18n/ko.js';
 
 const _BASE_KO = {
   // ── 메인 메뉴 ───────────────────────────────────────
@@ -728,4 +729,4 @@ const _BASE_KO = {
 };
 
 // DLC 번역 병합
-export default { ..._BASE_KO, ...dlcShadowKo };
+export default { ..._BASE_KO, ...dlcShadowKo, ...dlcSolarKo };

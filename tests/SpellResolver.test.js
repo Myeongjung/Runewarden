@@ -192,5 +192,67 @@ describe('resolveSpell', () => {
       resolveSpell({ type: 'gold', amount: 1 }, ctx);
       expect(ctx.towerSystem.triggerAllTeslas).not.toHaveBeenCalled();
     });
+
+    it('does NOT trigger storm_circuit for _isAutocast spells', () => {
+      ctx.hasRelic = vi.fn().mockImplementation(id => id === 'storm_circuit');
+      ctx.enemySystem.enemies = [{ id: 1 }];
+      ctx.towerSystem.triggerAllTeslas.mockReturnValue(2);
+      resolveSpell({ type: 'gold', amount: 1, _isAutocast: true }, ctx);
+      expect(ctx.towerSystem.triggerAllTeslas).not.toHaveBeenCalled();
+    });
+  });
+
+  // ── DLC 2 Solar Dominion spells ───────────────────────
+  describe('solar_beam', () => {
+    it('deals damage to all enemies and slows them', () => {
+      ctx.enemySystem.enemies = [{ id: 'e1' }, { id: 'e2' }];
+      resolveSpell({ type: 'solar_beam', damage: 50, slow: 0.30, slowDur: 3000 }, ctx);
+      expect(ctx.enemySystem.dealDamageToAll).toHaveBeenCalledWith(50);
+      expect(ctx.enemySystem.slowAll).toHaveBeenCalledWith(0.30, 3000);
+    });
+  });
+
+  describe('divine_shield', () => {
+    it('sets _divineShieldActive on state', () => {
+      resolveSpell({ type: 'divine_shield', duration: 10000 }, ctx);
+      expect(ctx.state._divineShieldActive).toBe(true);
+      expect(ctx.state._divineShieldExpiry).toBeGreaterThan(Date.now());
+    });
+  });
+
+  describe('damage_lead (sunburst variant)', () => {
+    it('deals damage to lead enemy and applies slow', () => {
+      const lead = { id: 'lead1', x: 10, y: 10 };
+      ctx.enemySystem.dealDamageToLead = vi.fn().mockReturnValue(lead);
+      ctx.enemySystem.applySlow = vi.fn();
+      resolveSpell({ type: 'damage_lead', amount: 25, slow: 0.40, slowDur: 4000 }, ctx);
+      expect(ctx.enemySystem.dealDamageToLead).toHaveBeenCalledWith(25);
+      expect(ctx.enemySystem.applySlow).toHaveBeenCalledWith('lead1', 0.40, 4000);
+    });
+
+    it('deals high damage to lead with no slow (divine_wrath)', () => {
+      const lead = { id: 'lead1' };
+      ctx.enemySystem.dealDamageToLead = vi.fn().mockReturnValue(lead);
+      ctx.enemySystem.applySlow = vi.fn();
+      resolveSpell({ type: 'damage_lead', amount: 90 }, ctx);
+      expect(ctx.enemySystem.dealDamageToLead).toHaveBeenCalledWith(90);
+      expect(ctx.enemySystem.applySlow).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('solar_dot_all', () => {
+    it('applies solar dot to all enemies via enemySystem', () => {
+      ctx.enemySystem.applySolarDotAll = vi.fn();
+      resolveSpell({ type: 'solar_dot_all', dps: 15, duration: 4000 }, ctx);
+      expect(ctx.enemySystem.applySolarDotAll).toHaveBeenCalledWith(15, 4000);
+    });
+  });
+
+  describe('gold_per_enemy with mult', () => {
+    it('respects the mult parameter', () => {
+      ctx.enemySystem.enemies = [{ id: 1 }, { id: 2 }];
+      resolveSpell({ type: 'gold_per_enemy', mult: 2 }, ctx);
+      expect(ctx.addGold).toHaveBeenCalledWith(4, null);
+    });
   });
 });

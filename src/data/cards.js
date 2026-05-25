@@ -3,6 +3,7 @@
 // DLC 카드는 src/dlc/*/cards.js 에서 병합됨
 
 import { SHADOW_CARDS } from '../dlc/shadow_realm/cards.js';
+import { SOLAR_CARDS }  from '../dlc/solar_dominion/cards.js';
 
 const BASE_CARD_DEFS = [
   // ════════════════════════════════════════════════════
@@ -903,8 +904,8 @@ const BASE_CARD_DEFS = [
   },
 ];
 
-// DLC 카드 병합 — DLC 데이터가 없으면 빈 배열로 처리
-export const CARD_DEFS = [...BASE_CARD_DEFS, ...SHADOW_CARDS];
+// DLC 카드 병합
+export const CARD_DEFS = [...BASE_CARD_DEFS, ...SHADOW_CARDS, ...SOLAR_CARDS];
 
 // 시작 덱 (14장) — v0.3: 타워 6 + 강화 4 + 주문 4
 export function buildStarterDeck() {

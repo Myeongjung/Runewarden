@@ -83,6 +83,33 @@ const WAVE_CONFIGS = [
   // Wave 23: DLC 파이널 보스 — Shadow Colossus + 호위대
   [{ type: 'void_reaper', count: 3, interval: 1500 }, { type: 'void_herald', count: 2, interval: 2500 },
    { type: 'phantom_giant', count: 2, interval: 4000 }, { type: 'shadow_colossus', count: 1, interval: 10000 }],
+
+  // ── DLC 2 Act 5 (Wave 24~31) ────────────────────────
+  // Wave 24: 태양 침공 개시 — Solar Ember 물량 + Acolyte + Sunfire Dancer
+  [{ type: 'solar_ember', count: 10, interval: 350 }, { type: 'solar_acolyte', count: 5, interval: 900 },
+   { type: 'sunfire_dancer', count: 4, interval: 700 }],
+  // Wave 25: Blinded Crusader + Sun Herald(분열!) + Ember 물량
+  [{ type: 'solar_acolyte', count: 6, interval: 800 }, { type: 'blinded_crusader', count: 2, interval: 2200 },
+   { type: 'sun_herald', count: 1, interval: 4500 }, { type: 'solar_ember', count: 8, interval: 380 }],
+  // Wave 26: Zealot + Knight + Dancer + Blazing Golem 첫 등장
+  [{ type: 'solar_zealot', count: 4, interval: 1100 }, { type: 'solar_knight', count: 2, interval: 2000 },
+   { type: 'sunfire_dancer', count: 6, interval: 650 }, { type: 'blazing_golem', count: 1, interval: 5000 }],
+  // Wave 27: 총공세 — 다종 정예 + Golem 2기
+  [{ type: 'sun_herald', count: 2, interval: 3500 }, { type: 'blinded_crusader', count: 3, interval: 1800 },
+   { type: 'solar_zealot', count: 4, interval: 1000 }, { type: 'solar_knight', count: 3, interval: 1600 },
+   { type: 'blazing_golem', count: 2, interval: 4500 }],
+  // Wave 28: Solar Titan 중간보스 + 호위대
+  [{ type: 'solar_acolyte', count: 6, interval: 750 }, { type: 'solar_zealot', count: 3, interval: 1200 },
+   { type: 'blinded_crusader', count: 2, interval: 2000 }, { type: 'solar_titan', count: 1, interval: 8000 }],
+  // Wave 29: Gilded Titan(분열) + Sun Herald 2기 + Knight 물량
+  [{ type: 'solar_ember', count: 12, interval: 300 }, { type: 'gilded_titan', count: 1, interval: 6000 },
+   { type: 'sun_herald', count: 2, interval: 3500 }, { type: 'solar_knight', count: 4, interval: 1400 }],
+  // Wave 30: 보스 직전 총공세 — Solar Herald + 다종 정예
+  [{ type: 'blinded_crusader', count: 4, interval: 1600 }, { type: 'solar_herald', count: 3, interval: 2800 },
+   { type: 'blazing_golem', count: 2, interval: 4500 }, { type: 'gilded_titan', count: 2, interval: 5500 }],
+  // Wave 31: DLC 2 파이널 보스 — Sun God + 호위대
+  [{ type: 'solar_zealot', count: 4, interval: 1000 }, { type: 'blinded_crusader', count: 2, interval: 2000 },
+   { type: 'sun_herald', count: 2, interval: 3500 }, { type: 'sun_god', count: 1, interval: 12000 }],
 ];
 
 const ENEMY_DEFS = {
@@ -154,6 +181,45 @@ const ENEMY_DEFS = {
                     damageReduction: 0.15 },                        // DLC 최종 보스
   void_herald:   { name: 'Void Herald',   hp: 600, speed:  30, color: '#1A0055', size: 20, reward: 12,
                    isElite: true, enrageThreshold: 0.50, regenDps: 5 }, // 재생 + 격노 엘리트
+
+  // ── DLC 2 Act 5 태양 군단 12종 ─────────────────────────
+  // 소형 스와머 — 분열 자식 유닛 (sun_herald/gilded_titan 사망 시 스폰)
+  solar_ember:      { name: 'Solar Ember',      hp:  40, speed: 110, color: '#FF6600', size:  8, reward:  1 },
+  // 기본 태양 병사
+  solar_acolyte:    { name: 'Solar Acolyte',    hp: 120, speed:  55, color: '#C8860A', size: 11, reward:  3 },
+  // 눈먼 성전사 — 엘리트 + Solar DoT 면역
+  blinded_crusader: { name: 'Blinded Crusader', hp: 380, speed:  40, color: '#B8860B', size: 16, reward:  7,
+                      isElite: true, solarImmune: true },
+  // 태양 광신도 — 엘리트 + 격노 50%
+  solar_zealot:     { name: 'Solar Zealot',     hp: 200, speed:  68, color: '#D4890A', size: 13, reward:  5,
+                      isElite: true, enrageThreshold: 0.50 },
+  // 태양 전령 — 엘리트 + solarImmune + 사망 시 Acolyte×3 분열
+  sun_herald:       { name: 'Sun Herald',       hp: 550, speed:  28, color: '#F5C518', size: 19, reward: 10,
+                      isElite: true, solarImmune: true,
+                      splitOnDeath: { type: 'solar_acolyte', count: 3 } },
+  // 불꽃 골렘 — 슬로우 면역 + 20% 피해 감소
+  blazing_golem:    { name: 'Blazing Golem',    hp: 750, speed:  18, color: '#8B6914', size: 24, reward:  8,
+                      slowImmune: true, damageReduction: 0.20 },
+  // 태양 기사 — 엘리트 + 쉴드×4 + solarImmune
+  solar_knight:     { name: 'Solar Knight',     hp: 480, speed:  38, color: '#DAA520', size: 17, reward:  8,
+                      isElite: true, shieldHits: 4, solarImmune: true },
+  // 선파이어 댄서 — 초고속 + 20% 피해 감소
+  sunfire_dancer:   { name: 'Sunfire Dancer',   hp: 160, speed: 115, color: '#FF4500', size: 10, reward:  3,
+                      damageReduction: 0.20 },
+  // 황금 타이탄 — 슬로우 면역 + 격노 45% + 사망 시 Ember×4 분열
+  gilded_titan:     { name: 'Gilded Titan',     hp:1400, speed:  16, color: '#CD7F32', size: 28, reward: 15,
+                      slowImmune: true, enrageThreshold: 0.45,
+                      splitOnDeath: { type: 'solar_ember', count: 4 } },
+  // 태양의 전령 — 엘리트 + regenDps 7 + solarImmune
+  solar_herald:     { name: 'Solar Herald',     hp: 700, speed:  25, color: '#FFD700', size: 21, reward: 12,
+                      isElite: true, regenDps: 7, solarImmune: true },
+  // 태양 타이탄 — 중간 보스급 탱커 (Wave 28)
+  solar_titan:      { name: 'Solar Titan',      hp:2200, speed:  14, color: '#E8791A', size: 31, reward: 28,
+                      isBoss: false, slowImmune: true, damageReduction: 0.15, solarImmune: true },
+  // 태양신 — 최종 보스 (Wave 31) 3페이즈
+  sun_god:          { name: 'Sun God',          hp:3200, speed:  11, color: '#F5C518', size: 38, reward: 45,
+                      isBoss: true, slowImmune: true, enrageThreshold: 0.40, solarImmune: true,
+                      phase2Hp: 1600 },
 };
 
 export class EnemySystem {
@@ -188,7 +254,7 @@ export class EnemySystem {
   _applyVeteranRegen(type, baseDps) {
     if (baseDps === 0) return baseDps;
     if (this._veteranRegen) {
-      const table = { necromancer: 10, void_reaper: 14, void_herald: 8 };
+      const table = { necromancer: 10, void_reaper: 14, void_herald: 8, solar_herald: 11 };
       return table[type] ?? baseDps;
     }
     if (this._noviceRegen) {
@@ -314,6 +380,7 @@ export class EnemySystem {
   update(delta) {
     if (!this._waveActive) return;
 
+    this._tickStunCooldowns(delta);
     this._spawnTimer += delta;
     while (
       this._spawnIndex < this._spawnQueue.length &&
@@ -329,6 +396,20 @@ export class EnemySystem {
       if (e.regenDps > 0 && e.hp < e.maxHp && e.hp > 0) {
         e.hp = Math.min(e.maxHp, e.hp + e.regenDps * delta / 1000);
         this._updateHpBar(e);
+      }
+      // Solar DoT 처리 — solarImmune 적은 무효
+      if (e.solarDots?.length > 0 && !e.solarImmune) {
+        this._updateSolarDots(e, delta);
+        if (e.hp <= 0 && !this._dying.has(e.id)) {
+          if (e.isBoss) { this._boss = null; this.onBossUpdate?.({ hp: 0, maxHp: e.maxHp }); audio.play('boss_die'); }
+          else if (e.isElite || e.type === 'tank') { audio.play(e.isElite ? 'elite_die' : 'tank_die'); }
+          else { audio.play('enemy_die'); }
+          this.enemies = this.enemies.filter(x => x.id !== e.id);
+          this._playDeathAnim(e);
+          this._handleSplitOnDeath(e);
+          this.onEnemyKilled(e.reward);
+          continue;
+        }
       }
       // 번(DoT) 처리 — 빙결 중에도 계속 타오름
       if (e.burns.length > 0) {
@@ -346,6 +427,7 @@ export class EnemySystem {
           }
           this.enemies = this.enemies.filter(x => x.id !== e.id);
           this._playDeathAnim(e);
+          this._handleSplitOnDeath(e);
           this.onEnemyKilled(e.reward);
           continue;
         }
@@ -353,6 +435,7 @@ export class EnemySystem {
       if (!this.enemies.includes(e)) continue; // 이미 제거됨
 
       if (e.frozen > 0) { e.frozen -= delta; this._updateEnemySVG(e); continue; }
+      if (e.stunned > 0) { e.stunned -= delta; this._updateEnemySVG(e); continue; }
       this._moveEnemy(e, delta);
       this._updateEnemySVG(e);
       if (e.reached) reachedEnd.push(e);
@@ -430,6 +513,11 @@ export class EnemySystem {
       ironShieldCd: 0, ironShielding: 0,
       phase2ElapsedMs: 0,
       burns: [],
+      // DLC 2 Solar fields
+      solarDots: [], stunned: 0, stunCooldowns: {},
+      solarImmune: def.solarImmune ?? false,
+      splitOnDeath: def.splitOnDeath ?? null,
+      phase3: false,
       el: null, hpBar: null, bodyEl: null, shieldEl: null,
     };
 
@@ -632,6 +720,173 @@ export class EnemySystem {
       }));
       this._boss = enemy;
       this._ensureBossGlowStyle();
+
+    // ── DLC 2 Solar 적 마킹 ────────────────────────────
+    } else if (type === 'solar_ember') {
+      // 소형 오렌지 삼각형
+      g.appendChild(svgEl('polygon', {
+        points: `0,${-def.size*0.85} ${def.size*0.7},${def.size*0.55} ${-def.size*0.7},${def.size*0.55}`,
+        fill: 'rgba(255,140,0,0.8)',
+      }));
+
+    } else if (type === 'solar_acolyte') {
+      // 작은 태양 십자 마킹
+      g.appendChild(svgEl('line', { x1: 0, y1: -def.size*0.6, x2: 0, y2: def.size*0.6,
+        stroke: 'rgba(245,197,24,0.7)', 'stroke-width': 2 }));
+      g.appendChild(svgEl('line', { x1: -def.size*0.6, y1: 0, x2: def.size*0.6, y2: 0,
+        stroke: 'rgba(245,197,24,0.7)', 'stroke-width': 2 }));
+
+    } else if (type === 'blinded_crusader') {
+      // 눈에 X 마킹 + 황금 갑옷 테두리
+      g.appendChild(svgEl('circle', { cx: 0, cy: 0, r: def.size + 3,
+        fill: 'none', stroke: '#B8860B', 'stroke-width': 2, opacity: '0.7' }));
+      g.appendChild(svgEl('line', { x1: -def.size*0.35, y1: -def.size*0.2, x2: def.size*0.35, y2: def.size*0.2,
+        stroke: '#FF4444', 'stroke-width': 2.5 }));
+      g.appendChild(svgEl('line', { x1: def.size*0.35, y1: -def.size*0.2, x2: -def.size*0.35, y2: def.size*0.2,
+        stroke: '#FF4444', 'stroke-width': 2.5 }));
+
+    } else if (type === 'solar_zealot') {
+      // 황금 다이아몬드 + 격노 예고 (엘리트)
+      g.appendChild(svgEl('polygon', {
+        points: `0,${-def.size*0.7} ${def.size*0.5},0 0,${def.size*0.7} ${-def.size*0.5},0`,
+        fill: 'rgba(212,137,10,0.65)',
+      }));
+
+    } else if (type === 'sun_herald') {
+      // 6점 황금 별 + 분열 예고 글로우
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2 - Math.PI / 2;
+        g.appendChild(svgEl('line', {
+          x1: 0, y1: 0,
+          x2: (def.size * 0.72 * Math.cos(a)).toFixed(1),
+          y2: (def.size * 0.72 * Math.sin(a)).toFixed(1),
+          stroke: '#F5C518', 'stroke-width': 2, opacity: '0.85',
+        }));
+      }
+      g.appendChild(svgEl('circle', { cx: 0, cy: 0, r: def.size * 0.32,
+        fill: 'rgba(245,197,24,0.5)' }));
+
+    } else if (type === 'blazing_golem') {
+      // 육각 갑옷 + 불꽃 (슬로우 면역)
+      const s2 = def.size;
+      const hexPts2 = Array.from({length: 6}, (_, i) => {
+        const a = (i * Math.PI / 3) + Math.PI / 6;
+        return `${(s2*0.68*Math.cos(a)).toFixed(1)},${(s2*0.68*Math.sin(a)).toFixed(1)}`;
+      }).join(' ');
+      g.appendChild(svgEl('polygon', {
+        points: hexPts2,
+        fill: 'none', stroke: '#E8791A', 'stroke-width': 2.5,
+      }));
+
+    } else if (type === 'solar_knight') {
+      // 방패 + Solar 테두리 (쉴드 + solarImmune)
+      const shieldK = svgEl('circle', {
+        cx: 0, cy: 0, r: def.size + 5,
+        fill: 'rgba(218,165,32,0.10)', stroke: '#DAA520', 'stroke-width': 2.5, opacity: '0.85',
+      });
+      g.appendChild(shieldK);
+      enemy.shieldEl = shieldK;
+      g.appendChild(svgEl('polygon', {
+        points: `0,${-def.size*0.55} ${def.size*0.4},${-def.size*0.1} ${def.size*0.4},${def.size*0.3} 0,${def.size*0.6} ${-def.size*0.4},${def.size*0.3} ${-def.size*0.4},${-def.size*0.1}`,
+        fill: 'rgba(218,165,32,0.6)',
+      }));
+
+    } else if (type === 'sunfire_dancer') {
+      // 빠른 화살표 마킹 (속도감)
+      g.appendChild(svgEl('polygon', {
+        points: `0,${-def.size*0.85} ${def.size*0.5},${def.size*0.4} 0,${def.size*0.2} ${-def.size*0.5},${def.size*0.4}`,
+        fill: 'rgba(255,69,0,0.6)',
+      }));
+
+    } else if (type === 'gilded_titan') {
+      // 황금 왕관 + 분열 예고 (대형 탱커)
+      const gs = def.size;
+      const hexPts3 = Array.from({length: 6}, (_, i) => {
+        const a = (i * Math.PI / 3) + Math.PI / 6;
+        return `${(gs*0.65*Math.cos(a)).toFixed(1)},${(gs*0.65*Math.sin(a)).toFixed(1)}`;
+      }).join(' ');
+      g.appendChild(svgEl('polygon', {
+        points: hexPts3,
+        fill: 'none', stroke: '#CD7F32', 'stroke-width': 2.5,
+      }));
+      g.appendChild(svgEl('polygon', {
+        points: `0,${-gs*0.45} ${gs*0.28},${-gs*0.1} ${-gs*0.28},${-gs*0.1}`,
+        fill: '#FFD700',
+      }));
+
+    } else if (type === 'solar_herald') {
+      // 재생형 정예: 마름모 + 빛의 코어
+      g.appendChild(svgEl('polygon', {
+        points: `0,${-def.size*0.72} ${def.size*0.52},0 0,${def.size*0.72} ${-def.size*0.52},0`,
+        fill: 'none', stroke: '#FFD700', 'stroke-width': 2, opacity: '0.9',
+      }));
+      g.appendChild(svgEl('circle', { cx: 0, cy: 0, r: def.size * 0.32,
+        fill: 'rgba(255,215,0,0.55)' }));
+
+    } else if (type === 'solar_titan') {
+      // 중간 보스급: 왕관 + 태양 방사 + 글로우
+      g.appendChild(svgEl('circle', { cx: 0, cy: 0, r: def.size * 0.58,
+        fill: 'rgba(232,121,26,0.4)', stroke: '#E8791A', 'stroke-width': 2.5 }));
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2;
+        g.appendChild(svgEl('line', {
+          x1: (def.size * 0.42 * Math.cos(a)).toFixed(1),
+          y1: (def.size * 0.42 * Math.sin(a)).toFixed(1),
+          x2: (def.size * 0.78 * Math.cos(a)).toFixed(1),
+          y2: (def.size * 0.78 * Math.sin(a)).toFixed(1),
+          stroke: '#F5C518', 'stroke-width': 2, opacity: '0.75',
+        }));
+      }
+      const stLabel = svgEl('text', {
+        x: 0, y: -def.size - 12,
+        'text-anchor': 'middle', 'dominant-baseline': 'middle',
+        fill: '#E8791A', 'font-size': '9px',
+        'font-family': 'Cinzel, serif', 'font-weight': 'bold',
+        'pointer-events': 'none',
+        stroke: 'rgba(0,0,0,0.8)', 'stroke-width': '2', 'paint-order': 'stroke',
+      });
+      stLabel.textContent = 'SOLAR TITAN';
+      g.appendChild(stLabel);
+      g.appendChild(svgEl('circle', { cx: 0, cy: 0, r: def.size + 6,
+        fill: 'none', stroke: '#E8791A', 'stroke-width': 2, opacity: '0.35',
+        style: 'transform-origin: 0px 0px; animation: bossGlow 1.3s ease-in-out infinite alternate',
+      }));
+      this._ensureBossGlowStyle();
+
+    } else if (type === 'sun_god') {
+      // 최종 보스: 황금 왕관 + 방사형 광선 8개
+      g.appendChild(svgEl('circle', { cx: 0, cy: 0, r: def.size * 0.58,
+        fill: 'rgba(245,197,24,0.35)', stroke: '#F5C518', 'stroke-width': 3 }));
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2;
+        g.appendChild(svgEl('line', {
+          x1: (def.size * 0.38 * Math.cos(a)).toFixed(1),
+          y1: (def.size * 0.38 * Math.sin(a)).toFixed(1),
+          x2: (def.size * 0.82 * Math.cos(a)).toFixed(1),
+          y2: (def.size * 0.82 * Math.sin(a)).toFixed(1),
+          stroke: '#F5C518', 'stroke-width': 2.5, opacity: '0.9',
+        }));
+      }
+      g.appendChild(svgEl('polygon', {
+        points: `0,${-def.size*0.42} ${def.size*0.28},${-def.size*0.08} ${-def.size*0.28},${-def.size*0.08}`,
+        fill: '#FFD700',
+      }));
+      const sgLabel = svgEl('text', {
+        x: 0, y: -def.size - 14,
+        'text-anchor': 'middle', 'dominant-baseline': 'middle',
+        fill: '#F5C518', 'font-size': '10px',
+        'font-family': 'Cinzel, serif', 'font-weight': 'bold',
+        'pointer-events': 'none',
+        stroke: 'rgba(0,0,0,0.9)', 'stroke-width': '2', 'paint-order': 'stroke',
+      });
+      sgLabel.textContent = 'SUN GOD';
+      g.appendChild(sgLabel);
+      g.appendChild(svgEl('circle', { cx: 0, cy: 0, r: def.size + 8,
+        fill: 'none', stroke: '#F5C518', 'stroke-width': 2.5, opacity: '0.5',
+        style: 'transform-origin: 0px 0px; animation: bossGlow 1.0s ease-in-out infinite alternate',
+      }));
+      this._boss = enemy;
+      this._ensureBossGlowStyle();
     }
 
     // HP 바 배경
@@ -675,6 +930,20 @@ export class EnemySystem {
     } else if (e.bodyEl) {
       e.bodyEl.setAttribute('fill', e.color);
     }
+  }
+
+  _handleSplitOnDeath(e) {
+    const split = e.splitOnDeath ?? (e.phase3 ? { type: 'solar_ember', count: 8 } : null);
+    if (!split) return;
+    for (let i = 0; i < split.count; i++) {
+      setTimeout(() => this._spawnAt(split.type, e.x, e.y, e.waypointIndex), i * 80);
+    }
+  }
+
+  _spawnAt(type, x, y, waypointIndex) {
+    this._spawn(type);
+    const e = this.enemies[this.enemies.length - 1];
+    if (e && e.type === type) { e.x = x; e.y = y; e.waypointIndex = Math.max(1, waypointIndex); }
   }
 
   _removeEnemy(e, withAnim = true) {
@@ -845,6 +1114,26 @@ export class EnemySystem {
       audio.play('boss_warning');
     }
 
+    // Sun God 2페이즈 (HP 50% 이하): 주황 색상, 속도 ×1.6, Solar Ember 6마리 즉시 스폰
+    if (e.type === 'sun_god' && !e.phase2 && e.hp <= e.maxHp * 0.5) {
+      e.phase2 = true;
+      e.speed  = e.baseSpeed * 1.6;
+      if (e.bodyEl) { e.bodyEl.setAttribute('fill', '#E8791A'); e.bodyEl.setAttribute('stroke', '#FF6600'); }
+      e.el?.classList.add('enemy-phase2');
+      this.onBossUpdate?.({ hp: Math.max(0, e.hp), maxHp: e.maxHp, name: e.name, phase2: true });
+      audio.play('boss_warning');
+      for (let i = 0; i < 6; i++) setTimeout(() => this._spawnAt('solar_ember', e.x, e.y, e.waypointIndex), i * 120);
+    }
+
+    // Sun God 3페이즈 (HP 40% 이하): 붉은 금 색상, 속도 ×1.9, 슬로우 저항 50%, 사망 시 Ember 8마리
+    if (e.type === 'sun_god' && e.phase2 && !e.phase3 && e.hp <= e.maxHp * 0.40) {
+      e.phase3 = true;
+      e.speed  = e.baseSpeed * 1.9;
+      e.slowResist = 0.50;
+      if (e.bodyEl) { e.bodyEl.setAttribute('fill', '#C9372A'); e.bodyEl.setAttribute('stroke', '#FF2200'); }
+      this.onBossUpdate?.({ hp: Math.max(0, e.hp), maxHp: e.maxHp, name: e.name, phase3: true });
+    }
+
     const isCrit = finalDmg >= 20;
     this._spawnDamageNumber(e.x, e.y, finalDmg, isCrit);
 
@@ -864,6 +1153,7 @@ export class EnemySystem {
       } else {
         audio.play('enemy_die');
       }
+      this._handleSplitOnDeath(e);
       this._removeEnemy(e, true);
       this.onEnemyKilled(e.reward);
       return true;
@@ -930,6 +1220,8 @@ export class EnemySystem {
         const rampFraction = Math.min(1, (e.phase2ElapsedMs ?? 0) / 8000);
         eff = boosted * (1 - rampFraction * 0.70);
       }
+      // Sun God Phase 3: 50% slow resistance
+      if (e.slowResist) eff = eff * (1 - e.slowResist);
       if (eff < 0.01) continue;
       e.slowAmt   = Math.max(e.slowAmt, eff);
       e.slowTimer = Math.max(e.slowTimer, duration);
@@ -945,6 +1237,8 @@ export class EnemySystem {
       const rampFraction = Math.min(1, (e.phase2ElapsedMs ?? 0) / 8000);
       effective = amount * (1 - rampFraction * 0.70);
     }
+    // Sun God Phase 3: 50% slow resistance
+    if (e.slowResist) effective = effective * (1 - e.slowResist);
     if (effective < 0.01) return;
     const boosted = Math.min(0.95, effective * this._slowBonus);
     e.slowAmt = boosted; e.slowTimer = duration;
@@ -965,6 +1259,74 @@ export class EnemySystem {
     }
     // 불꽃 색으로 몸통 표시
     if (e.bodyEl) e.bodyEl.setAttribute('fill', '#FF8C00');
+  }
+
+  // Solar DoT 적용 (solarImmune 적에게는 적용 안 됨)
+  applySolarDot(enemyId, dps, duration) {
+    const e = this.enemies.find(x => x.id === enemyId);
+    if (!e || e.solarImmune) return;
+    const boostedDps      = dps      + (this._solarDotExtraDps      ?? 0);
+    const boostedDuration = duration + (this._solarDotExtraDuration ?? 0);
+    if (e.solarDots.length < 3) {
+      e.solarDots.push({ dps: boostedDps, remaining: boostedDuration, tickTimer: 350 });
+    } else {
+      e.solarDots[0] = { dps: boostedDps, remaining: boostedDuration, tickTimer: 350 };
+    }
+    if (e.bodyEl) e.bodyEl.setAttribute('fill', '#F5A623');
+  }
+
+  // 전체 적에게 Solar DoT 적용 (solar_dot_all 주문)
+  applySolarDotAll(dps, duration) {
+    for (const e of [...this.enemies]) this.applySolarDot(e.id, dps, duration);
+  }
+
+  setSolarDotBonus(extraDps, extraDuration) {
+    this._solarDotExtraDps      = (this._solarDotExtraDps      ?? 0) + extraDps;
+    this._solarDotExtraDuration = (this._solarDotExtraDuration ?? 0) + extraDuration;
+  }
+
+  _updateSolarDots(e, delta) {
+    let totalDmg = 0;
+    for (const dot of e.solarDots) {
+      dot.remaining -= delta;
+      dot.tickTimer  -= delta;
+      if (dot.tickTimer <= 0) {
+        dot.tickTimer = 400;
+        totalDmg += Math.max(1, Math.round(dot.dps * 0.4));
+      }
+    }
+    e.solarDots = e.solarDots.filter(d => d.remaining > 0);
+
+    if (totalDmg > 0) {
+      e.hp -= totalDmg;
+      this._spawnDamageNumber(e.x, e.y, totalDmg, false);
+      if (e.solarDots.length > 0 && e.bodyEl) {
+        e.bodyEl.setAttribute('fill', '#F5A623');
+      } else if (e.bodyEl && e.slowTimer <= 0 && e.burns.length === 0) {
+        e.bodyEl.setAttribute('fill', e.color);
+      }
+    }
+  }
+
+  // Crusader 스턴 적용
+  applyStun(enemyId, duration, towerId) {
+    const e = this.enemies.find(x => x.id === enemyId);
+    if (!e || e.isBoss) return;
+    // 스턴 쿨다운 체크 (같은 타워는 3s 쿨)
+    if (towerId && e.stunCooldowns[towerId] > 0) return;
+    e.stunned = Math.max(e.stunned, duration);
+    if (towerId) e.stunCooldowns[towerId] = 3000;
+    // 쿨다운 틱 감소는 update 루프에서 처리
+  }
+
+  // 스턴 쿨다운 틱 (update 루프에서 주기적으로 호출)
+  _tickStunCooldowns(delta) {
+    for (const e of this.enemies) {
+      for (const tid of Object.keys(e.stunCooldowns ?? {})) {
+        e.stunCooldowns[tid] -= delta;
+        if (e.stunCooldowns[tid] <= 0) delete e.stunCooldowns[tid];
+      }
+    }
   }
 
   // 번 DoT 업데이트 (update 루프에서 호출)

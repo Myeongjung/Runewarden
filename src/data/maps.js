@@ -4,6 +4,7 @@
  */
 
 import { SHADOW_MAPS } from '../dlc/shadow_realm/maps.js';
+import { SOLAR_MAPS }  from '../dlc/solar_dominion/maps.js';
 
 const _BASE_MAP_DEFS = [
   // ── 맵 A: Crossroads ─────────────────────────────────
@@ -79,7 +80,7 @@ const _BASE_MAP_DEFS = [
 ];
 
 // DLC 맵 병합
-export const MAP_DEFS = [..._BASE_MAP_DEFS, ...SHADOW_MAPS];
+export const MAP_DEFS = [..._BASE_MAP_DEFS, ...SHADOW_MAPS, ...SOLAR_MAPS];
 
 /** 런 시작 시 랜덤 맵 선택 */
 export function pickRandomMap() {
