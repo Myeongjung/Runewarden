@@ -166,6 +166,8 @@ const _BASE_KO = {
   log_wave_start:   (n, act)  => `웨이브 ${n} 시작! (Act ${act})`,
   log_wave_clear:   (n, gold) => `웨이브 ${n} 클리어! +${gold} 골드`,
   log_boss_wave:    (name)    => { const BOSS_KO = { 'Ironclad': '아이언클래드', 'Void Titan': '보이드 타이탄', 'Abyssal Dragon': '심연의 드래곤' }; return `⚠️ 보스 웨이브! ${BOSS_KO[name] ?? name}이 다가옵니다!`; },
+  log_victory_streak_start: (n) => `✨ 보스 처치! 다음 ${n}웨이브 동안 승전 보너스 적용.`,
+  log_victory_streak:       (g, n) => n > 0 ? `✨ 승전 보너스: +${g}g (${n}웨이브 남음)` : `✨ 승전 보너스: +${g}g`,
   log_nexus_hit:    (hp)      => `적이 넥서스에 도달했습니다! (${hp} HP 남음)`,
   log_card_placed:  (name, c, r) => `${name} 배치 완료 (${c},${r})`,
   log_not_enough_gold: (need, have) => `골드 부족! (필요: ${need}, 보유: ${have})`,

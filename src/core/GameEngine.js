@@ -309,6 +309,8 @@ function startRun() {
     _investGoldReturn:     0,      // invest_gold 이벤트 저장 (다음 웨이브 클리어 시 지급)
     _tempDmgBonusWaves:    0,      // temp_dmg_bonus 잔여 웨이브 수
     _tempDmgBonusMult:     1,      // temp_dmg_bonus 배율
+    _victoryStreakWaves:    0,      // 승전 보너스 잔여 웨이브 수
+    _victoryStreakBonus:    0,      // 승전 보너스 1회 지급 골드
     // 런 통계
     stats: {
       enemiesKilled:         0,
@@ -760,6 +762,13 @@ function onWaveCleared() {
     log(i18n.t('event_invest_gold_return', returnAmt) ?? `황금 투자 회수! +${returnAmt} 골드!`, 'gold');
   }
 
+  // 승전 보너스 지급 (보스 처치 후 2웨이브)
+  if (state._victoryStreakWaves > 0) {
+    addGold(state._victoryStreakBonus, null);
+    state._victoryStreakWaves--;
+    log(i18n.t('log_victory_streak', state._victoryStreakBonus, state._victoryStreakWaves), 'gold');
+  }
+
   // DLC 2: temp_dmg_bonus 만료 처리
   if (state._tempDmgBonusWaves > 0) {
     state._tempDmgBonusWaves--;
@@ -1086,6 +1095,14 @@ function onEnemyKilled(reward, isSplitChild = false) {
   }
 
   addGold(reward + bonus, null, true);
+
+  // 승전 보너스: 보스 처치 시 다음 2웨이브 동안 웨이브 보상 추가
+  if (!isSplitChild && reward >= 20 && state) {
+    const streakBonus = reward >= 45 ? 5 : 4;  // DLC 중간보스 이상 +5g, 일반 보스 +4g
+    state._victoryStreakWaves = 2;
+    state._victoryStreakBonus = streakBonus;
+    log(i18n.t('log_victory_streak_start', 2), 'good');
+  }
 
   // Venom Fang: 처치 시 무작위 살아있는 적에게 독 피해
   if (hasRelic('venom_fang') && enemySystem?.enemies?.length > 0) {

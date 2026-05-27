@@ -46,8 +46,8 @@ export const SOLAR_RELICS = [
   {
     id: 'solar_tribute',
     icon: '💛', rarity: 'uncommon', category: 'economy',
-    // 웨이브 클리어마다 골드 +6
-    effect: { type: 'wave_clear_gold', amount: 6 },
+    // 웨이브 클리어마다 골드 +4 (파워 크리프 조정: 6→4)
+    effect: { type: 'wave_clear_gold', amount: 4 },
     dlc: 'solar_dominion',
   },
   {
@@ -60,8 +60,8 @@ export const SOLAR_RELICS = [
   {
     id: 'golden_chalice',
     icon: '🏆', rarity: 'rare', category: 'economy',
-    // 런 시작 시 골드 +18
-    effect: { type: 'start_gold', amount: 18 },
+    // 런 시작 시 골드 +16 (파워 크리프 조정: 18→16)
+    effect: { type: 'start_gold', amount: 16 },
     dlc: 'solar_dominion',
   },
 

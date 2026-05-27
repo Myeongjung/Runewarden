@@ -44,8 +44,8 @@ export const SHADOW_RELICS = [
   {
     id: 'shadow_hoard',
     icon: '💜', rarity: 'uncommon', category: 'economy',
-    // 웨이브 클리어마다 골드 +5
-    effect: { type: 'wave_clear_gold', amount: 5 },
+    // 웨이브 클리어마다 골드 +4 (파워 크리프 조정: 5→4)
+    effect: { type: 'wave_clear_gold', amount: 4 },
     dlc: 'shadow_realm',
   },
   {
