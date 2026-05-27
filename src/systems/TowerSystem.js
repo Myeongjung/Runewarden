@@ -100,7 +100,7 @@ export class TowerSystem {
 
   // DLC 2 Solar Pact: Solar/Holy 태그 타워 피해 보너스
   addSolarPact(extraMult, tag = 'Solar') {
-    this._solarPact    += extraMult;
+    this._solarPact     = extraMult;
     this._solarPactTag  = tag;
   }
 
