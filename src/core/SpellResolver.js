@@ -333,7 +333,7 @@ const BASE_HANDLERS = {
   gold_per_enemy(effect, { enemySystem, addGold, log, i18n }) {
     const count  = enemySystem.enemies.length;
     if (count === 0) { log(i18n.t('spell_no_enemies'), ''); return; }
-    const gained = count * (effect.mult ?? 1);
+    const gained = Math.min(count, 8) * (effect.mult ?? 1);
     addGold(gained, null);
     log(i18n.t('spell_gold_tithe', gained), 'gold');
   },

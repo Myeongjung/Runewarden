@@ -348,6 +348,7 @@ export class EnemySystem {
     this._hpScale           = hpScale;
     this._eliteBonus        = eliteBonus;
     this._spawnSpeedMult    = spawnSpeedMult;  // slow_next_wave 이벤트 효과
+    this._waveIndex         = waveIndex;       // 후반부 속도 가속 계산용
     this._bossHpScale       = bossHpScale;
     this._enrageMult        = enrageMult;
     this._veteranRegen      = veteranRegen;
@@ -497,8 +498,9 @@ export class EnemySystem {
       x: start.x, y: start.y,
       hp: scaledHp, maxHp: scaledHp,
       // slow_next_wave 이벤트: 기본 속도에 배율 적용 (1.0 = 변화 없음)
-      speed: def.speed * (this._spawnSpeedMult ?? 1),
-      baseSpeed: def.speed * (this._spawnSpeedMult ?? 1),
+      // Wave 16+: 점진적 속도 가속 (Wave 20 = +9%, Wave 31 = +29%)
+      speed: def.speed * (this._spawnSpeedMult ?? 1) * (1 + Math.max(0, (this._waveIndex ?? 0) - 15) * 0.018),
+      baseSpeed: def.speed * (this._spawnSpeedMult ?? 1) * (1 + Math.max(0, (this._waveIndex ?? 0) - 15) * 0.018),
       color: def.color, size: def.size, reward: def.reward,
       isBoss:    def.isBoss    ?? false,
       isElite:   def.isElite   ?? false,
@@ -935,15 +937,19 @@ export class EnemySystem {
   _handleSplitOnDeath(e) {
     const split = e.splitOnDeath ?? (e.phase3 ? { type: 'solar_ember', count: 8 } : null);
     if (!split) return;
+    audio.play('enemy_split');
     for (let i = 0; i < split.count; i++) {
-      setTimeout(() => this._spawnAt(split.type, e.x, e.y, e.waypointIndex), i * 80);
+      this._spawnAt(split.type, e.x, e.y, e.waypointIndex, { isSplitChild: true });
     }
   }
 
-  _spawnAt(type, x, y, waypointIndex) {
+  _spawnAt(type, x, y, waypointIndex, options = {}) {
     this._spawn(type);
     const e = this.enemies[this.enemies.length - 1];
-    if (e && e.type === type) { e.x = x; e.y = y; e.waypointIndex = Math.max(1, waypointIndex); }
+    if (e && e.type === type) {
+      e.x = x; e.y = y; e.waypointIndex = Math.max(1, waypointIndex);
+      if (options.isSplitChild) { e.isSplitChild = true; e.reward = 0; }
+    }
   }
 
   _removeEnemy(e, withAnim = true) {
@@ -1155,7 +1161,7 @@ export class EnemySystem {
       }
       this._handleSplitOnDeath(e);
       this._removeEnemy(e, true);
-      this.onEnemyKilled(e.reward);
+      this.onEnemyKilled(e.reward, e.isSplitChild ?? false);
       return true;
     }
     return false;

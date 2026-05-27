@@ -600,7 +600,10 @@ function _applyNexusHeal(amount, { isSpell = false, goldOnFull = 0 } = {}) {
 function applyInterest() {
   // Ascension II: 이자 시스템 비활성화
   if (state.ascMods?.noInterest) return;
-  const threshold = hasRelic('lucky_coin') ? 5 : 10;
+  // 후반부 이자 임계값 동적 상승: Wave 11~20 = 25g, Wave 21+ = 40g
+  const wave = state.wave ?? 0;
+  const baseThreshold = wave <= 10 ? 10 : wave <= 20 ? 25 : 40;
+  const threshold = hasRelic('lucky_coin') ? Math.max(5, baseThreshold - 5) : baseThreshold;
   if (state.gold >= threshold) {
     const bondEffect = getRelicEffect('interest_bonus');
     const interest = 1 + (bondEffect ? bondEffect.amount : 0);
@@ -843,8 +846,9 @@ function openShop() {
   const totalDiscount  = (discountEffect?.amount ?? 0) + (state.difficulty?.shopDiscount ?? 0);
   // Merchant's Ring: 상점 방문당 첫 리롤 무료
   const freeRerolls = hasRelic('merchants_ring') ? 1 : 0;
-  // Ascension I: 상점 카드 2장으로 감소
-  const shopSize    = state.ascMods?.shopSize ?? 3;
+  // Ascension I: 상점 카드 2장으로 감소. Wave 16+: Elite 슬롯 +1
+  const baseShopSize = state.ascMods?.shopSize ?? 3;
+  const shopSize     = state.wave >= 16 ? baseShopSize + 1 : baseShopSize;
   shopUI.open(state.gold, state.wave, unlockedIds, totalDiscount, freeRerolls, shopSize, state.challengeMods);
 }
 
@@ -1064,19 +1068,22 @@ function onEnemyReachEnd() {
   if (state.nexusHp <= 0) { audio.play('defeat'); endGame(false); }
 }
 
-function onEnemyKilled(reward) {
+function onEnemyKilled(reward, isSplitChild = false) {
   // QW#3: 적 등급별 히트스톱 (보스 75ms, 엘리트/탱크 40ms — 일반 적은 생략)
   if (reward >= 20) hitStop(75);
   else if (reward >= 3) hitStop(40);
 
-  // Bloodlust 패시브: Storm Warden — 적 처치 골드 +1
+  // 분열 자식 적은 골드 보너스 제외 (Bounty Mark, Bloodlust 비적용)
   let bonus = 0;
-  if (state?.warden?.passive === PASSIVES.BLOODLUST) {
-    bonus = reward >= 20 ? 5 : 1;  // 보스는 +5
+  if (!isSplitChild) {
+    // Bloodlust 패시브: Storm Warden — 적 처치 골드 +1
+    if (state?.warden?.passive === PASSIVES.BLOODLUST) {
+      bonus = reward >= 20 ? 5 : 1;  // 보스는 +5
+    }
+    // Bounty Mark 유물: 처치 시 +1g
+    const bountyEffect = getRelicEffect('kill_gold_bonus');
+    if (bountyEffect) bonus += bountyEffect.amount;
   }
-  // Bounty Mark 유물: 처치 시 +1g
-  const bountyEffect = getRelicEffect('kill_gold_bonus');
-  if (bountyEffect) bonus += bountyEffect.amount;
 
   addGold(reward + bonus, null, true);
 
