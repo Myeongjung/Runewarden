@@ -802,6 +802,13 @@ const _BASE_EN = {
       ],
     },
   ],
+
+  shop_rerolled_cost:     'Rerolled for {0}g',
+  shop_upgrade_tower:     'Upgrade Towers',
+  shop_tower_upgrade_btn: '↑ {0}g',
+  shop_tower_max_star:    'MAX ★★★',
+  tower_star_upgraded:    '{0} upgraded to {1}★!',
+  shop_next_reroll_cost:  'Next reroll: {0}g',
 };
 
 // DLC 번역 병합

@@ -4,7 +4,6 @@ import { i18n } from '../i18n/i18n.js';
 
 const SHOP_SIZE    = 3;   // 카드 슬롯 수
 const REROLL_COST  = 2;
-const MAX_REROLLS  = 2;
 
 export class ShopUI {
   constructor(container, callbacks) {
@@ -12,6 +11,7 @@ export class ShopUI {
     this.onBuy   = callbacks.onBuy;
     this.onLeave = callbacks.onLeave;
     this.onLog   = callbacks.onLog;
+    this.onUpgradeTower = callbacks.onUpgradeTower;
 
     this._gold     = 0;
     this._rerolls  = 0;
@@ -41,6 +41,7 @@ export class ShopUI {
 
         <div id="shop-cards" class="shop-cards"></div>
 
+        <div id="shop-upgrade" class="shop-upgrade"></div>
         <div class="shop-footer">
           <button id="shop-reroll" class="btn-reroll">
             ${i18n.t('shop_reroll')} <span id="reroll-cost">(2g)</span>
@@ -61,7 +62,7 @@ export class ShopUI {
   }
 
   // ── 상점 열기 ─────────────────────────────────────
-  open(gold, waveNum, unlockedCardIds = null, discount = 0, freeRerolls = 0, shopSize = SHOP_SIZE, challengeMods = null) {
+  open(gold, waveNum, unlockedCardIds = null, discount = 0, freeRerolls = 0, shopSize = SHOP_SIZE, challengeMods = null, placedTowers = []) {
     this._gold          = gold;
     this._waveNum       = waveNum;
     this._rerolls       = 0;
@@ -70,12 +71,14 @@ export class ShopUI {
     this._unlockedIds   = unlockedCardIds;
     this._discount      = discount;
     this._challengeMods = challengeMods;  // 챌린지 제한 mods
+    this._placedTowers  = placedTowers;
 
     this.container.classList.remove('hidden');
     this.container.querySelector('#shop-wave-label').textContent = i18n.t('shop_after_wave', waveNum);
     this._offer();
     this._refreshGold();
     this._refreshRerollBtn();
+    this._renderUpgrades();
 
     // 입장 애니메이션
     const box = this.container.querySelector('.shop-box');
@@ -94,6 +97,7 @@ export class ShopUI {
     this._gold = gold;
     this._refreshGold();
     this._refreshCardAffordability();
+    this._renderUpgrades();
   }
 
   // ── 카드 진열 ─────────────────────────────────────
@@ -229,10 +233,9 @@ export class ShopUI {
   }
 
   _reroll() {
-    if (this._rerolls >= MAX_REROLLS) return;
     // Merchant's Ring: 첫 번째 리롤은 무료
     const isFree = this._freeRerolls > 0 && this._rerolls === 0;
-    const cost   = isFree ? 0 : REROLL_COST;
+    const cost   = isFree ? 0 : this._nextRerollCost();
     if (this._gold < cost) {
       this.onLog(i18n.t('shop_not_enough_gold'), 'bad');
       return;
@@ -244,7 +247,7 @@ export class ShopUI {
     this._offer();
     this._refreshGold();
     this._refreshRerollBtn();
-    this.onLog(i18n.t('shop_rerolled', MAX_REROLLS - this._rerolls), 'gold');
+    this.onLog(i18n.t('shop_rerolled_cost', cost), 'gold');
   }
 
   _refreshGold() {
@@ -254,21 +257,66 @@ export class ShopUI {
 
   _refreshRerollBtn() {
     const btn = this.container.querySelector('#shop-reroll');
-    const remain = this.container.querySelector('#reroll-remaining');
-    const left = MAX_REROLLS - this._rerolls;
-
-    // 챌린지: no_reroll
-    if (this._challengeMods?.noReroll) {
-      btn.disabled = true;
-      if (remain) remain.textContent = i18n.t('challenge_no_reroll');
-      return;
-    }
-
-    btn.disabled = left <= 0 || this._gold < REROLL_COST;
-    if (remain) remain.textContent = left > 0 ? i18n.t('shop_rerolls_left', left) : i18n.t('shop_no_rerolls');
+    if (!btn) return;
+    if (this._challengeMods?.noReroll) { btn.disabled = true; return; }
+    const cost = this._nextRerollCost();
+    btn.disabled = this._gold < cost;
+    const costSpan = this.container.querySelector('#reroll-cost');
+    if (costSpan) costSpan.textContent = `(${cost}g)`;
   }
 
   _refreshCardAffordability() {
     this._renderCards();
+  }
+
+  _nextRerollCost() {
+    if (this._rerolls === 0) return 2;
+    return Math.min(2 * this._rerolls + 1, 10);
+  }
+
+  _renderUpgrades() {
+    const panel = this.container.querySelector('#shop-upgrade');
+    if (!panel) return;
+    panel.innerHTML = '';
+    if (!this._placedTowers?.length) { panel.style.display = 'none'; return; }
+    panel.style.display = '';
+
+    const title = document.createElement('div');
+    title.className = 'shop-upgrade-title';
+    title.textContent = i18n.t('shop_upgrade_tower');
+    panel.appendChild(title);
+
+    for (const t of this._placedTowers) {
+      const isMax  = t.starLevel >= 3;
+      const cost   = t.starLevel * 5;
+      const name   = i18n.lang === 'ko' ? (t.def.nameKo ?? t.def.name) : t.def.name;
+      const starStr = '★'.repeat(t.starLevel);
+
+      const row = document.createElement('div');
+      row.className = 'shop-upgrade-row';
+      const btn = document.createElement('button');
+      btn.className = 'shop-upgrade-btn';
+      btn.disabled  = isMax || this._gold < cost;
+      const nextMult = isMax ? '' : (t.starLevel === 1 ? ' ×1.5' : ' ×2.25');
+      btn.textContent = isMax
+        ? i18n.t('shop_tower_max_star')
+        : `${i18n.t('shop_tower_upgrade_btn', cost)}${nextMult}`;
+
+      const label = document.createElement('span');
+      label.className = 'shop-upgrade-name';
+      label.textContent = `${name} ${starStr}`;
+
+      if (!isMax) {
+        btn.addEventListener('click', () => {
+          if (this.onUpgradeTower?.(t.col, t.row, cost)) {
+            t.starLevel++;
+            this._renderUpgrades(); // 즉시 재렌더
+          }
+        });
+      }
+      row.appendChild(label);
+      row.appendChild(btn);
+      panel.appendChild(row);
+    }
   }
 }
