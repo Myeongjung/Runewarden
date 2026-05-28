@@ -259,8 +259,13 @@ export class EnemySystem {
     this._noviceRegen      = false; // 재생 적 DPS 절반 여부
     this._pool             = {};   // type → [{el, bodyEl, hpBar}] SVG 요소 풀
     this._ambushTriggered  = false;
+    this._adaptedTypes     = new Set(); // 넥서스 통과 적 타입 집합 (런 내 누적)
     this._injectStyles();
   }
+
+  // ── 적 적응 시스템 ─────────────────────────────────────
+  recordAdaptation(type) { this._adaptedTypes.add(type); }
+  resetAdaptations()     { this._adaptedTypes.clear(); }
 
   // 난이도별 재생 DPS 조정
   // Veteran: Necromancer 6→10, Void Reaper 8→14, Void Herald 5→8
@@ -464,8 +469,9 @@ export class EnemySystem {
       if (e.reached) reachedEnd.push(e);
     }
     for (const e of reachedEnd) {
+      const reachInfo = { type: e.type, displayName: ENEMY_DEFS[e.type]?.name ?? e.type, isBoss: e.isBoss };
       this._removeEnemy(e, false);
-      this.onEnemyReachEnd();
+      this.onEnemyReachEnd(reachInfo);
     }
   }
 
@@ -521,8 +527,8 @@ export class EnemySystem {
       hp: scaledHp, maxHp: scaledHp,
       // slow_next_wave 이벤트: 기본 속도에 배율 적용 (1.0 = 변화 없음)
       // Wave 16+: 점진적 속도 가속 (Wave 20 = +9%, Wave 31 = +29%)
-      speed: def.speed * (this._spawnSpeedMult ?? 1) * (1 + Math.max(0, (this._waveIndex ?? 0) - 15) * 0.018),
-      baseSpeed: def.speed * (this._spawnSpeedMult ?? 1) * (1 + Math.max(0, (this._waveIndex ?? 0) - 15) * 0.018),
+      speed: def.speed * (this._spawnSpeedMult ?? 1) * (1 + Math.max(0, (this._waveIndex ?? 0) - 15) * 0.018) * (this._adaptedTypes.has(type) ? 1.1 : 1),
+      baseSpeed: def.speed * (this._spawnSpeedMult ?? 1) * (1 + Math.max(0, (this._waveIndex ?? 0) - 15) * 0.018) * (this._adaptedTypes.has(type) ? 1.1 : 1),
       color: def.color, size: def.size, reward: def.reward,
       isBoss:    def.isBoss    ?? false,
       isElite:   def.isElite   ?? false,

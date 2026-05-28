@@ -179,6 +179,7 @@ const _BASE_EN = {
   log_victory_streak_start: (n) => `✨ Boss slain! Victory bonus for next ${n} waves.`,
   log_victory_streak:       (g, n) => n > 0 ? `✨ Victory bonus: +${g}g (${n} wave${n > 1 ? 's' : ''} remaining)` : `✨ Victory bonus: +${g}g`,
   log_nexus_hit:    (hp)      => `An enemy reached the Nexus! (${hp} HP left)`,
+  log_enemy_adapted: (name) => `⚠️ ${name} adapted — next wave is 10% faster!`,
   log_card_placed:  (name, c, r) => `Placed ${name} at (${c},${r})`,
   log_not_enough_gold: (need, have) => `Not enough gold! (need ${need}, have ${have})`,
 

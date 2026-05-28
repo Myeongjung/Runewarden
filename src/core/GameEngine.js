@@ -1232,7 +1232,7 @@ function onShopLeave() {
 }
 
 // ── 적 처리 콜백 ──────────────────────────────────────
-function onEnemyReachEnd() {
+function onEnemyReachEnd({ type: enemyType, displayName, isBoss = false } = {}) {
   state._nexusHitThisWave = true;  // PERFECT_WAVE 업적: 이번 웨이브 넥서스 피격 기록
 
   // DLC 2: Divine Shield — 넥서스 무적 상태
@@ -1285,6 +1285,13 @@ function onEnemyReachEnd() {
   shakeNexus();
   audio.play('nexus_hit');
   log(i18n.t('log_nexus_hit', state.nexusHp), 'bad');
+
+  // 적 적응 기록: 처음 통과한 타입은 다음 웨이브부터 +10% 속도
+  if (enemyType && !isBoss && enemySystem) {
+    const isNew = !enemySystem._adaptedTypes.has(enemyType);
+    enemySystem.recordAdaptation(enemyType);
+    if (isNew) log(i18n.t('log_enemy_adapted', displayName ?? enemyType), 'bad');
+  }
 
   // Thorn Wall: 넥서스 피격 시 가장 가까운 적에게 반사 피해
   if (hasRelic('thorn_wall') && enemySystem) {

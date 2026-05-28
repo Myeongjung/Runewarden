@@ -175,6 +175,7 @@ const _BASE_KO = {
   log_victory_streak_start: (n) => `✨ 보스 처치! 다음 ${n}웨이브 동안 승전 보너스 적용.`,
   log_victory_streak:       (g, n) => n > 0 ? `✨ 승전 보너스: +${g}g (${n}웨이브 남음)` : `✨ 승전 보너스: +${g}g`,
   log_nexus_hit:    (hp)      => `적이 넥서스에 도달했습니다! (${hp} HP 남음)`,
+  log_enemy_adapted: (name) => `⚠️ ${name}이(가) 적응했습니다 — 다음 웨이브에서 10% 빨라집니다!`,
   log_card_placed:  (name, c, r) => `${name} 배치 완료 (${c},${r})`,
   log_not_enough_gold: (need, have) => `골드 부족! (필요: ${need}, 보유: ${have})`,
 
