@@ -112,6 +112,19 @@ const WAVE_CONFIGS = [
    { type: 'sun_herald', count: 2, interval: 3500 }, { type: 'sun_god', count: 1, interval: 12000 }],
 ];
 
+// ── 기습 설정 ────────────────────────────────────────────
+// 0-indexed waveIndex 기준, 보스/커스드 웨이브 제외
+const AMBUSH_WAVE_SET = new Set([2, 6, 10, 12, 17, 20, 24, 28]);
+const AMBUSH_DELAY_MS = 5000;
+
+function _getAmbushGroup(waveIndex) {
+  if (waveIndex < 5)  return { type: 'goblin',      count: 4, interval: 400 };
+  if (waveIndex < 10) return { type: 'fast',         count: 3, interval: 500 };
+  if (waveIndex < 15) return { type: 'void_wraith',  count: 4, interval: 350 };
+  if (waveIndex < 23) return { type: 'shadow_hound', count: 5, interval: 280 };
+  return                     { type: 'solar_ember',  count: 6, interval: 300 };
+}
+
 const ENEMY_DEFS = {
   //                              HP    speed  color          size  reward
   grunt:      { name: 'Grunt',      hp:   48, speed:  44, color: '#8B4513', size: 12, reward:  1 },
@@ -245,6 +258,7 @@ export class EnemySystem {
     this._veteranRegen     = false; // 재생 적 DPS 강화 여부
     this._noviceRegen      = false; // 재생 적 DPS 절반 여부
     this._pool             = {};   // type → [{el, bodyEl, hpBar}] SVG 요소 풀
+    this._ambushTriggered  = false;
     this._injectStyles();
   }
 
@@ -370,6 +384,7 @@ export class EnemySystem {
     this._spawnIndex        = 0;
     this._waveActive        = true;
     this._cursedWaveRevive  = cursedRevive;
+    this._ambushTriggered   = false;
   }
 
   isWaveClear() {
@@ -390,6 +405,12 @@ export class EnemySystem {
     ) {
       this._spawn(this._spawnQueue[this._spawnIndex].type);
       this._spawnIndex++;
+    }
+
+    // 기습 체크: 웨이브 절반 스폰 완료 시 5초 후 기습 그룹 추가
+    if (!this._ambushTriggered && AMBUSH_WAVE_SET.has(this._waveIndex)) {
+      const halfway = Math.ceil(this._spawnQueue.length / 2);
+      if (this._spawnIndex >= halfway) this._triggerAmbush();
     }
 
     const reachedEnd = [];
@@ -1458,6 +1479,17 @@ export class EnemySystem {
     const wave = WAVE_CONFIGS[waveIndex];
     if (!wave) return false;
     return wave.some(g => ENEMY_DEFS[g.type]?.camo);
+  }
+
+  _triggerAmbush() {
+    this._ambushTriggered = true;
+    const group = _getAmbushGroup(this._waveIndex);
+    let ambushAt = this._spawnTimer + AMBUSH_DELAY_MS;
+    for (let i = 0; i < group.count; i++) {
+      this._spawnQueue.push({ type: group.type, at: ambushAt });
+      ambushAt += group.interval;
+    }
+    this.onAmbush?.({ count: group.count, delayMs: AMBUSH_DELAY_MS });
   }
 
   clearAll() {

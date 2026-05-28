@@ -27,7 +27,7 @@ import { resolveSpell as _resolveSpellImpl } from './SpellResolver.js';
 import { HEX_W } from '../config/constants.js';
 import { log, spawnFloatText, shakeNexus, setWaveButton } from './GameUtils.js';
 import { shared } from './GameState.js';
-import { updateHUD, renderHand, onBossUpdate, updateShadowChargeHUD, showClearBanner, updateMenuRank } from '../ui/HUDUpdater.js';
+import { updateHUD, renderHand, onBossUpdate, updateShadowChargeHUD, showClearBanner, showAmbushBanner, updateMenuRank } from '../ui/HUDUpdater.js';
 import { showScreen, openWardenSelect, openDifficultySelect, openCodex, openDeckView } from '../ui/UIOrchestrator.js';
 import { registerDLC, hasDLC, clearDLCs } from '../systems/DLCRegistry.js';
 
@@ -366,6 +366,11 @@ function startRun() {
   );
   enemySystem.onEnrageImminent = (e) => {
     if (e.isBoss) log(i18n.t('log_enrage_imminent', e.name || e.type), 'bad');
+  };
+  enemySystem.onAmbush = ({ count, delayMs }) => {
+    log(i18n.t('log_ambush_warn', count), 'bad');
+    audio.play('nexus_hit');
+    showAmbushBanner(delayMs);
   };
 
   towerSystem = new TowerSystem(

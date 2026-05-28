@@ -965,6 +965,11 @@ kbd {
   100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
 }
 
+@keyframes bannerPulse {
+  from { box-shadow: 0 6px 30px rgba(255,68,68,0.55); }
+  to   { box-shadow: 0 6px 40px rgba(255,68,68,0.85); }
+}
+
 /* ── Tower Sell Panel ──────────────────────────────────── */
 .tower-sell-panel {
   position: absolute;
@@ -1072,6 +1077,25 @@ kbd {
   box-shadow: 0 8px 40px rgba(46,204,113,0.5);
   font-size: 1.7rem;
   color: #A9DFBF;
+}
+
+.ambush-banner {
+  position: fixed;
+  top: 30%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 900;
+  background: linear-gradient(135deg, #2a0000, #5a1010);
+  border: 2px solid #FF4444;
+  border-radius: 10px;
+  padding: 0.7rem 1.8rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #FFAAAA;
+  box-shadow: 0 6px 30px rgba(255,68,68,0.55);
+  text-align: center;
+  animation: bannerPulse 0.5s ease-in-out infinite alternate;
+  pointer-events: none;
 }
 
 /* ── Mobile Shop ─────────────────────────────────────── */

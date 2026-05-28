@@ -289,3 +289,15 @@ export function showClearBanner(waveNum, isBossStart = false, isActEnd = false) 
   const dur = (isBossStart || isActEnd) ? 2200 : 1100;
   setTimeout(() => banner.remove(), dur);
 }
+
+// ── 기습 경고 배너 ────────────────────────────────────
+export function showAmbushBanner(delayMs) {
+  const existing = document.getElementById('ambush-banner');
+  existing?.remove();
+  const banner = document.createElement('div');
+  banner.id = 'ambush-banner';
+  banner.className = 'ambush-banner';
+  banner.textContent = i18n.t('banner_ambush');
+  document.body.appendChild(banner);
+  setTimeout(() => banner.remove(), delayMs);
+}

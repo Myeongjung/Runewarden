@@ -461,6 +461,10 @@ const _BASE_EN = {
   log_gamble_curse:    '💀 The gamble extracts its toll — a Curse card has been added to your deck.',
   log_gamble_no_curse: '✨ Luck smiles — no curse this time.',
 
+  // ── 기습 ────────────────────────────────────────────
+  banner_ambush:      '⚠️ AMBUSH! Reinforcements incoming!',
+  log_ambush_warn:    (n) => `⚠️ Ambush! ${n} additional enemies incoming in 5 seconds!`,
+
   // ── 자동저장 ─────────────────────────────────────────
   btn_continue:       (wave, icon, map) => `↩ Continue — ${icon} ${map} (Wave ${wave})`,
   autosave_loaded:    (wave) => `Run restored from Wave ${wave}. Good luck, Warden!`,
