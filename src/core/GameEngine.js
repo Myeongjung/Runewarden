@@ -252,6 +252,9 @@ function startRun() {
   shared._lastHandKey = '';
   // 이전 런 정리
   if (rafId) cancelAnimationFrame(rafId);
+  // hitStop 타이머가 이전 런에서 살아남아 새 런 gameSpeed를 덮어쓰지 않도록 클리어
+  clearTimeout(_hitStopTimer);
+  _hitStopTimer = null;
 
   // DLC 상태에 따라 최대 웨이브 / 보스 웨이브 결정 (DLC2 > DLC1 > base)
   clearDLCs();
@@ -637,7 +640,8 @@ function startTutorial() {
 
 // ── 게임 루프 ─────────────────────────────────────────
 function gameLoop(now) {
-  const delta = Math.min(200, now - lastTime) * gameSpeed;
+  // Cap simulation step AFTER speed scaling so 2× mode can't skip farther than 150ms of sim time
+  const delta = Math.min((now - lastTime) * gameSpeed, 150);
   lastTime = now;
 
   if (!state) { rafId = requestAnimationFrame(gameLoop); return; }
@@ -1253,7 +1257,9 @@ function quickRestart() {
 
 // ── 카드 클릭 처리 ────────────────────────────────────
 function onCardClick(card) {
-  if (state.phase === 'over') return;
+  // 'post' 단계(웨이브 클리어 후 노드 선택 전 인터벌)에서 카드 사용을 막아
+  // 무료 서차지 우회 및 잘못된 웨이브 통계 누적을 방지
+  if (state.phase === 'over' || state.phase === 'post') return;
 
   // Arcane Flow 패시브: 주문 코스트 -1
   const arcaneDiscount = (card.type === 'spell' && state?.warden?.passive === PASSIVES.ARCANE_FLOW) ? 1 : 0;
@@ -1402,11 +1408,16 @@ function onCellClick(col, row, cellEl) {
 // 로직은 SpellResolver.js 핸들러 맵으로 이전됨. 이 래퍼가 ctx를 주입합니다.
 function resolveSpell(effect) {
   _resolveSpellImpl(effect, {
-    addGold, log, i18n, audio,
+    addGold, spendGold, log, i18n, audio,
     enemySystem, towerSystem, cardSystem,
     state, hasRelic, renderHand,
     applyNexusHeal: _applyNexusHeal,
   });
+  // DLC2: solar_dot_all_charge 주문이 충전 임계값에 도달했을 때 자동 주문 발동
+  if (state?._solarAutoSpellPending) {
+    state._solarAutoSpellPending = false;
+    _triggerSolarAutoSpell();
+  }
 }
 
 // ── 골드 ──────────────────────────────────────────────
@@ -1470,14 +1481,7 @@ function _updateSolarChargeHUD() {
 }
 
 function _triggerSolarAutoSpell() {
-  const SOLAR_AUTO_SPELLS = [
-    'spell_solar_beam', 'spell_radiant_burst',
-    'spell_solar_flare', 'spell_solar_nova',
-  ];
-  const available = SOLAR_AUTO_SPELLS.filter(id => CARD_DEFS.find(c => c.id === id));
-  if (!available.length) return;
-
-  const spellId = 'spell_solar_beam';  // Solar Beam은 항상 자동 시전 고정
+  const spellId = 'spell_solar_beam';  // Solar Charge 자동 시전은 Solar Beam 고정
   const card    = CARD_DEFS.find(c => c.id === spellId);
   if (!card) return;
 
@@ -1620,6 +1624,9 @@ document.addEventListener('keydown', (e) => {
     if (!$('screen-warden-select').classList.contains('hidden')) {
       $('btn-warden-cancel')?.click(); return;
     }
+    if (!$('screen-difficulty')?.classList.contains('hidden')) {
+      $('diff-back')?.click(); return;
+    }
     if (phase === 'paused')  { resumeGame(); return; }
     if (phase === 'shop')    { $('screen-shop').querySelector('#shop-leave')?.click(); return; }
     if (phase === 'rest')    { $('screen-rest').querySelector('#rest-leave')?.click(); return; }
@@ -1733,6 +1740,7 @@ document.addEventListener('keydown', (e) => {
 i18n.init();
 // 언어 변경 시 동적 UI 갱신
 i18n.onChange(() => {
+  document.documentElement.lang = i18n.lang;  // 스크린 리더·브라우저 맞춤법 검사용
   updateMenuRank();
   // 워든 선택 화면이 열려 있으면 리렌더링
   if (!$('screen-warden-select').classList.contains('hidden')) {

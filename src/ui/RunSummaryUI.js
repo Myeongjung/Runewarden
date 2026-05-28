@@ -120,8 +120,11 @@ export class RunSummaryUI {
 
         <!-- 버튼 -->
         <div class="summary-buttons">
-          <button class="btn-primary" id="sum-continue">▶ ${i18n.t('btn_play_again')}</button>
-          ${this._onRetry ? `<button class="btn-secondary btn-retry-same" id="sum-retry">⚡ ${i18n.lang === 'ko' ? '동일 조건 재시작' : 'Quick Restart'}</button>` : ''}
+          <div class="summary-btn-group">
+            <button class="btn-primary" id="sum-continue">▶ ${i18n.t('btn_play_again')}</button>
+            <div class="summary-btn-hint">${i18n.lang === 'ko' ? '새 워든 &amp; 난이도 선택' : 'New warden &amp; difficulty'}</div>
+          </div>
+          ${this._onRetry ? `<div class="summary-btn-group"><button class="btn-secondary btn-retry-same" id="sum-retry">⚡ ${i18n.lang === 'ko' ? '동일 조건 재시작' : 'Quick Restart'}</button><div class="summary-btn-hint">${i18n.lang === 'ko' ? '같은 워든 &amp; 난이도' : 'Same warden &amp; difficulty'}</div></div>` : ''}
           <button class="btn-secondary" id="sum-menu">${i18n.t('btn_main_menu')}</button>
         </div>
       </div>
@@ -189,6 +192,9 @@ export class RunSummaryUI {
           barNew.style.width = '0%';
           currentRank = step.newRank;
           rankDisp.textContent = step.newRank;
+          // Force DOM reflow so consecutive rank-ups each restart the animation cleanly
+          rankDisp.classList.remove('rank-up-flash');
+          void rankDisp.offsetWidth;
           rankDisp.classList.add('rank-up-flash');
           setTimeout(() => rankDisp.classList.remove('rank-up-flash'), 600);
 
