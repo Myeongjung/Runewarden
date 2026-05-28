@@ -92,6 +92,9 @@ let gameSpeed = 1;   // 1 = 1×, 2 = 2× (웨이브 중에만 적용)
 // 연속 처치(스플래시) 시 중첩 방지: 복원할 속도를 별도 저장
 let _hitStopTargetSpeed = 1;
 let _hitStopTimer       = null;
+
+// 웨이브 클리어 후 노드 선택 오픈 타이머 (startRun/endGame 시 클리어)
+let _waveClearedTimer   = null;
 function hitStop(ms) {
   if (!_hitStopTimer) _hitStopTargetSpeed = gameSpeed;
   clearTimeout(_hitStopTimer);
@@ -258,6 +261,7 @@ function startRun() {
   // hitStop 타이머가 이전 런에서 살아남아 새 런 gameSpeed를 덮어쓰지 않도록 클리어
   clearTimeout(_hitStopTimer);
   _hitStopTimer = null;
+  clearTimeout(_waveClearedTimer); _waveClearedTimer = null;
 
   // DLC 상태에 따라 최대 웨이브 / 보스 웨이브 결정 (DLC2 > DLC1 > base)
   clearDLCs();
@@ -954,7 +958,7 @@ function onWaveCleared() {
 
   // Act 전환: 1.5초 추가 대기 후 다음 Act 예고
   const delay = isActEnd ? 2500 : 1200;
-  setTimeout(() => (isBossWave && !isFinal) ? openPathFork() : openNodeSelection(), delay);
+  _waveClearedTimer = setTimeout(() => (isBossWave && !isFinal) ? openPathFork() : openNodeSelection(), delay);
 }
 
 // ── 노드 선택 화면 ────────────────────────────────────
@@ -993,6 +997,8 @@ function resolveGamblePath() {
     const relic = offered[0];
     state.relics.push(relic);
     _applyRelicToTowers(relic);
+    _checkAndActivateSynergies();
+    relicUI.updateHUD(state.relics, state._activeSynergies);
     updateHUD();
     log(i18n.t('log_gamble_relic', i18n.t('relic_' + relic.id)), 'good');
   }
@@ -1395,6 +1401,7 @@ function onEnemyKilled(reward, isSplitChild = false) {
 function endGame(victory) {
   state.phase = 'over';
   if (rafId) cancelAnimationFrame(rafId);
+  clearTimeout(_waveClearedTimer); _waveClearedTimer = null;
   // 런 종료 시 자동저장 클리어 (승리/패배 모두)
   localStorage.removeItem('rw_autosave');
 

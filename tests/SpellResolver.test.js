@@ -226,7 +226,7 @@ describe('resolveSpell', () => {
       ctx.enemySystem.dealDamageToLead = vi.fn().mockReturnValue(lead);
       ctx.enemySystem.applySlow = vi.fn();
       resolveSpell({ type: 'damage_lead', amount: 25, slow: 0.40, slowDur: 4000 }, ctx);
-      expect(ctx.enemySystem.dealDamageToLead).toHaveBeenCalledWith(25, null);
+      expect(ctx.enemySystem.dealDamageToLead).toHaveBeenCalledWith(25, null, true);
       expect(ctx.enemySystem.applySlow).toHaveBeenCalledWith('lead1', 0.40, 4000);
     });
 
@@ -235,7 +235,7 @@ describe('resolveSpell', () => {
       ctx.enemySystem.dealDamageToLead = vi.fn().mockReturnValue(lead);
       ctx.enemySystem.applySlow = vi.fn();
       resolveSpell({ type: 'damage_lead', amount: 90 }, ctx);
-      expect(ctx.enemySystem.dealDamageToLead).toHaveBeenCalledWith(90, null);
+      expect(ctx.enemySystem.dealDamageToLead).toHaveBeenCalledWith(90, null, true);
       expect(ctx.enemySystem.applySlow).not.toHaveBeenCalled();
     });
   });

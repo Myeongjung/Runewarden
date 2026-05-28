@@ -58,7 +58,7 @@ const BASE_HANDLERS = {
   chain_damage(effect, { enemySystem, log, i18n }) {
     const CHAIN_RADIUS = 120;
     const dt = effect.dmgType ?? null;
-    const lead = enemySystem.dealDamageToLead(effect.damage, dt);
+    const lead = enemySystem.dealDamageToLead(effect.damage, dt, true);
     if (lead) {
       const nearby = enemySystem.getEnemiesInRange(lead.x, lead.y, CHAIN_RADIUS)
         .filter(e => e.id !== lead.id)
@@ -316,7 +316,7 @@ const BASE_HANDLERS = {
   },
 
   damage_lead(effect, { enemySystem, log, i18n }) {
-    const lead = enemySystem.dealDamageToLead(effect.amount, effect.dmgType ?? null);
+    const lead = enemySystem.dealDamageToLead(effect.amount, effect.dmgType ?? null, true);
     if (effect.slow > 0 && lead) {
       enemySystem.applySlow(lead.id, effect.slow, effect.slowDur ?? 3000);
     }

@@ -1250,11 +1250,13 @@ export class EnemySystem {
     for (const e of targets) this.dealDamage(e.id, amount, dmgType);
   }
 
-  // 선두(가장 앞선) 적에게 피해
-  dealDamageToLead(amount, dmgType = null) {
+  // 선두(가장 앞선) 적에게 피해 — filterCamo: true 시 위장 적 제외 (주문 효과 등)
+  dealDamageToLead(amount, dmgType = null, filterCamo = false) {
     if (!this.enemies.length) return;
-    const lead = this.enemies.reduce((best, e) =>
-      e.waypointIndex > best.waypointIndex ? e : best, this.enemies[0]);
+    const candidates = filterCamo ? this.enemies.filter(e => !e.camo) : this.enemies;
+    if (!candidates.length) return;
+    const lead = candidates.reduce((best, e) =>
+      e.waypointIndex > best.waypointIndex ? e : best, candidates[0]);
     this.dealDamage(lead.id, amount, dmgType);
     return lead;
   }
