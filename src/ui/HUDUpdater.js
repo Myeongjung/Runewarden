@@ -127,6 +127,7 @@ export function renderHand() {
     const isKo = i18n.lang === 'ko';
     const cName = isKo ? (card.nameKo || card.name) : card.name;
     const cDesc = isKo ? (card.descKo || card.desc) : card.desc;
+    const forgedBadge = card.forged ? ' <span class="forged-badge">⬆</span>' : '';
 
     const _cm = state.challengeMods;
     let isBanned = false;
@@ -139,21 +140,23 @@ export function renderHand() {
       }
     }
 
+    const isCurse = card.type === 'curse';
+
     const el = document.createElement('div');
-    el.className = `card${(!canAfford || isBanned) ? ' unaffordable' : ''}${isSelected ? ' selected' : ''}${isBanned ? ' challenge-banned' : ''}`;
+    el.className = `card${(!canAfford || isBanned || isCurse) ? ' unaffordable' : ''}${isSelected ? ' selected' : ''}${isBanned ? ' challenge-banned' : ''}${isCurse ? ' curse-card' : ''}`;
     el.dataset.rarity = card.rarity;
     el.dataset.type   = card.type;
 
     el.innerHTML = `
       <div class="card-header">
-        <span class="card-name">${card.icon} ${cName}</span>
-        <span class="card-cost">${effectiveCost > 0 ? effectiveCost + 'g' : i18n.t('free').toUpperCase()}</span>
+        <span class="card-name">${card.icon} ${cName}${forgedBadge}</span>
+        <span class="card-cost">${isCurse ? '—' : (effectiveCost > 0 ? effectiveCost + 'g' : i18n.t('free').toUpperCase())}</span>
       </div>
-      <div class="card-type-badge">${i18n.t('card_type_' + card.type) ?? card.type}${surcharge ? ' (' + i18n.t('card_surcharge_label') + ')' : ''}${isBanned ? ' 🚫' : ''}</div>
+      <div class="card-type-badge">${i18n.t('card_type_' + card.type) ?? card.type}${surcharge && !isCurse ? ' (' + i18n.t('card_surcharge_label') + ')' : ''}${isBanned ? ' 🚫' : ''}</div>
       <div class="card-desc">${cDesc}</div>
     `;
 
-    if ((canAfford || isSelected) && !isBanned) {
+    if ((canAfford || isSelected) && !isBanned && !isCurse) {
       el.addEventListener('click', () => shared.onCardClick(card));
     }
     container.appendChild(el);
@@ -165,7 +168,9 @@ export function renderHand() {
 }
 
 // ── 보스 HP 바 ────────────────────────────────────────
-export function onBossUpdate({ hp, maxHp, hidden, name, phase2 }) {
+const WEAKNESS_ICONS = { fire: '🔥', frost: '❄️', lightning: '⚡', shadow: '🌑', solar: '☀️' };
+
+export function onBossUpdate({ hp, maxHp, hidden, name, phase2, weakness }) {
   const wrap      = $('boss-hpbar-wrap');
   const fill      = $('boss-hpbar-fill');
   const text      = $('boss-hp-text');
@@ -179,24 +184,26 @@ export function onBossUpdate({ hp, maxHp, hidden, name, phase2 }) {
   }
   wrap.classList.remove('hidden');
 
+  const weaknessBadge = weakness ? ` ${WEAKNESS_ICONS[weakness] ?? ''}${i18n.t('weakness_' + weakness)}` : '';
+
   if (name === 'Void Titan') {
     wrap.style.borderColor = '#9B59B6';
-    if (nameLabel) nameLabel.textContent = 'VOID TITAN';
+    if (nameLabel) nameLabel.textContent = `VOID TITAN${weaknessBadge}`;
     if (iconEl)    iconEl.textContent    = '🌑';
     fill.style.background = 'linear-gradient(90deg,#4A235A,#9B59B6)';
   } else if (name === 'Abyssal Dragon') {
     const isPhase2 = hp <= maxHp * 0.5;
     wrap.style.borderColor = isPhase2 ? '#FF00FF' : '#330066';
     if (nameLabel) nameLabel.textContent = isPhase2
-      ? 'ABYSSAL DRAGON — PHASE 2 ❄️ FROST RESIST'
-      : 'ABYSSAL DRAGON';
+      ? `ABYSSAL DRAGON — PHASE 2 ❄️ FROST RESIST${weaknessBadge}`
+      : `ABYSSAL DRAGON${weaknessBadge}`;
     if (iconEl)    iconEl.textContent    = isPhase2 ? '🐉' : '🌀';
     fill.style.background = isPhase2
       ? 'linear-gradient(90deg,#330066,#FF00FF)'
       : 'linear-gradient(90deg,#0D0030,#5500AA)';
   } else {
     wrap.style.borderColor = '#B8860B';
-    if (nameLabel) nameLabel.textContent = 'IRONCLAD';
+    if (nameLabel) nameLabel.textContent = `IRONCLAD${weaknessBadge}`;
     if (iconEl)    iconEl.textContent    = '💀';
     if (hp / maxHp > 0.5)      fill.style.background = 'linear-gradient(90deg,#8B0000,#FFD700)';
     else if (hp / maxHp > 0.2) fill.style.background = 'linear-gradient(90deg,#8B0000,#FF6600)';
@@ -284,4 +291,16 @@ export function showClearBanner(waveNum, isBossStart = false, isActEnd = false) 
   document.body.appendChild(banner);
   const dur = (isBossStart || isActEnd) ? 2200 : 1100;
   setTimeout(() => banner.remove(), dur);
+}
+
+// ── 기습 경고 배너 ────────────────────────────────────
+export function showAmbushBanner(delayMs) {
+  const existing = document.getElementById('ambush-banner');
+  existing?.remove();
+  const banner = document.createElement('div');
+  banner.id = 'ambush-banner';
+  banner.className = 'ambush-banner';
+  banner.textContent = i18n.t('banner_ambush');
+  document.body.appendChild(banner);
+  setTimeout(() => banner.remove(), delayMs);
 }

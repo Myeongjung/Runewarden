@@ -590,6 +590,25 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg);
 .card[data-rarity="rare"].selected      { box-shadow: inset 0 0 16px rgba(155,89,182,0.2), 0 0 14px rgba(155,89,182,0.4); }
 .card[data-rarity="legendary"].selected { box-shadow: inset 0 0 20px rgba(243,156,18,0.22), 0 0 16px rgba(243,156,18,0.45); }
 
+/* ── 저주 카드 (Balance Sync #10) ──────────────────────── */
+.card.curse-card {
+  background: linear-gradient(160deg, #1e0a1e 0%, #0e0014 100%);
+  border-left: 3px solid #8B0000;
+  cursor: not-allowed;
+  opacity: 0.75;
+}
+.card.curse-card:hover { transform: none; border-color: #8B0000; }
+.card[data-rarity="curse"] { border-left: 3px solid #8B0000; }
+
+/* ── 엔레이지 임박 경보 펄스 (Balance Sync #10) ──────────── */
+@keyframes enrageImminentPulse {
+  0%, 100% { stroke-opacity: 1; }
+  50%       { stroke-opacity: 0.3; }
+}
+.enrage-imminent {
+  animation: enrageImminentPulse 0.8s ease-in-out infinite;
+}
+
 /* ── 웨이브 버튼 준비 펄스 ─────────────────────────────── */
 @keyframes waveReady {
   0%, 100% { box-shadow: 0 0 0 0 rgba(39,174,96,0.45); }
@@ -958,6 +977,72 @@ kbd {
   100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
 }
 
+@keyframes bannerPulse {
+  from { box-shadow: 0 6px 30px rgba(255,68,68,0.55); }
+  to   { box-shadow: 0 6px 40px rgba(255,68,68,0.85); }
+}
+
+/* ── Tower Sell Panel ──────────────────────────────────── */
+.tower-sell-panel {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(10, 10, 28, 0.96);
+  border: 1px solid var(--gold-dim);
+  border-radius: 8px;
+  padding: 0.65rem 1rem;
+  z-index: 50;
+  text-align: center;
+  min-width: 170px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  animation: shopSlideIn 0.2s ease-out;
+}
+.tower-sell-panel.hidden { display: none; }
+.sell-panel-header {
+  font-family: 'Cinzel', serif;
+  font-size: 0.85rem;
+  color: var(--text);
+  font-weight: 700;
+}
+.sell-panel-aug {
+  font-size: 0.68rem;
+  color: var(--text-dim);
+  min-height: 0.8rem;
+}
+.sell-panel-value {
+  font-size: 0.78rem;
+  color: var(--gold);
+  font-weight: 600;
+}
+.sell-panel-btns {
+  display: flex;
+  gap: 0.4rem;
+  justify-content: center;
+  margin-top: 0.1rem;
+}
+.sell-panel-btns button {
+  font-family: 'Cinzel', serif;
+  font-size: 0.7rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+#btn-sell-tower {
+  background: #1a2a10;
+  border: 1px solid #4a8a1a;
+  color: #88dd44;
+}
+#btn-sell-tower:hover { background: #253a15; }
+#btn-sell-cancel {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+}
+#btn-sell-cancel:hover { color: var(--text); }
+
 #wave-clear-banner {
   position: fixed;
   top: 50%;
@@ -1004,6 +1089,25 @@ kbd {
   box-shadow: 0 8px 40px rgba(46,204,113,0.5);
   font-size: 1.7rem;
   color: #A9DFBF;
+}
+
+.ambush-banner {
+  position: fixed;
+  top: 30%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 900;
+  background: linear-gradient(135deg, #2a0000, #5a1010);
+  border: 2px solid #FF4444;
+  border-radius: 10px;
+  padding: 0.7rem 1.8rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #FFAAAA;
+  box-shadow: 0 6px 30px rgba(255,68,68,0.55);
+  text-align: center;
+  animation: bannerPulse 0.5s ease-in-out infinite alternate;
+  pointer-events: none;
 }
 
 /* ── Mobile Shop ─────────────────────────────────────── */
@@ -1246,7 +1350,7 @@ kbd {
 }
 .rest-options {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 0.75rem;
   margin-bottom: 1rem;
 }
@@ -1330,6 +1434,33 @@ kbd {
   font-family: 'Cinzel', serif;
 }
 .btn-remove-card:hover { background: #5a1a1a; }
+.btn-forge-card {
+  background: #1a2a15;
+  border: 1px solid #4a7a1a;
+  color: #88cc44;
+  font-size: 0.68rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: 'Cinzel', serif;
+  flex-shrink: 0;
+}
+.btn-forge-card:hover { background: #253a1a; }
+.rest-forge-preview {
+  font-size: 0.65rem;
+  color: #88cc44;
+  flex: 1;
+  text-align: right;
+  padding-right: 0.4rem;
+  opacity: 0.85;
+}
+.forged-badge {
+  display: inline-block;
+  font-size: 0.6rem;
+  color: #88cc44;
+  vertical-align: super;
+  margin-left: 2px;
+}
 .rest-cancel-btn { margin-top: 0.5rem; font-size: 0.75rem; padding: 0.35rem 1rem; }
 .rest-leave-btn { width: 100%; margin-top: 0.25rem; }
 .rest-empty { color: var(--text-dim); font-size: 0.8rem; text-align: center; padding: 0.5rem; }
@@ -1340,7 +1471,7 @@ kbd {
   #game-layout { flex-direction: column; }
   #map-area { flex: 1; }
   .node-choices { grid-template-columns: 1fr; }
-  .rest-options { grid-template-columns: 1fr; }
+  .rest-options { grid-template-columns: 1fr 1fr; }
   .summary-stats { grid-template-columns: repeat(2, 1fr); }
 }
 
@@ -1732,6 +1863,24 @@ kbd {
   opacity: 0.45;
   border-color: #c0392b !important;
   cursor: not-allowed;
+}
+
+/* 경로 분기 — 2열 그리드 */
+.path-fork-grid {
+  grid-template-columns: 1fr 1fr;
+  max-width: 420px;
+  margin: 0 auto;
+}
+.node-card.path-safe:hover {
+  border-color: #5DADE2;
+  box-shadow: 0 0 14px rgba(93, 173, 226, 0.35);
+}
+.node-card.path-gamble {
+  border-color: rgba(184, 134, 11, 0.6);
+}
+.node-card.path-gamble:hover {
+  border-color: #FFD700;
+  box-shadow: 0 0 14px rgba(255, 215, 0, 0.35);
 }
 
 /* 챌린지로 금지된 노드 */
@@ -2324,6 +2473,36 @@ kbd {
 .relic-hud-icon:hover { transform: scale(1.25); z-index: 10; }
 .relic-hud-icon[data-rarity="uncommon"] { border-color: rgba(52,152,219,0.5); }
 .relic-hud-icon[data-rarity="rare"]     { border-color: rgba(155,89,182,0.6); box-shadow: 0 0 6px rgba(155,89,182,0.3); }
+
+/* 시너지 활성화된 유물 HUD 아이콘 글로우 */
+.relic-hud-icon.relic-synergy-active {
+  border-color: rgba(255, 220, 50, 0.9) !important;
+  box-shadow: 0 0 8px rgba(255, 220, 50, 0.6), 0 0 2px rgba(255, 220, 50, 0.9) inset;
+}
+
+/* 시너지 달성 가능 유물 선택 카드 */
+.relic-choice-card.synergy-completable {
+  border-color: rgba(255,220,50,0.7) !important;
+  box-shadow: 0 0 14px rgba(255,220,50,0.4);
+}
+.relic-choice-card.synergy-completable:hover {
+  border-color: #FFDC32 !important;
+  box-shadow: 0 0 22px rgba(255,220,50,0.7);
+}
+
+/* 시너지 배지 */
+.synergy-badge {
+  display: inline-block;
+  margin-top: 0.35rem;
+  padding: 0.15rem 0.5rem;
+  background: rgba(255,220,50,0.15);
+  border: 1px solid rgba(255,220,50,0.6);
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #FFDC32;
+  letter-spacing: 0.03em;
+}
 
 /* 유물 아이콘 팝 애니메이션 */
 @keyframes relicPop {

@@ -3,6 +3,17 @@ import { hexToPixel, svgEl } from '../rendering/MapRenderer.js';
 import { audio } from './AudioSystem.js';
 import { HEX_W } from '../config/constants.js';
 
+// 타워 태그 → 약점 피해 타입 매핑
+function _tagsToDmgType(tags) {
+  if (!tags?.length) return null;
+  if (tags.includes('Fire'))   return 'fire';
+  if (tags.includes('Ice'))    return 'frost';
+  if (tags.includes('Arcane')) return 'lightning';
+  if (tags.includes('Shadow') || tags.includes('Void')) return 'shadow';
+  if (tags.includes('Solar')  || tags.includes('Holy')) return 'solar';
+  return null;
+}
+
 // SVG 필터 정의 (글로우 이펙트)
 function ensureFilters(svg) {
   if (svg.querySelector('#glow-filter')) return;
@@ -45,6 +56,8 @@ export class TowerSystem {
     // DLC 2 Solar Dominion
     this._solarPact           = 0;    // Solar Pact 추가 배율
     this._solarPactTag        = 'Solar';
+    // 위장 감지
+    this._camoDetect          = false; // Keen Eye 유물 — 모든 타워 위장 감지
     this._lightPrismBuff      = 1;    // Light Prism aura 누적 배율 (cap ×1.51)
     this._lightPrismExtraRadius = 0;  // Prism Lens 유물 추가 반경
     this._crusaderStunBonus   = 0;    // Crusader 스턴 추가 ms
@@ -103,7 +116,7 @@ export class TowerSystem {
 
   // DLC 2 Solar Pact: Solar/Holy 태그 타워 피해 보너스
   addSolarPact(extraMult, tag = 'Solar') {
-    this._solarPact    += extraMult;
+    this._solarPact     = extraMult;
     this._solarPactTag  = tag;
   }
 
@@ -118,12 +131,14 @@ export class TowerSystem {
     this._crusaderStunBonus += extraMs;
   }
 
+  enableGlobalCamoDetect() { this._camoDetect = true; }
+
   // Storm Circuit: 모든 Tesla 즉시 발사
   triggerAllTeslas() {
     let count = 0;
     for (const t of this.towers.values()) {
       if (t.def.id !== 'tesla') continue;
-      const target = this.enemySystem.getLeadEnemy(t.x, t.y, t.range);
+      const target = this.enemySystem.getLeadEnemy(t.x, t.y, t.range, t.def.camoDetect || this._camoDetect);
       if (!target) continue;
       this._fireAt(t, target);
       t.cooldown = t.attackSpeed * this._globalSpeedMult;
@@ -137,7 +152,7 @@ export class TowerSystem {
     let count = 0;
     for (const t of this.towers.values()) {
       if (!t.def.tags?.includes(tag)) continue;
-      const target = this.enemySystem.getLeadEnemy(t.x, t.y, t.range);
+      const target = this.enemySystem.getLeadEnemy(t.x, t.y, t.range, t.def.camoDetect || this._camoDetect);
       if (!target) continue;
       this._fireAt(t, target);
       t.cooldown = t.attackSpeed * this._globalSpeedMult;
@@ -243,7 +258,7 @@ export class TowerSystem {
 
     for (const t of this.towers.values()) {
       if (t.cooldown > 0) { t.cooldown -= delta; continue; }
-      const target = this.enemySystem.getLeadEnemy(t.x, t.y, t.range);
+      const target = this.enemySystem.getLeadEnemy(t.x, t.y, t.range, t.def.camoDetect || this._camoDetect);
       if (!target) continue;
       this._fireAt(t, target);
       t.cooldown = t.attackSpeed * this._globalSpeedMult;
@@ -278,7 +293,8 @@ export class TowerSystem {
       dmg = Math.round(dmg * tower.def.critOnSlow);
     }
 
-    this.enemySystem.dealDamage(enemy.id, dmg);
+    const dmgType = _tagsToDmgType(tower.def.tags);
+    this.enemySystem.dealDamage(enemy.id, dmg, dmgType);
 
     const ex = enemy.x, ey = enemy.y;
     const tx = tower.x, ty = tower.y;
@@ -298,7 +314,7 @@ export class TowerSystem {
         audio.play('cannon_explode');
         const inSplash = this.enemySystem.getEnemiesInRange(ex, ey, splashPx);
         for (const e of inSplash) {
-          if (e.id !== enemy.id) this.enemySystem.dealDamage(e.id, Math.round(dmg * 0.6));
+          if (e.id !== enemy.id) this.enemySystem.dealDamage(e.id, Math.round(dmg * 0.6), dmgType);
         }
       }, 180);
 
@@ -330,7 +346,7 @@ export class TowerSystem {
         .filter(e => e.id !== enemy.id)
         .slice(0, tower.def.chainCount + this._chainBonus);
       for (const ct of nearby) {
-        this.enemySystem.dealDamage(ct.id, chainDmg);
+        this.enemySystem.dealDamage(ct.id, chainDmg, dmgType);
         this._spawnLightningBolt(ex, ey, ct.x, ct.y);
       }
 
@@ -354,7 +370,7 @@ export class TowerSystem {
         const stunDur  = (tower.def.stunDuration ?? 400) + this._crusaderStunBonus;
         const towerId  = `${tower.col ?? 0},${tower.row ?? 0}`;
         for (const e of inSplash) {
-          if (e.id !== enemy.id) this.enemySystem.dealDamage(e.id, Math.round(dmg * 0.7));
+          if (e.id !== enemy.id) this.enemySystem.dealDamage(e.id, Math.round(dmg * 0.7), dmgType);
           this.enemySystem.applyStun?.(e.id, stunDur, towerId);
         }
       }, 180);
@@ -627,5 +643,15 @@ export class TowerSystem {
   }
 
   getTower(col, row) { return this.towers.get(`${col},${row}`) ?? null; }
+
+  removeTower(col, row) {
+    const key = `${col},${row}`;
+    const t = this.towers.get(key);
+    if (!t) return false;
+    if (t.def.id === 'fire_drake') this._fireDrakeCount = Math.max(0, this._fireDrakeCount - 1);
+    this.towers.delete(key);
+    return true;
+  }
+
   clearAll() { this.towers.clear(); }
 }

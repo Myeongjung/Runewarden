@@ -91,6 +91,55 @@ export class NodeSelectionUI {
   _close() { this.container.classList.add('hidden'); }
 }
 
+// ── PathForkUI — Act 클리어 후 경로 2택 ──────────────
+export class PathForkUI {
+  constructor(container, callbacks) {
+    this.container = container;
+    this.onSafe    = callbacks.onSafe;
+    this.onGamble  = callbacks.onGamble;
+  }
+
+  open(actNum) {
+    this.container.classList.remove('hidden');
+    this.container.innerHTML = `
+      <div class="node-box">
+        <div class="node-header">
+          <span class="node-title">⚔️ ${i18n.t('path_fork_title', actNum)}</span>
+          <span class="node-sub">${i18n.t('path_fork_sub')}</span>
+        </div>
+        <div class="node-choices path-fork-grid">
+          <div class="node-card path-safe" id="path-safe">
+            <div class="node-card-icon">🏰</div>
+            <div class="node-card-name">${i18n.t('path_safe')}</div>
+            <div class="node-card-desc">${i18n.t('path_safe_desc')}</div>
+            <div class="node-card-tag">${i18n.t('path_safe_tag')}</div>
+          </div>
+          <div class="node-card path-gamble" id="path-gamble">
+            <div class="node-card-icon">🎲</div>
+            <div class="node-card-name">${i18n.t('path_gamble')}</div>
+            <div class="node-card-desc">${i18n.t('path_gamble_desc')}</div>
+            <div class="node-card-tag">${i18n.t('path_gamble_tag')}</div>
+          </div>
+        </div>
+      </div>
+    `;
+    const box = this.container.querySelector('.node-box');
+    box.style.animation = 'shopSlideIn 0.3s cubic-bezier(0.34,1.56,0.64,1)';
+
+    this.container.querySelector('#path-safe').addEventListener('click', () => {
+      this._close(); this.onSafe();
+    });
+    this.container.querySelector('#path-gamble').addEventListener('click', () => {
+      this._close(); this.onGamble();
+    });
+  }
+
+  _close() {
+    this.container.classList.add('hidden');
+    this.container.innerHTML = '';
+  }
+}
+
 // ── EventUI ───────────────────────────────────────────
 export class EventUI {
   constructor(container, callbacks) {
@@ -143,10 +192,11 @@ export class RestUI {
     this.container = container;
     this.onRemoveCard  = callbacks.onRemoveCard;   // (cardUid) → void
     this.onGoldBonus   = callbacks.onGoldBonus;    // (amount)  → void
+    this.onForgeCard   = callbacks.onForgeCard;    // (cardUid) → void
     this.onClose       = callbacks.onClose;
     this.onLog         = callbacks.onLog;
     this._deck = [];
-    this._mode = null;   // 'remove' | null
+    this._mode = null;
   }
 
   open(deckCards, gold) {
@@ -176,6 +226,11 @@ export class RestUI {
             <div class="rest-opt-name">${i18n.t('rest_remove_card')}</div>
             <div class="rest-opt-desc">${i18n.t('rest_remove_desc')}</div>
           </div>
+          <div class="rest-option" id="rest-forge">
+            <div class="rest-opt-icon">⚒️</div>
+            <div class="rest-opt-name">${i18n.t('rest_forge')}</div>
+            <div class="rest-opt-desc">${i18n.t('rest_forge_desc')}</div>
+          </div>
           <div class="rest-option" id="rest-gold">
             <div class="rest-opt-icon">💰</div>
             <div class="rest-opt-name">${i18n.t('rest_scavenge')}</div>
@@ -189,15 +244,23 @@ export class RestUI {
           <button id="rest-cancel" class="btn-secondary rest-cancel-btn">${i18n.t('rest_cancel')}</button>
         </div>
 
+        <div id="rest-forge-picker" class="rest-deck-picker hidden">
+          <div class="rest-pick-label">${i18n.t('rest_forge_choose')}</div>
+          <div id="rest-forge-list" class="rest-deck-list"></div>
+          <button id="rest-forge-cancel" class="btn-secondary rest-cancel-btn">${i18n.t('rest_cancel')}</button>
+        </div>
+
         <button id="rest-leave" class="btn-primary rest-leave-btn">${i18n.t('rest_leave')}</button>
       </div>
     `;
 
     this._scavengeGold = scavengeGold;
     this.container.querySelector('#rest-remove').addEventListener('click', () => this._showDeckPicker());
+    this.container.querySelector('#rest-forge').addEventListener('click', () => this._showForgePicker());
     this.container.querySelector('#rest-gold').addEventListener('click', () => this._takeGold());
     this.container.querySelector('#rest-leave').addEventListener('click', () => this._close());
     this.container.querySelector('#rest-cancel')?.addEventListener('click', () => this._hideDeckPicker());
+    this.container.querySelector('#rest-forge-cancel')?.addEventListener('click', () => this._hideForgePicker());
   }
 
   _showDeckPicker() {
@@ -235,6 +298,68 @@ export class RestUI {
 
   _hideDeckPicker() {
     this.container.querySelector('#rest-deck-picker')?.classList.add('hidden');
+  }
+
+  _forgePreview(card) {
+    const parts = [];
+    const fmult = (m) => m >= 1 ? 1 + (m - 1) * 1.25 : 1 - (1 - m) * 1.25;
+    if (card.type === 'summon') {
+      const nc = Math.max(1, card.cost - 1);
+      if (nc < card.cost) parts.push(`${i18n.t('rest_forge_cost')}: ${card.cost}g → ${nc}g`);
+    } else if (card.type === 'spell') {
+      const nc = Math.max(0, card.cost - 1);
+      if (nc < card.cost) parts.push(`${i18n.t('rest_forge_cost')}: ${card.cost}g → ${nc}g`);
+    } else if (card.type === 'augment' && card.effect) {
+      const nc = Math.max(1, card.cost - 1);
+      if (nc < card.cost) parts.push(`${i18n.t('rest_forge_cost')}: ${card.cost}g → ${nc}g`);
+      const stats = card.effect.stats ?? (card.effect.stat ? [card.effect] : []);
+      for (const s of stats) {
+        const nm = fmult(s.mult);
+        const oldPct = s.mult >= 1 ? `+${Math.round((s.mult - 1) * 100)}%` : `-${Math.round((1 - s.mult) * 100)}%`;
+        const newPct = nm >= 1 ? `+${Math.round((nm - 1) * 100)}%` : `-${Math.round((1 - nm) * 100)}%`;
+        parts.push(`${s.stat}: ${oldPct} → ${newPct}`);
+      }
+    }
+    return parts.join(' | ');
+  }
+
+  _showForgePicker() {
+    const picker = this.container.querySelector('#rest-forge-picker');
+    picker.classList.remove('hidden');
+
+    const list = this.container.querySelector('#rest-forge-list');
+    list.innerHTML = '';
+
+    const forgeable = this._deck.filter(c => c.type !== 'curse' && !c.forged);
+    if (forgeable.length === 0) {
+      list.innerHTML = `<div class="rest-empty">${i18n.t('rest_forge_empty')}</div>`;
+      return;
+    }
+
+    for (const card of forgeable) {
+      const el = document.createElement('div');
+      el.className = 'rest-card-item';
+      el.dataset.rarity = card.rarity;
+      const _rName = i18n.lang === 'ko' ? (card.nameKo || card.name) : card.name;
+      const preview = this._forgePreview(card);
+      el.innerHTML = `
+        <span class="rest-card-icon">${card.icon}</span>
+        <span class="rest-card-name">${_rName}</span>
+        <span class="rest-card-type">${i18n.t('card_type_' + card.type) ?? card.type}</span>
+        ${preview ? `<span class="rest-forge-preview">${preview}</span>` : ''}
+        <button class="btn-forge-card">${i18n.t('rest_forge_btn')}</button>
+      `;
+      el.querySelector('.btn-forge-card').addEventListener('click', () => {
+        this.onForgeCard(card.uid);
+        this.onLog(i18n.t('rest_forged', _rName), 'good');
+        this._close();
+      });
+      list.appendChild(el);
+    }
+  }
+
+  _hideForgePicker() {
+    this.container.querySelector('#rest-forge-picker')?.classList.add('hidden');
   }
 
   _takeGold() {

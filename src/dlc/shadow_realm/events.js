@@ -95,6 +95,15 @@ export const SHADOW_EVENTS = {
       ],
       dlc: 'shadow_realm',
     },
+    {
+      id: 'cursed_bargain', title: 'Cursed Bargain', icon: '🩸',
+      flavor: 'A shadowed figure offers power beyond measure — for a price woven into your very deck.',
+      choices: [
+        { label: 'Sign the Pact', desc: '+20 gold + 1 Rare card — but Dead Weight enters your deck', effect: { type: 'cursed_bargain', curseCard: 'curse_dead_weight', gold: 20 } },
+        { label: 'Walk Away',     desc: '+6 gold (no strings attached)',                              effect: { type: 'gold', amount: 6 } },
+      ],
+      dlc: 'shadow_realm',
+    },
   ],
   ko: [
     {
@@ -184,6 +193,15 @@ export const SHADOW_EVENTS = {
       choices: [
         { label: '심연을 바라보다', desc: '희귀 카드 1장 추가, 넥서스 HP 1 감소', effect: { type: 'cursed_gold', amount: 0, nexusDmg: 1 } },
         { label: '눈을 돌리다',    desc: '+10 골드',                             effect: { type: 'gold', amount: 10 } },
+      ],
+      dlc: 'shadow_realm',
+    },
+    {
+      id: 'cursed_bargain', title: '저주받은 거래', icon: '🩸',
+      flavor: '그림자 속 인물이 헤아릴 수 없는 힘을 제안합니다 — 당신의 덱 깊숙이 짜인 대가와 함께.',
+      choices: [
+        { label: '계약에 서명', desc: '+20 골드 + 희귀 카드 1장 — 단, 무거운 짐이 덱에 추가됩니다', effect: { type: 'cursed_bargain', curseCard: 'curse_dead_weight', gold: 20 } },
+        { label: '거절',       desc: '+6 골드 (조건 없음)',                                         effect: { type: 'gold', amount: 6 } },
       ],
       dlc: 'shadow_realm',
     },

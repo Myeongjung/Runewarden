@@ -168,8 +168,17 @@ const _BASE_KO = {
   log_run_start:    (warden) => `${warden} — 새 런을 시작합니다!`,
   log_wave_start:   (n, act)  => `웨이브 ${n} 시작! (Act ${act})`,
   log_wave_clear:   (n, gold) => `웨이브 ${n} 클리어! +${gold} 골드`,
-  log_boss_wave:    (name)    => { const BOSS_KO = { 'Ironclad': '아이언클래드', 'Void Titan': '보이드 타이탄', 'Abyssal Dragon': '심연의 드래곤' }; return `⚠️ 보스 웨이브! ${BOSS_KO[name] ?? name}이 다가옵니다!`; },
+  log_boss_wave:    (name)    => { const BOSS_KO = { 'Ironclad': '아이언클래드', 'Void Titan': '보이드 타이탄', 'Abyssal Dragon': '심연의 드래곤', 'Shadow Colossus': '그림자 콜로서스', 'Sun God': '태양신' }; return `⚠️ 보스 웨이브! ${BOSS_KO[name] ?? name}이 다가옵니다!`; },
+  log_boss_weakness: (name, type) => { const BOSS_KO = { 'Ironclad': '아이언클래드', 'Void Titan': '보이드 타이탄', 'Abyssal Dragon': '심연의 드래곤', 'Shadow Colossus': '그림자 콜로서스', 'Sun God': '태양신' }; return `🔍 ${BOSS_KO[name] ?? name}의 이번 런 약점: ${type}! (+50% 피해)`; },
+  weakness_fire:      '🔥 화염',
+  weakness_frost:     '❄️ 서리',
+  weakness_lightning: '⚡ 번개',
+  weakness_shadow:    '🌑 그림자',
+  weakness_solar:     '☀️ 태양',
+  log_victory_streak_start: (n) => `✨ 보스 처치! 다음 ${n}웨이브 동안 승전 보너스 적용.`,
+  log_victory_streak:       (g, n) => n > 0 ? `✨ 승전 보너스: +${g}g (${n}웨이브 남음)` : `✨ 승전 보너스: +${g}g`,
   log_nexus_hit:    (hp)      => `적이 넥서스에 도달했습니다! (${hp} HP 남음)`,
+  log_enemy_adapted: (name) => `⚠️ ${name}이(가) 적응했습니다 — 다음 웨이브에서 10% 빨라집니다!`,
   log_card_placed:  (name, c, r) => `${name} 배치 완료 (${c},${r})`,
   log_not_enough_gold: (need, have) => `골드 부족! (필요: ${need}, 보유: ${have})`,
 
@@ -177,8 +186,18 @@ const _BASE_KO = {
   card_type_summon:  '소환',
   card_type_augment: '강화',
   card_type_spell:   '주문',
+  card_type_curse:   '저주',
   card_surcharge:    '+1 추가 비용',
   card_free:         '무료',
+
+  // ── Balance Sync #10: 저주 카드 + Cursed Wave + 엔레이지 경보 ─
+  log_curse_unplayable:   '저주 카드는 플레이할 수 없습니다.',
+  log_curse_regret:       (name) => `후회가 ${name}을(를) 버렸습니다!`,
+  log_cursed_bargain:     '💀 어두운 계약이 당신의 덱을 오염시킵니다…',
+  log_cursed_wave_speed:  '⚠️ 저주받은 웨이브: 적 이동속도 35% 증가!',
+  log_cursed_wave_hand:   '⚠️ 저주받은 웨이브: 이번 웨이브 손패 -2!',
+  log_cursed_wave_revive: '⚠️ 저주받은 웨이브: 엘리트가 HP 30%로 부활합니다!',
+  log_enrage_imminent:    (name) => `⚠️ ${name}: 폭주 임박!`,
 
   // ── 유물 시스템 ──────────────────────────────────────
   relic_pick_title:     '유물을 선택하세요',
@@ -240,6 +259,25 @@ const _BASE_KO = {
   relic_wardens_sigil_desc:     '웨이브 클리어 후 카드 2장을 즉시 핸드에 드로우합니다.',
   relic_blood_price:            '피의 대가',
   relic_blood_price_desc:       '넥서스 HP 1을 희생하여 즉시 +20 골드를 획득합니다.',
+  relic_keen_eye:               '날카로운 눈',
+  relic_keen_eye_desc:          '모든 타워가 위장(Camo) 적을 감지하고 공격할 수 있습니다.',
+
+  // ── 시너지 이름 / 설명 ───────────────────────────────
+  synergy_merchant_king:        '상인 왕',
+  synergy_merchant_king_desc:   '상인의 배지 + 현상금 마크: 3웨이브마다 +5g.',
+  synergy_inferno_pact:         '인페르노 협약',
+  synergy_inferno_pact_desc:    '화염 코어 + 화염 서약: 번(DoT)이 +4 추가 DPS.',
+  synergy_thunder_surge:        '천둥 폭발',
+  synergy_thunder_surge_desc:   '정전기 코일 + 폭풍 회로: Tesla가 1개 더 체인.',
+  synergy_iron_citadel:         '철의 성채',
+  synergy_iron_citadel_desc:    '방패 파편 + 가시 장벽: 가시 반격 피해 ×1.5.',
+  synergy_void_surge:           '공허 폭발',
+  synergy_void_surge_desc:      '공허 코어 + 공허 에코: Void Echo 쿨다운 절반.',
+  synergy_solar_ascendancy:     '태양 패권',
+  synergy_solar_ascendancy_desc:'태양 협약 + 눈부신 부적: 감속 효과 +15% 강화.',
+
+  log_synergy_active:       (icon, name) => `✨ 시너지 발동: ${icon} ${name}!`,
+  log_synergy_wave_gold:    (icon, name, amt) => `${icon} ${name}: +${amt}g`,
 
   // 유물 로그 메시지
   log_relic_picked:     (name) => `유물 획득: ${name}`,
@@ -253,6 +291,7 @@ const _BASE_KO = {
   log_blood_price:      (g) => `피의 대가: 넥서스 HP 1 희생, +${g} 골드 획득.`,
   log_savings_bond:     (n) => `저축 채권: 이자 +${n} 추가 골드.`,
   log_free_reroll:      '무료 리롤! (상인의 반지)',
+  log_camo_warn:        '👁️ 위장 적 출현! Marksman 또는 날카로운 눈으로만 감지 가능합니다.',
 
   // ── 난이도 ────────────────────────────────────────────
   difficulty_title:     '난이도 선택',
@@ -271,6 +310,24 @@ const _BASE_KO = {
   node_hint_economy:  '경제',
   node_hint_mystery:  '신비',
   node_hint_rest:     '회복',
+
+  // ── 경로 분기 ────────────────────────────────────────
+  path_fork_title:     (act) => `Act ${act} 클리어 — 경로를 선택하세요`,
+  path_fork_sub:       '이 선택이 앞으로의 흐름을 결정합니다.',
+  path_safe:           '안전 경로',
+  path_safe_desc:      '상점, 이벤트, 휴식 중 자유롭게 선택합니다. 패널티 없는 표준 진행.',
+  path_safe_tag:       '🏰 안정적',
+  path_gamble:         '도박 경로',
+  path_gamble_desc:    '+15 골드와 랜덤 유물 1개를 즉시 획득하지만, 50% 확률로 저주 카드가 덱에 추가됩니다.',
+  path_gamble_tag:     '🎲 고위험 / 고보상',
+  log_gamble_gold:     '🎲 도박 경로 선택: +15 골드!',
+  log_gamble_relic:    (name) => `🎲 용기에 행운이 따릅니다! 유물 획득: ${name}`,
+  log_gamble_curse:    '💀 도박의 대가 — 저주 카드가 덱에 추가되었습니다.',
+  log_gamble_no_curse: '✨ 운이 따릅니다 — 이번엔 저주 없음.',
+
+  // ── 기습 ────────────────────────────────────────────
+  banner_ambush:      '⚠️ 기습! 지원군이 몰려옵니다!',
+  log_ambush_warn:    (n) => `⚠️ 기습! ${n}마리의 추가 적이 5초 후 등장합니다!`,
 
   // ── 자동저장 ─────────────────────────────────────────
   btn_continue:       (wave, icon, map) => `↩ 계속하기 — ${icon} ${map} (웨이브 ${wave})`,
@@ -305,6 +362,13 @@ const _BASE_KO = {
   rest_leave:          '떠나기 →',
   rest_deck_empty:     '덱이 비어 있습니다!',
   rest_scavenged:      (g) => `주변을 수색했습니다. +${g} 골드.`,
+  rest_forge:          '단조',
+  rest_forge_desc:     '덱의 카드 1장을 영구 강화합니다 (무료).',
+  rest_forge_choose:   '단조할 카드를 선택하세요:',
+  rest_forge_empty:    '단조 가능한 카드가 없습니다.',
+  rest_forge_cost:     '비용',
+  rest_forge_btn:      '단조',
+  rest_forged:         (name) => `${name} 단조 완료!`,
   card_btn_remove:     '제거',
   event_log:           (title, label) => `[${title}] ${label}`,
 
@@ -344,6 +408,11 @@ const _BASE_KO = {
   log_tower_exists:       '이미 타워가 있습니다.',
   log_no_tower:           '강화할 타워가 없습니다.',
   log_max_augments:       '타워가 이미 최대 강화에 도달했습니다.',
+  log_tower_sold:         (name, g) => `${name}를 ${g}g에 매각했습니다.`,
+  tower_sell_value:       (g) => `${g}g에 매각 (50%)`,
+  tower_sell_aug:         '강화',
+  tower_sell_btn:         '타워 매각',
+  tower_sell_cancel:      '취소',
   log_nexus_healed:       (hp) => `넥서스 HP 회복! (${hp} HP 남음)`,
   log_nexus_full:         '넥서스는 이미 최대 HP입니다.',
   log_no_targets:         '체인 볼트의 대상이 없습니다.',

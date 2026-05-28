@@ -59,6 +59,7 @@ export const SHADOW_TOWER_DEFS = {
     attackSpeed: 4500,
     splash:      0,
     critOnSlow:  2.0,   // 감속 적에게 2배 피해
+    camoDetect:  true,  // 위장 적 감지 가능
     tags:        ['Shadow', 'Void'],
     shape:       'archer',
     dlc:         'shadow_realm',
@@ -83,6 +84,7 @@ export const SHADOW_TOWER_DEFS = {
     shadowDotDps: 14,
     shadowDotDur: 6000,
     armorPen:     0.25,
+    camoDetect:   true, // 위장 적 감지 가능
     tags:         ['Shadow', 'Void'],
     shape:        'mage',
     dlc:          'shadow_realm',

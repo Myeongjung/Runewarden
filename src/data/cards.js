@@ -373,7 +373,7 @@ const BASE_CARD_DEFS = [
     icon: '🔥',
     desc: 'Deal 30 damage to all enemies on screen.',
     descKo: '화면의 모든 적에게 30 피해를 줍니다.',
-    effect: { type: 'damage_all', amount: 30 },
+    effect: { type: 'damage_all', amount: 30, dmgType: 'fire' },
   },
   {
     id: 'spell_freeze',
@@ -406,7 +406,7 @@ const BASE_CARD_DEFS = [
     icon: '⚡',
     desc: 'Deal 35 damage to the lead enemy, then 15 damage to 2 nearby foes.',
     descKo: '선두 적에게 35 피해, 인근 적 2명에게 추가 15 피해.',
-    effect: { type: 'chain_damage', damage: 35, chainDmg: 15, chainCount: 2 },
+    effect: { type: 'chain_damage', damage: 35, chainDmg: 15, chainCount: 2, dmgType: 'lightning' },
   },
   {
     id: 'spell_salvage',
@@ -440,7 +440,7 @@ const BASE_CARD_DEFS = [
     icon: '⚡',
     desc: 'Deal 50 damage to 3 random enemies.',
     descKo: '무작위 적 3명에게 50 피해.',
-    effect: { type: 'damage_random', count: 3, amount: 50 },
+    effect: { type: 'damage_random', count: 3, amount: 50, dmgType: 'lightning' },
   },
   {
     id: 'spell_mana_surge',
@@ -520,7 +520,7 @@ const BASE_CARD_DEFS = [
     // Nova의 저렴한 버전 — 피해+감속 콤보
     desc: 'Deal 20 damage to all enemies and slow them 40% for 3 seconds.',
     descKo: '모든 적에게 20 피해 및 3초 동안 40% 감속.',
-    effect: { type: 'nova', damage: 20, slowAmt: 0.4, slowDuration: 3000 },
+    effect: { type: 'nova', damage: 20, slowAmt: 0.4, slowDuration: 3000, dmgType: 'frost' },
   },
   {
     id: 'spell_tower_rally',
@@ -653,7 +653,7 @@ const BASE_CARD_DEFS = [
     // Lightning Strike의 균형 버전 — 대상 수 × 피해 조정
     desc: 'Deal 55 damage to 4 random enemies.',
     descKo: '무작위 적 4명에게 55 피해.',
-    effect: { type: 'damage_random', count: 4, amount: 55 },
+    effect: { type: 'damage_random', count: 4, amount: 55, dmgType: 'lightning' },
   },
   {
     id: 'spell_warden_call',
@@ -712,7 +712,7 @@ const BASE_CARD_DEFS = [
     // Fire 테마 Nova — 피해는 낮지만 감속도 적용
     desc: 'Deal 40 damage and slow all enemies by 30% for 3 seconds.',
     descKo: '모든 적에게 40 피해 및 3초 동안 30% 감속.',
-    effect: { type: 'nova', damage: 40, slowAmt: 0.3, slowDuration: 3000 },
+    effect: { type: 'nova', damage: 40, slowAmt: 0.3, slowDuration: 3000, dmgType: 'fire' },
   },
   {
     id: 'spell_life_tap',
@@ -901,6 +901,30 @@ const BASE_CARD_DEFS = [
     desc: 'Slow all enemies 55% for 5 seconds. Their strength fades.',
     descKo: '모든 적을 5초 동안 55% 감속시킵니다.',
     effect: { type: 'slow_all', amount: 0.55, duration: 5000, label: 'decay' },
+  },
+
+  // ── CURSE CARDS (added to deck via events — never in shop/draft pool) ──
+  {
+    id: 'curse_dead_weight',
+    name: 'Dead Weight',      nameKo: '무거운 짐',
+    type: 'curse',
+    rarity: 'curse',
+    cost: 0,
+    icon: '💀',
+    desc: 'Cannot be played. Occupies your hand.',
+    descKo: '플레이 불가. 손패 자리를 차지합니다.',
+    effect: null,
+  },
+  {
+    id: 'curse_regret',
+    name: 'Regret',           nameKo: '후회',
+    type: 'curse',
+    rarity: 'curse',
+    cost: 0,
+    icon: '💔',
+    desc: 'Cannot be played. When drawn, a random card is discarded from your hand.',
+    descKo: '플레이 불가. 드로우 시 손패에서 카드 1장이 무작위로 버려집니다.',
+    effect: { type: 'discard_random_on_draw' },
   },
 ];
 

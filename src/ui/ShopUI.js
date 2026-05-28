@@ -130,7 +130,9 @@ export class ShopUI {
 
     this._offered = [];
     const used = new Set();
-    for (let i = 0; i < size && pool.length > 0; i++) {
+    // Wave 16+: 마지막 슬롯은 Elite(레어) 전용으로 예약 — 기존 슬롯은 size-1개
+    const regularSize = (this._waveNum >= 16 && size >= 4) ? size - 1 : size;
+    for (let i = 0; i < regularSize && pool.length > 0; i++) {
       // 같은 카드 ID 중복 방지
       let idx, card, tries = 0;
       do {
@@ -141,6 +143,14 @@ export class ShopUI {
       used.add(card.id);
       pool.splice(idx, 1);
       this._offered.push({ ...card, uid: Math.random() });
+    }
+    // Wave 16+ Elite 슬롯: rare 카드 1장, 비용 +7g (최소 12g)
+    if (this._waveNum >= 16 && size >= 4) {
+      const rarePool = CARD_DEFS.filter(c => c.rarity === 'rare' && !used.has(c.id));
+      if (rarePool.length > 0) {
+        const pick = rarePool[Math.floor(Math.random() * rarePool.length)];
+        this._offered.push({ ...pick, cost: Math.max(pick.cost + 7, 12), _eliteSlot: true, uid: Math.random() });
+      }
     }
     this._renderCards();
   }

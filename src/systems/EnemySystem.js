@@ -112,6 +112,19 @@ const WAVE_CONFIGS = [
    { type: 'sun_herald', count: 2, interval: 3500 }, { type: 'sun_god', count: 1, interval: 12000 }],
 ];
 
+// ── 기습 설정 ────────────────────────────────────────────
+// 0-indexed waveIndex 기준, 보스/커스드 웨이브 제외
+const AMBUSH_WAVE_SET = new Set([2, 6, 10, 12, 17, 20, 24, 28]);
+const AMBUSH_DELAY_MS = 5000;
+
+function _getAmbushGroup(waveIndex) {
+  if (waveIndex < 5)  return { type: 'goblin',      count: 4, interval: 400 };
+  if (waveIndex < 10) return { type: 'fast',         count: 3, interval: 500 };
+  if (waveIndex < 15) return { type: 'void_wraith',  count: 4, interval: 350 };
+  if (waveIndex < 23) return { type: 'shadow_hound', count: 5, interval: 280 };
+  return                     { type: 'solar_ember',  count: 6, interval: 300 };
+}
+
 const ENEMY_DEFS = {
   //                              HP    speed  color          size  reward
   grunt:      { name: 'Grunt',      hp:   48, speed:  44, color: '#8B4513', size: 12, reward:  1 },
@@ -152,9 +165,9 @@ const ENEMY_DEFS = {
   siege_beast:   { name: 'Siege Beast',   hp: 880, speed:  20, color: '#4A4A4A', size: 25, reward:  8,
                    slowImmune: true },
 
-  // Act 3: 고속 유령형 — 빠름 + 피해 감소 25%
+  // Act 3: 고속 유령형 — 빠름 + 피해 감소 25% + 위장 (camo)
   phantom:       { name: 'Phantom',       hp: 165, speed: 108, color: '#7D3C98', size: 10, reward:  3,
-                   damageReduction: 0.25 },
+                   damageReduction: 0.25, camo: true },
 
   // Act 3: 최강 탱커 — 슬로우 면역 + HP 35% 격노 + 거대한 크기
   colossus:      { name: 'Colossus',      hp:1250, speed:  16, color: '#17202A', size: 29, reward:  9,
@@ -163,8 +176,8 @@ const ENEMY_DEFS = {
   // ── DLC Act 4 적 10종 ───────────────────────────────
   // 공허 군단 — 그림자 왕국의 적들
   void_shade:    { name: 'Void Shade',    hp:  80, speed: 130, color: '#1A0033', size:  9, reward:  2,
-                   damageReduction: 0.15 },                         // 고속 + 소량 피해감소
-  shadow_hound:  { name: 'Shadow Hound',  hp:  45, speed: 160, color: '#2D004D', size:  8, reward:  1 }, // 최고속 경량
+                   damageReduction: 0.15, camo: true },             // 고속 + 소량 피해감소 + 위장
+  shadow_hound:  { name: 'Shadow Hound',  hp:  45, speed: 160, color: '#2D004D', size:  8, reward:  1, camo: true }, // 최고속 경량 + 위장
   void_knight:   { name: 'Void Knight',   hp: 480, speed:  35, color: '#0D0025', size: 18, reward:  7,
                    isElite: true, shieldHits: 3 },                  // 쉴드 + 엘리트
   shadow_titan:  { name: 'Shadow Titan',  hp:1800, speed:  12, color: '#0A001A', size: 30, reward: 25,
@@ -245,8 +258,14 @@ export class EnemySystem {
     this._veteranRegen     = false; // 재생 적 DPS 강화 여부
     this._noviceRegen      = false; // 재생 적 DPS 절반 여부
     this._pool             = {};   // type → [{el, bodyEl, hpBar}] SVG 요소 풀
+    this._ambushTriggered  = false;
+    this._adaptedTypes     = new Set(); // 넥서스 통과 적 타입 집합 (런 내 누적)
     this._injectStyles();
   }
+
+  // ── 적 적응 시스템 ─────────────────────────────────────
+  recordAdaptation(type) { this._adaptedTypes.add(type); }
+  resetAdaptations()     { this._adaptedTypes.clear(); }
 
   // 난이도별 재생 DPS 조정
   // Veteran: Necromancer 6→10, Void Reaper 8→14, Void Herald 5→8
@@ -342,12 +361,13 @@ export class EnemySystem {
   // spawnSpeedMult: 적 기본 속도 배율 (slow_next_wave 이벤트, 예: 0.75 = 25% 감속)
   startWave(waveIndex, hpScale = 1.15, eliteBonus = 0, spawnDelay = 0, spawnSpeedMult = 1,
             bossHpScale = 1, enrageMult = 1.8, spawnIntervalMult = 1, veteranRegen = false,
-            noviceRegen = false, spawnIntervalStartWave = 3) {
+            noviceRegen = false, spawnIntervalStartWave = 3, cursedRevive = false) {
     // 활성 맵 경로로 웨이포인트 갱신
     WAYPOINTS = ENEMY_PATH.current.map(([c, r]) => hexToPixel(c, r));
     this._hpScale           = hpScale;
     this._eliteBonus        = eliteBonus;
     this._spawnSpeedMult    = spawnSpeedMult;  // slow_next_wave 이벤트 효과
+    this._waveIndex         = waveIndex;       // 후반부 속도 가속 계산용
     this._bossHpScale       = bossHpScale;
     this._enrageMult        = enrageMult;
     this._veteranRegen      = veteranRegen;
@@ -365,9 +385,11 @@ export class EnemySystem {
       }
     }
     // extra_prep: 첫 스폰을 spawnDelay ms 뒤로 미룸 (음수 타이머 시작)
-    this._spawnTimer = -spawnDelay;
-    this._spawnIndex = 0;
-    this._waveActive = true;
+    this._spawnTimer        = -spawnDelay;
+    this._spawnIndex        = 0;
+    this._waveActive        = true;
+    this._cursedWaveRevive  = cursedRevive;
+    this._ambushTriggered   = false;
   }
 
   isWaveClear() {
@@ -388,6 +410,12 @@ export class EnemySystem {
     ) {
       this._spawn(this._spawnQueue[this._spawnIndex].type);
       this._spawnIndex++;
+    }
+
+    // 기습 체크: 웨이브 절반 스폰 완료 시 5초 후 기습 그룹 추가
+    if (!this._ambushTriggered && AMBUSH_WAVE_SET.has(this._waveIndex)) {
+      const halfway = Math.ceil(this._spawnQueue.length / 2);
+      if (this._spawnIndex >= halfway) this._triggerAmbush();
     }
 
     const reachedEnd = [];
@@ -441,8 +469,9 @@ export class EnemySystem {
       if (e.reached) reachedEnd.push(e);
     }
     for (const e of reachedEnd) {
+      const reachInfo = { type: e.type, displayName: ENEMY_DEFS[e.type]?.name ?? e.type, isBoss: e.isBoss };
       this._removeEnemy(e, false);
-      this.onEnemyReachEnd();
+      this.onEnemyReachEnd(reachInfo);
     }
   }
 
@@ -497,8 +526,9 @@ export class EnemySystem {
       x: start.x, y: start.y,
       hp: scaledHp, maxHp: scaledHp,
       // slow_next_wave 이벤트: 기본 속도에 배율 적용 (1.0 = 변화 없음)
-      speed: def.speed * (this._spawnSpeedMult ?? 1),
-      baseSpeed: def.speed * (this._spawnSpeedMult ?? 1),
+      // Wave 16+: 점진적 속도 가속 (Wave 20 = +9%, Wave 31 = +29%)
+      speed: def.speed * (this._spawnSpeedMult ?? 1) * (1 + Math.max(0, (this._waveIndex ?? 0) - 15) * 0.018) * (this._adaptedTypes.has(type) ? 1.1 : 1),
+      baseSpeed: def.speed * (this._spawnSpeedMult ?? 1) * (1 + Math.max(0, (this._waveIndex ?? 0) - 15) * 0.018) * (this._adaptedTypes.has(type) ? 1.1 : 1),
       color: def.color, size: def.size, reward: def.reward,
       isBoss:    def.isBoss    ?? false,
       isElite:   def.isElite   ?? false,
@@ -518,6 +548,8 @@ export class EnemySystem {
       solarImmune: def.solarImmune ?? false,
       splitOnDeath: def.splitOnDeath ?? null,
       phase3: false,
+      weakness: (def.isBoss && this._upcomingBossWeakness) ? this._upcomingBossWeakness : null,
+      camo: def.camo ?? false,
       el: null, hpBar: null, bodyEl: null, shieldEl: null,
     };
 
@@ -536,6 +568,9 @@ export class EnemySystem {
         enemy.el = g;
         enemy.bodyEl = pooled.bodyEl;
         enemy.hpBar = pooled.hpBar;
+        // 위장 적 시각 처리
+        g.style.opacity = def.camo ? '0.4' : '';
+        pooled.bodyEl.setAttribute('stroke-dasharray', def.camo ? '3,2' : 'none');
         this.layer.appendChild(g);  // bring to front (z-order)
         this.enemies.push(enemy);
         return;
@@ -558,6 +593,12 @@ export class EnemySystem {
     });
     g.appendChild(body);
     enemy.bodyEl = body;
+
+    // 위장 적 시각 처리
+    if (def.camo) {
+      g.style.opacity = '0.4';
+      body.setAttribute('stroke-dasharray', '3,2');
+    }
 
     // 적 타입별 마킹
     if (type === 'tank') {
@@ -930,20 +971,34 @@ export class EnemySystem {
     } else if (e.bodyEl) {
       e.bodyEl.setAttribute('fill', e.color);
     }
+
+    // 격노 임박 경보: 오렌지색 테두리 (깜빡임은 CSS 애니메이션으로 처리)
+    if (e.bodyEl && e._enrageImminent && !e.enraged) {
+      e.bodyEl.setAttribute('stroke', '#FF8C00');
+      e.bodyEl.setAttribute('stroke-width', '2.5');
+      e.bodyEl.classList.add('enrage-imminent');
+    } else if (e.bodyEl && !e.enraged) {
+      e.bodyEl.setAttribute('stroke', 'none');
+      e.bodyEl.classList.remove('enrage-imminent');
+    }
   }
 
   _handleSplitOnDeath(e) {
     const split = e.splitOnDeath ?? (e.phase3 ? { type: 'solar_ember', count: 8 } : null);
     if (!split) return;
+    audio.play('enemy_split');
     for (let i = 0; i < split.count; i++) {
-      setTimeout(() => this._spawnAt(split.type, e.x, e.y, e.waypointIndex), i * 80);
+      this._spawnAt(split.type, e.x, e.y, e.waypointIndex, { isSplitChild: true });
     }
   }
 
-  _spawnAt(type, x, y, waypointIndex) {
+  _spawnAt(type, x, y, waypointIndex, options = {}) {
     this._spawn(type);
     const e = this.enemies[this.enemies.length - 1];
-    if (e && e.type === type) { e.x = x; e.y = y; e.waypointIndex = Math.max(1, waypointIndex); }
+    if (e && e.type === type) {
+      e.x = x; e.y = y; e.waypointIndex = Math.max(1, waypointIndex);
+      if (options.isSplitChild) { e.isSplitChild = true; e.reward = 0; }
+    }
   }
 
   _removeEnemy(e, withAnim = true) {
@@ -1044,7 +1099,11 @@ export class EnemySystem {
   }
 
   // ── 피해 처리 ─────────────────────────────────────────
-  dealDamage(enemyId, amount) {
+  setBossWeakness(type) {
+    this._upcomingBossWeakness = type ?? null;
+  }
+
+  dealDamage(enemyId, amount, dmgType = null) {
     const e = this.enemies.find(x => x.id === enemyId);
     if (!e) return false;
 
@@ -1052,6 +1111,11 @@ export class EnemySystem {
     let finalDmg = e.damageReduction > 0
       ? Math.max(1, Math.round(amount * (1 - e.damageReduction)))
       : amount;
+
+    // 보스 약점: 해당 속성으로 +50% 피해
+    if (e.isBoss && e.weakness && dmgType && e.weakness === dmgType) {
+      finalDmg = Math.round(finalDmg * 1.5);
+    }
 
     // Ironclad: 주기적 충격 방어막 — 피격 시 미활성이면 0.8s 방어막 생성 (60% 피해 감소)
     if (e.name === 'Ironclad') {
@@ -1082,6 +1146,14 @@ export class EnemySystem {
 
     // 격노 메커닉: berserker(40%) + shadow_elite(60%) + void_stalker(50%) + colossus(35%)
     const enrageThreshold = e.enrageThreshold ?? (e.type === 'berserker' ? 0.4 : null);
+    // 격노 임박 경보 (HP가 임계값 +15% 이내)
+    if (enrageThreshold && !e.enraged) {
+      const wasImminent = e._enrageImminent;
+      e._enrageImminent = (e.hp / e.maxHp) <= (enrageThreshold + 0.15);
+      if (e._enrageImminent && !wasImminent) {
+        this.onEnrageImminent?.(e);
+      }
+    }
     if (enrageThreshold && !e.enraged && e.hp <= e.maxHp * enrageThreshold) {
       e.enraged = true;
       e.speed   = e.baseSpeed * (this._enrageMult ?? 1.8);
@@ -1139,11 +1211,18 @@ export class EnemySystem {
 
     // 보스 HP 갱신 알림 + 보스 피격 사운드
     if (e.isBoss) {
-      this.onBossUpdate?.({ hp: Math.max(0, e.hp), maxHp: e.maxHp, name: e.name });
+      this.onBossUpdate?.({ hp: Math.max(0, e.hp), maxHp: e.maxHp, name: e.name, weakness: e.weakness });
       audio.play('boss_hit');
     }
 
     if (e.hp <= 0) {
+      // Cursed Wave 'revive': 엘리트 처치 시 HP 30%로 1회 부활
+      if (this._cursedWaveRevive && e.isElite && !e._revived && !e.isSplitChild) {
+        e.hp      = Math.ceil(e.maxHp * 0.30);
+        e._revived = true;
+        audio.play('elite_die');
+        return false;
+      }
       if (e.isBoss) {
         this._boss = null;
         this.onBossUpdate?.({ hp: 0, maxHp: e.maxHp });
@@ -1155,28 +1234,28 @@ export class EnemySystem {
       }
       this._handleSplitOnDeath(e);
       this._removeEnemy(e, true);
-      this.onEnemyKilled(e.reward);
+      this.onEnemyKilled(e.reward, e.isSplitChild ?? false);
       return true;
     }
     return false;
   }
 
-  dealDamageToAll(amount) {
-    for (const e of [...this.enemies]) this.dealDamage(e.id, amount);
+  dealDamageToAll(amount, dmgType = null) {
+    for (const e of [...this.enemies]) this.dealDamage(e.id, amount, dmgType);
   }
 
   // N명의 무작위 적에게 피해
-  dealDamageToRandom(count, amount) {
+  dealDamageToRandom(count, amount, dmgType = null) {
     const targets = [...this.enemies].sort(() => Math.random() - 0.5).slice(0, count);
-    for (const e of targets) this.dealDamage(e.id, amount);
+    for (const e of targets) this.dealDamage(e.id, amount, dmgType);
   }
 
   // 선두(가장 앞선) 적에게 피해
-  dealDamageToLead(amount) {
+  dealDamageToLead(amount, dmgType = null) {
     if (!this.enemies.length) return;
     const lead = this.enemies.reduce((best, e) =>
       e.waypointIndex > best.waypointIndex ? e : best, this.enemies[0]);
-    this.dealDamage(lead.id, amount);
+    this.dealDamage(lead.id, amount, dmgType);
     return lead;
   }
 
@@ -1394,11 +1473,29 @@ export class EnemySystem {
     });
   }
 
-  getLeadEnemy(px, py, radiusPx) {
+  getLeadEnemy(px, py, radiusPx, canDetectCamo = false) {
     const inRange = this.getEnemiesInRange(px, py, radiusPx);
-    if (!inRange.length) return null;
-    return inRange.reduce((best, e) =>
-      e.waypointIndex > best.waypointIndex ? e : best, inRange[0]);
+    const visible = canDetectCamo ? inRange : inRange.filter(e => !e.camo);
+    if (!visible.length) return null;
+    return visible.reduce((best, e) =>
+      e.waypointIndex > best.waypointIndex ? e : best, visible[0]);
+  }
+
+  hasCamoWave(waveIndex) {
+    const wave = WAVE_CONFIGS[waveIndex];
+    if (!wave) return false;
+    return wave.some(g => ENEMY_DEFS[g.type]?.camo);
+  }
+
+  _triggerAmbush() {
+    this._ambushTriggered = true;
+    const group = _getAmbushGroup(this._waveIndex);
+    let ambushAt = this._spawnTimer + AMBUSH_DELAY_MS;
+    for (let i = 0; i < group.count; i++) {
+      this._spawnQueue.push({ type: group.type, at: ambushAt });
+      ambushAt += group.interval;
+    }
+    this.onAmbush?.({ count: group.count, delayMs: AMBUSH_DELAY_MS });
   }
 
   clearAll() {

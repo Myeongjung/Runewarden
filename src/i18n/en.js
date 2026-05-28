@@ -173,7 +173,16 @@ const _BASE_EN = {
   log_wave_start:   (n, act)  => `Wave ${n} started! (Act ${act})`,
   log_wave_clear:   (n, gold) => `Wave ${n} cleared! +${gold} gold`,
   log_boss_wave:    (name)    => `⚠️ BOSS WAVE! ${name} approaches!`,
+  log_boss_weakness: (name, type) => `🔍 ${name} is weak to ${type} this run! (+50% dmg)`,
+  weakness_fire:      '🔥 Fire',
+  weakness_frost:     '❄️ Frost',
+  weakness_lightning: '⚡ Lightning',
+  weakness_shadow:    '🌑 Shadow',
+  weakness_solar:     '☀️ Solar',
+  log_victory_streak_start: (n) => `✨ Boss slain! Victory bonus for next ${n} waves.`,
+  log_victory_streak:       (g, n) => n > 0 ? `✨ Victory bonus: +${g}g (${n} wave${n > 1 ? 's' : ''} remaining)` : `✨ Victory bonus: +${g}g`,
   log_nexus_hit:    (hp)      => `An enemy reached the Nexus! (${hp} HP left)`,
+  log_enemy_adapted: (name) => `⚠️ ${name} adapted — next wave is 10% faster!`,
   log_card_placed:  (name, c, r) => `Placed ${name} at (${c},${r})`,
   log_not_enough_gold: (need, have) => `Not enough gold! (need ${need}, have ${have})`,
 
@@ -181,8 +190,18 @@ const _BASE_EN = {
   card_type_summon:  'summon',
   card_type_augment: 'augment',
   card_type_spell:   'spell',
+  card_type_curse:   'CURSE',
   card_surcharge:    '+1 surcharge',
   card_free:         'FREE',
+
+  // ── Balance Sync #10: 저주 카드 + Cursed Wave + 엔레이지 경보 ─
+  log_curse_unplayable:   'Curse cards cannot be played.',
+  log_curse_regret:       (name) => `Regret discards ${name}!`,
+  log_cursed_bargain:     '💀 A dark pact corrupts your deck…',
+  log_cursed_wave_speed:  '⚠️ Cursed Wave: Enemies move 35% faster!',
+  log_cursed_wave_hand:   '⚠️ Cursed Wave: Hand size reduced by 2 this wave!',
+  log_cursed_wave_revive: '⚠️ Cursed Wave: Elites will revive at 30% HP!',
+  log_enrage_imminent:    (name) => `⚠️ ${name}: Enrage imminent!`,
 
   // ── 노드 선택 (추가) ────────────────────────────────
   node_after_wave:     (n) => `— After Wave ${n} —`,
@@ -206,6 +225,13 @@ const _BASE_EN = {
   rest_leave:          'Leave →',
   rest_deck_empty:     'Deck is empty!',
   rest_scavenged:      (g) => `Scavenged the area. +${g} gold.`,
+  rest_forge:          'Forge',
+  rest_forge_desc:     'Permanently enhance one card in your deck (free).',
+  rest_forge_choose:   'Choose a card to forge:',
+  rest_forge_empty:    'No forgeable cards in deck.',
+  rest_forge_cost:     'Cost',
+  rest_forge_btn:      'Forge',
+  rest_forged:         (name) => `Forged ${name}!`,
   card_btn_remove:     'Remove',
   event_log:           (title, label) => `[${title}] ${label}`,
 
@@ -245,6 +271,11 @@ const _BASE_EN = {
   log_tower_exists:       'A tower is already here.',
   log_no_tower:           'No tower here to augment.',
   log_max_augments:       'Tower already has max augments.',
+  log_tower_sold:         (name, g) => `Sold ${name} for ${g}g.`,
+  tower_sell_value:       (g) => `Sell for ${g}g (50%)`,
+  tower_sell_aug:         'augment(s)',
+  tower_sell_btn:         'Sell Tower',
+  tower_sell_cancel:      'Cancel',
   log_nexus_healed:       (hp) => `Nexus HP restored! (${hp} HP remaining)`,
   log_nexus_full:         'Nexus is already at full HP.',
   log_no_targets:         'No targets for Chain Bolt.',
@@ -385,6 +416,25 @@ const _BASE_EN = {
   relic_wardens_sigil_desc:     'After clearing each wave, draw 2 extra cards into your hand.',
   relic_blood_price:            'Blood Price',
   relic_blood_price_desc:       'Sacrifice 1 Nexus HP to gain +20 gold immediately.',
+  relic_keen_eye:               'Keen Eye',
+  relic_keen_eye_desc:          'All towers can detect and attack camo enemies.',
+
+  // ── 시너지 이름 / 설명 ───────────────────────────────
+  synergy_merchant_king:        'Merchant King',
+  synergy_merchant_king_desc:   'Merchants Badge + Bounty Mark: Every 3 waves, gain +5g.',
+  synergy_inferno_pact:         'Inferno Pact',
+  synergy_inferno_pact_desc:    'Ember Core + Fire Pact: Burn DoT deals +4 extra DPS.',
+  synergy_thunder_surge:        'Thunder Surge',
+  synergy_thunder_surge_desc:   'Static Coil + Storm Circuit: Tesla chains to 1 extra target.',
+  synergy_iron_citadel:         'Iron Citadel',
+  synergy_iron_citadel_desc:    'Aegis Fragment + Thorn Wall: Thorn Wall damage ×1.5.',
+  synergy_void_surge:           'Void Surge',
+  synergy_void_surge_desc:      'Void Core + Void Echo: Void Echo cooldown halved.',
+  synergy_solar_ascendancy:     'Solar Ascendancy',
+  synergy_solar_ascendancy_desc:'Solar Pact + Blinding Amulet: Slow effects gain +15% power.',
+
+  log_synergy_active:       (icon, name) => `✨ SYNERGY ACTIVATED: ${icon} ${name}!`,
+  log_synergy_wave_gold:    (icon, name, amt) => `${icon} ${name}: +${amt}g`,
 
   // 유물 로그 메시지
   log_relic_picked:     (name) => `Relic acquired: ${name}`,
@@ -398,6 +448,7 @@ const _BASE_EN = {
   log_blood_price:      (g) => `Blood Price: Sacrificed 1 Nexus HP for +${g} gold.`,
   log_savings_bond:     (n) => `Savings Bond: +${n} bonus interest gold.`,
   log_free_reroll:      'Free reroll! (Merchant\'s Ring)',
+  log_camo_warn:        '👁️ Camo enemies incoming! Marksman or Keen Eye needed to detect them.',
 
   // ── 난이도 ────────────────────────────────────────────
   difficulty_title:     'Choose Difficulty',
@@ -416,6 +467,24 @@ const _BASE_EN = {
   node_hint_economy:  'Economy',
   node_hint_mystery:  'Mystery',
   node_hint_rest:     'Recovery',
+
+  // ── 경로 분기 ────────────────────────────────────────
+  path_fork_title:     (act) => `Act ${act} Complete — Choose Your Path`,
+  path_fork_sub:       'This choice shapes what comes next.',
+  path_safe:           'Safe Path',
+  path_safe_desc:      'Choose freely from Shop, Event, or Rest. Standard progression with no downside.',
+  path_safe_tag:       '🏰 Controlled',
+  path_gamble:         'Gamble Path',
+  path_gamble_desc:    'Receive +15 gold and 1 random relic immediately — but there\'s a 50% chance a Curse card is added to your deck.',
+  path_gamble_tag:     '🎲 High Risk / High Reward',
+  log_gamble_gold:     '🎲 Gamble Path chosen: +15 gold!',
+  log_gamble_relic:    (name) => `🎲 Fortune favors the bold! Relic acquired: ${name}`,
+  log_gamble_curse:    '💀 The gamble extracts its toll — a Curse card has been added to your deck.',
+  log_gamble_no_curse: '✨ Luck smiles — no curse this time.',
+
+  // ── 기습 ────────────────────────────────────────────
+  banner_ambush:      '⚠️ AMBUSH! Reinforcements incoming!',
+  log_ambush_warn:    (n) => `⚠️ Ambush! ${n} additional enemies incoming in 5 seconds!`,
 
   // ── 자동저장 ─────────────────────────────────────────
   btn_continue:       (wave, icon, map) => `↩ Continue — ${icon} ${map} (Wave ${wave})`,

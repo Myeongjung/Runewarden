@@ -6,7 +6,7 @@ import { EnemySystem } from '../systems/EnemySystem.js';
 import { TowerSystem } from '../systems/TowerSystem.js';
 import { CardSystem }  from '../systems/CardSystem.js';
 import { ShopUI }      from '../ui/ShopUI.js';
-import { NodeSelectionUI, EventUI, RestUI, pickRandomCards } from '../ui/NodeUI.js';
+import { NodeSelectionUI, EventUI, RestUI, PathForkUI, pickRandomCards } from '../ui/NodeUI.js';
 import { MetaSystem, CODEX_UNLOCKS, xpForLevel, MAX_RANK } from '../systems/MetaSystem.js';
 import { RunSummaryUI } from '../ui/RunSummaryUI.js';
 import { buildStarterDeck, CARD_DEFS } from '../data/cards.js';
@@ -17,7 +17,7 @@ import { TutorialUI }   from '../ui/TutorialUI.js';
 import { audio, music }  from '../systems/AudioSystem.js';
 import { i18n }          from '../i18n/i18n.js';
 import { RelicUI }       from '../ui/RelicUI.js';
-import { pickRandomRelics, RELIC_DEFS } from '../data/relics.js';
+import { pickRandomRelics, RELIC_DEFS, RELIC_SYNERGIES } from '../data/relics.js';
 import { pickRandomMap, getMapById }   from '../data/maps.js';
 import { setActiveMap }     from '../rendering/MapRenderer.js';
 import { DIFFICULTY_DEFS, getDifficultyById } from '../data/difficulty.js';
@@ -27,7 +27,7 @@ import { resolveSpell as _resolveSpellImpl } from './SpellResolver.js';
 import { HEX_W } from '../config/constants.js';
 import { log, spawnFloatText, shakeNexus, setWaveButton } from './GameUtils.js';
 import { shared } from './GameState.js';
-import { updateHUD, renderHand, onBossUpdate, updateShadowChargeHUD, showClearBanner, updateMenuRank } from '../ui/HUDUpdater.js';
+import { updateHUD, renderHand, onBossUpdate, updateShadowChargeHUD, showClearBanner, showAmbushBanner, updateMenuRank } from '../ui/HUDUpdater.js';
 import { showScreen, openWardenSelect, openDifficultySelect, openCodex, openDeckView } from '../ui/UIOrchestrator.js';
 import { registerDLC, hasDLC, clearDLCs } from '../systems/DLCRegistry.js';
 
@@ -44,6 +44,7 @@ const WAVE_GOLD   = 8;
 const BOSS_WAVES_BASE = new Set([5, 10, 15]);
 const BOSS_WAVES_DLC  = new Set([5, 10, 15, 23]);       // DLC1 보스 웨이브
 const BOSS_WAVES_DLC2 = new Set([5, 10, 15, 23, 31]);   // DLC2 보스 웨이브 (Solar Titan: W28도 특수)
+const CURSED_WAVES    = new Set([4, 9, 14, 20, 27]);     // 저주 웨이브 고정 시점 (Act당 1회)
 
 // ── DOM 참조 ───────────────────────────────────────────
 const $ = id => document.getElementById(id);
@@ -75,6 +76,7 @@ let towerSystem = null;
 let cardSystem  = null;
 let shopUI      = null;
 let nodeUI      = null;
+let pathForkUI  = null;
 let eventUI     = null;
 let restUI      = null;
 let summaryUI   = null;
@@ -201,13 +203,14 @@ function _restoreFromSave(save) {
 
     // 유물 복원
     state.relics = save.relicIds.map(id => RELIC_DEFS.find(r => r.id === id)).filter(Boolean);
-    relicUI.updateHUD(state.relics);
     for (const r of state.relics) {
       _applyRelicToTowers(r);
       if (r.effect.type === 'card_draw_bonus') {
         cardSystem.bonusHandSize = (cardSystem.bonusHandSize || 0) + r.effect.amount;
       }
     }
+    _checkAndActivateSynergies(true);  // 시너지 조용히 복원
+    relicUI.updateHUD(state.relics, state._activeSynergies);
 
     // 덱 복원
     cardSystem.drawPile = save.deck
@@ -281,6 +284,12 @@ function startRun() {
   const ascMods       = getAscensionMods(shared.selectedAscension);
   const challengeMods = getChallengeMods(shared.selectedChallenges);
 
+  // 보스 약점: 런 시작 시 각 보스에 고유 속성 약점 랜덤 배정
+  const _WEAKNESS_TYPES = ['fire', 'frost', 'lightning', 'shadow', 'solar'];
+  const _weaknessShuffled = [..._WEAKNESS_TYPES].sort(() => Math.random() - 0.5);
+  const _bossWeaknessMap = {};
+  [...shared.bossWaves].forEach((wave, i) => { _bossWeaknessMap[wave] = _weaknessShuffled[i]; });
+
   // 챌린지 poverty: 시작 골드 오버라이드
   const finalGold = challengeMods.startGold !== null
     ? challengeMods.startGold
@@ -298,6 +307,7 @@ function startRun() {
     ascMods,                     // 누적 핸디캡 mods
     phase:       'pre',
     selectedCard: null,
+    selectedTower: null,
     warden:      warden,          // 런 내 Warden 참조
     relics:      [],              // 이번 런 보유 유물
     _soulAnchorUsed:       false,  // Soul Anchor 1회용 사용 여부
@@ -313,6 +323,13 @@ function startRun() {
     _investGoldReturn:     0,      // invest_gold 이벤트 저장 (다음 웨이브 클리어 시 지급)
     _tempDmgBonusWaves:    0,      // temp_dmg_bonus 잔여 웨이브 수
     _tempDmgBonusMult:     1,      // temp_dmg_bonus 배율
+    _victoryStreakWaves:    0,      // 승전 보너스 잔여 웨이브 수
+    _victoryStreakBonus:    0,      // 승전 보너스 1회 지급 골드
+    _cursedWave:           null,   // 현재 저주 웨이브 타입: 'speed' | 'hand' | 'revive' | null
+    _activeSynergies:      new Set(),  // 활성화된 시너지 ID 집합
+    _synergyIronCitadel:   1,          // iron_citadel 시너지: 가시 피해 배율 (기본 1 = 미활성)
+    _synergyVoidSurge:     false,      // void_surge 시너지: Void Echo CD 절반
+    bossWeaknesses:        _bossWeaknessMap,
     // 런 통계
     stats: {
       enemiesKilled:         0,
@@ -355,6 +372,14 @@ function startRun() {
     onEnemyKilled,
     onBossUpdate,
   );
+  enemySystem.onEnrageImminent = (e) => {
+    if (e.isBoss) log(i18n.t('log_enrage_imminent', e.name || e.type), 'bad');
+  };
+  enemySystem.onAmbush = ({ count, delayMs }) => {
+    log(i18n.t('log_ambush_warn', count), 'bad');
+    audio.play('nexus_hit');
+    showAmbushBanner(delayMs);
+  };
 
   towerSystem = new TowerSystem(
     renderer.getProjectileLayer(),
@@ -372,6 +397,11 @@ function startRun() {
     onRest:  openRest,
   });
 
+  pathForkUI = new PathForkUI($('screen-node'), {
+    onSafe:   () => openNodeSelection(),
+    onGamble: () => resolveGamblePath(),
+  });
+
   shopUI = new ShopUI($('screen-shop'), {
     onBuy:   onShopBuy,
     onLeave: onShopLeave,
@@ -387,6 +417,7 @@ function startRun() {
   restUI = new RestUI($('screen-rest'), {
     onRemoveCard: onRestRemoveCard,
     onGoldBonus:  onRestGoldBonus,
+    onForgeCard:  onRestForgeCard,
     onClose:      onNodeClose,
     onLog:        (msg, cls) => log(msg, cls),
   });
@@ -460,13 +491,13 @@ function _openRelicPicker() {
   const existingIds = state.relics.map(r => r.id);
   const choices = pickRandomRelics(3, existingIds);
   if (choices.length === 0) return;  // 모두 획득한 경우
-  relicUI.openPicker(choices);
+  relicUI.openPicker(choices, existingIds);
 }
 
 // ── 유물 획득 처리 ────────────────────────────────────
 function _applyRelicPicked(relic) {
   state.relics.push(relic);
-  relicUI.updateHUD(state.relics);
+  relicUI.updateHUD(state.relics, state._activeSynergies);
 
   const name = i18n.t('relic_' + relic.id);
   log(i18n.t('log_relic_picked', name), 'gold');
@@ -505,6 +536,49 @@ function _applyRelicPicked(relic) {
 
   // 타워 버프 즉시 적용 (배치된 타워에)
   _applyRelicToTowers(relic);
+
+  // 시너지 발동 체크
+  _checkAndActivateSynergies();
+}
+
+// ── 유물 시너지 발동 체크 ────────────────────────────────
+function _checkAndActivateSynergies(silent = false) {
+  const ownedIds = new Set(state.relics.map(r => r.id));
+  for (const syn of RELIC_SYNERGIES) {
+    if (state._activeSynergies.has(syn.id)) continue;
+    if (syn.relics.every(id => ownedIds.has(id))) {
+      state._activeSynergies.add(syn.id);
+      _applySynergyEffect(syn);
+      if (!silent) {
+        const name = i18n.t('synergy_' + syn.id);
+        log(i18n.t('log_synergy_active', syn.icon, name), 'gold');
+        audio.play('shop_buy');
+      }
+      relicUI.updateHUD(state.relics, state._activeSynergies);
+    }
+  }
+}
+
+function _applySynergyEffect(syn) {
+  const e = syn.effect;
+  switch (e.type) {
+    case 'synergy_burn_bonus':
+      enemySystem?.setBurnBonus(e.extraDps, 0);
+      break;
+    case 'synergy_chain_bonus':
+      towerSystem?.addChainBonus(e.extra);
+      break;
+    case 'synergy_slow_bonus':
+      enemySystem?.setSlowBonus(e.mult);
+      break;
+    case 'synergy_thorn_mult':
+      state._synergyIronCitadel = e.mult;
+      break;
+    case 'synergy_void_cd':
+      state._synergyVoidSurge = true;
+      break;
+    // synergy_wave_gold: handled per-wave in onWaveCleared()
+  }
 }
 
 // ── 유물 효과: 타워/적 시스템 패치 ──────────────────────
@@ -542,6 +616,9 @@ function _applyRelicToTowers(relic) {
         break;
       case 'crusader_stun_bonus':
         towerSystem.addCrusaderStunBonus?.(e.extraMs);
+        break;
+      case 'camo_detect':
+        towerSystem.enableGlobalCamoDetect?.();
         break;
     }
   }
@@ -603,7 +680,10 @@ function _applyNexusHeal(amount, { isSpell = false, goldOnFull = 0 } = {}) {
 function applyInterest() {
   // Ascension II: 이자 시스템 비활성화
   if (state.ascMods?.noInterest) return;
-  const threshold = hasRelic('lucky_coin') ? 5 : 10;
+  // 후반부 이자 임계값 동적 상승: Wave 11~20 = 25g, Wave 21+ = 40g
+  const wave = state.wave ?? 0;
+  const baseThreshold = wave <= 10 ? 10 : wave <= 20 ? 25 : 40;
+  const threshold = hasRelic('lucky_coin') ? Math.max(5, baseThreshold - 5) : baseThreshold;
   if (state.gold >= threshold) {
     const bondEffect = getRelicEffect('interest_bonus');
     const interest = 1 + (bondEffect ? bondEffect.amount : 0);
@@ -680,7 +760,13 @@ function beginWave() {
   const actNum     = Math.ceil(state.wave / ACT_SIZE);
 
   if (isBossWave) {
-    const bossName = state.wave === 5 ? 'Ironclad' : state.wave === 10 ? 'Void Titan' : 'Abyssal Dragon';
+    const BOSS_NAMES = { 5: 'Ironclad', 10: 'Void Titan', 15: 'Abyssal Dragon', 23: 'Shadow Colossus', 31: 'Sun God' };
+    const bossName = BOSS_NAMES[state.wave] ?? 'Boss';
+    const weakness = state.bossWeaknesses[state.wave] ?? null;
+    if (weakness) {
+      enemySystem.setBossWeakness(weakness);
+      log(i18n.t('log_boss_weakness', bossName, i18n.t('weakness_' + weakness)), 'bad');
+    }
     log(i18n.t('log_boss_wave', bossName), 'bad');
     showClearBanner(state.wave, true);
     audio.play('boss_warning');
@@ -688,6 +774,13 @@ function beginWave() {
   } else {
     log(i18n.t('log_wave_start', state.wave, actNum), 'bad');
     audio.play('wave_start');
+  }
+
+  // 위장 적 경고: 이 웨이브에 camo 적이 있고 감지 수단이 없으면 경고
+  if (enemySystem.hasCamoWave(state.wave - 1)) {
+    const hasDetect = towerSystem._camoDetect ||
+      [...towerSystem.towers.values()].some(t => t.def.camoDetect);
+    if (!hasDetect) log(i18n.t('log_camo_warn'), 'bad');
   }
 
   // GRAVE_GOLD 패시브: 주문 카드는 웨이브 중 유지되므로 제외하고 계산
@@ -705,6 +798,8 @@ function beginWave() {
   cardSystem.hand = spellsKept;
   renderer.clearSelection();
   state.selectedCard = null;
+  state.selectedTower = null;
+  updateSellPanel();
   renderHand();
 
   if (state?.stats) {
@@ -735,9 +830,28 @@ function beginWave() {
   state.nextWaveSlowMult  = 0;
   state.extraPrepSeconds  = 0;
 
+  // ── Cursed Wave (Balance Sync #10) ─────────────────────────────────────────
+  state._cursedWave = null;
+  if (CURSED_WAVES.has(state.wave)) {
+    const types = ['speed', 'hand', 'revive'];
+    const picked = types[Math.floor(Math.random() * types.length)];
+    state._cursedWave = picked;
+    if (picked === 'speed') {
+      spawnSpeedMult *= 1.35;
+      log(i18n.t('log_cursed_wave_speed'), 'bad');
+    } else if (picked === 'hand') {
+      cardSystem.bonusHandSize = (cardSystem.bonusHandSize || 0) - 2;
+      log(i18n.t('log_cursed_wave_hand'), 'bad');
+    } else {
+      log(i18n.t('log_cursed_wave_revive'), 'bad');
+    }
+    audio.play('nexus_hit');
+  }
+
   enemySystem.startWave(state.wave - 1, hpScale, eliteBonus, spawnDelay, spawnSpeedMult,
                         bossHpScale, enrageMult, spawnIntervalMult, veteranRegen,
-                        noviceRegen, spawnIntervalStartWave);
+                        noviceRegen, spawnIntervalStartWave,
+                        state._cursedWave === 'revive');
   updateHUD();
   tutorial?.triggerEvent('wave_started');
 }
@@ -760,6 +874,28 @@ function onWaveCleared() {
     addGold(returnAmt, null);
     log(i18n.t('event_invest_gold_return', returnAmt) ?? `황금 투자 회수! +${returnAmt} 골드!`, 'gold');
   }
+
+  // 승전 보너스 지급 (보스 처치 후 2웨이브)
+  if (state._victoryStreakWaves > 0) {
+    addGold(state._victoryStreakBonus, null);
+    state._victoryStreakWaves--;
+    log(i18n.t('log_victory_streak', state._victoryStreakBonus, state._victoryStreakWaves), 'gold');
+  }
+
+  // 시너지 주기적 골드 보너스
+  for (const syn of RELIC_SYNERGIES) {
+    if (!state._activeSynergies.has(syn.id)) continue;
+    if (syn.effect.type === 'synergy_wave_gold' && state.wave % syn.effect.every === 0) {
+      addGold(syn.effect.amount, null);
+      log(i18n.t('log_synergy_wave_gold', syn.icon, i18n.t('synergy_' + syn.id), syn.effect.amount), 'gold');
+    }
+  }
+
+  // Cursed Wave 'hand' 패널티 해제
+  if (state._cursedWave === 'hand') {
+    cardSystem.bonusHandSize = (cardSystem.bonusHandSize || 0) + 2;
+  }
+  state._cursedWave = null;
 
   // DLC 2: temp_dmg_bonus 만료 처리
   if (state._tempDmgBonusWaves > 0) {
@@ -785,8 +921,9 @@ function onWaveCleared() {
 
   $('boss-hpbar-wrap')?.classList.add('hidden');
 
-  const isFinal   = state.wave >= shared.maxWaves;
-  const isActEnd  = state.wave % ACT_SIZE === 0 && !isFinal;  // 액트 클리어 (보스)
+  const isFinal    = state.wave >= shared.maxWaves;
+  const isBossWave = shared.bossWaves.has(state.wave);
+  const isActEnd   = state.wave % ACT_SIZE === 0 && !isFinal;  // 액트 클리어 (보스)
 
   log(i18n.t('log_wave_clear', state.wave, totalWaveGold), 'good');
   audio.play(isFinal ? 'victory' : 'wave_clear');
@@ -817,7 +954,7 @@ function onWaveCleared() {
 
   // Act 전환: 1.5초 추가 대기 후 다음 Act 예고
   const delay = isActEnd ? 2500 : 1200;
-  setTimeout(() => openNodeSelection(), delay);
+  setTimeout(() => (isBossWave && !isFinal) ? openPathFork() : openNodeSelection(), delay);
 }
 
 // ── 노드 선택 화면 ────────────────────────────────────
@@ -836,6 +973,43 @@ function openNodeSelection() {
   });
 }
 
+// ── 경로 분기 화면 (보스 웨이브 클리어 후) ─────────────
+function openPathFork() {
+  state.phase = 'node';
+  setWaveButton(i18n.t('btn_start_wave_n', state.wave + 1), true);
+  const actNum = Math.ceil(state.wave / ACT_SIZE);
+  pathForkUI.open(actNum);
+}
+
+function resolveGamblePath() {
+  // +15g 즉시 보상
+  addGold(15, null);
+  log(i18n.t('log_gamble_gold'), 'gold');
+
+  // 랜덤 유물 1개 자동 지급 (선택 없음)
+  const excludeIds = (state.relics ?? []).map(r => r.id);
+  const offered = pickRandomRelics(1, excludeIds);
+  if (offered.length > 0) {
+    const relic = offered[0];
+    state.relics.push(relic);
+    _applyRelicToTowers(relic);
+    updateHUD();
+    log(i18n.t('log_gamble_relic', i18n.t('relic_' + relic.id)), 'good');
+  }
+
+  // 50% 확률 저주 카드 추가
+  if (Math.random() < 0.5) {
+    const curseDef = CARD_DEFS.find(c => c.id === 'curse_dead_weight');
+    if (curseDef) cardSystem.discardPile.push({ ...curseDef, uid: Math.random() });
+    log(i18n.t('log_gamble_curse'), 'bad');
+  } else {
+    log(i18n.t('log_gamble_no_curse'), 'good');
+  }
+
+  // 노드 선택 건너뜀 — 다음 웨이브 준비로 바로 이동
+  onNodeClose();
+}
+
 // ── 상점 열기 ─────────────────────────────────────────
 function openShop() {
   state.phase = 'shop';
@@ -847,8 +1021,9 @@ function openShop() {
   const totalDiscount  = (discountEffect?.amount ?? 0) + (state.difficulty?.shopDiscount ?? 0);
   // Merchant's Ring: 상점 방문당 첫 리롤 무료
   const freeRerolls = hasRelic('merchants_ring') ? 1 : 0;
-  // Ascension I: 상점 카드 2장으로 감소
-  const shopSize    = state.ascMods?.shopSize ?? 3;
+  // Ascension I: 상점 카드 2장으로 감소. Wave 16+: Elite 슬롯 +1
+  const baseShopSize = state.ascMods?.shopSize ?? 3;
+  const shopSize     = state.wave >= 16 ? baseShopSize + 1 : baseShopSize;
   shopUI.open(state.gold, state.wave, unlockedIds, totalDiscount, freeRerolls, shopSize, state.challengeMods);
 }
 
@@ -951,6 +1126,24 @@ function onEventEffect(effect) {
       if (towerSystem) towerSystem.addRelicDmgBonus('__all__', effect.mult ?? 1.20);
       log(`✨ 다음 ${effect.waves}웨이브 동안 모든 타워 피해 +${Math.round((effect.mult - 1) * 100)}%!`, 'good');
       break;
+    case 'cursed_bargain': {
+      // 저주 카드 덱 추가 + 레어 카드 1장 + 골드
+      const curseId  = effect.curseCard ?? 'curse_dead_weight';
+      const curseDef = CARD_DEFS.find(c => c.id === curseId);
+      if (curseDef) cardSystem.discardPile.push({ ...curseDef, uid: Math.random() });
+      const rareCards = pickRandomCards(1, 'rare');
+      for (const c of rareCards) cardSystem.discardPile.push(c);
+      if ((effect.gold ?? 0) > 0) addGold(effect.gold, null);
+      log(i18n.t('log_cursed_bargain'), 'bad');
+      break;
+    }
+    case 'add_curse_card': {
+      const curseId2  = effect.curseCard ?? 'curse_dead_weight';
+      const curseDef2 = CARD_DEFS.find(c => c.id === curseId2);
+      if (curseDef2) cardSystem.discardPile.push({ ...curseDef2, uid: Math.random() });
+      log(i18n.t('log_cursed_bargain'), 'bad');
+      break;
+    }
     case 'nothing':
     default:
       log(i18n.t('log_nothing'), '');
@@ -968,10 +1161,49 @@ function onRestGoldBonus(amount) {
   addGold(amount, null);
 }
 
+function onRestForgeCard(uid) {
+  const fmult = (m) => m >= 1 ? 1 + (m - 1) * 1.25 : 1 - (1 - m) * 1.25;
+  for (const pile of [cardSystem.drawPile, cardSystem.discardPile]) {
+    const card = pile.find(c => c.uid === uid);
+    if (!card) continue;
+    card.forged = true;
+    if (card.type === 'summon') {
+      card.cost = Math.max(1, card.cost - 1);
+    } else if (card.type === 'spell') {
+      card.cost = Math.max(0, card.cost - 1);
+    } else if (card.type === 'augment') {
+      card.cost = Math.max(1, card.cost - 1);
+      if (card.effect?.stats) {
+        card.effect = { ...card.effect, stats: card.effect.stats.map(s => ({ ...s, mult: fmult(s.mult) })) };
+      } else if (card.effect?.stat) {
+        card.effect = { ...card.effect, mult: fmult(card.effect.mult) };
+      }
+    }
+    break;
+  }
+  updateHUD();
+}
+
+// ── 저주 카드 처리 (드로우 후) ────────────────────────
+function _processCurseCards() {
+  // curse_regret: 드로우 시 손패에서 무작위 카드 1장 버림
+  const regretCards = cardSystem.hand.filter(c => c.id === 'curse_regret');
+  for (const _ of regretCards) {
+    const nonCurse = cardSystem.hand.filter(c => c.type !== 'curse');
+    if (nonCurse.length > 0) {
+      const victim = nonCurse[Math.floor(Math.random() * nonCurse.length)];
+      cardSystem.hand = cardSystem.hand.filter(c => c.uid !== victim.uid);
+      cardSystem.discardPile.push(victim);
+      log(i18n.t('log_curse_regret', victim.name || victim.nameKo || '?'), 'bad');
+    }
+  }
+}
+
 // ── 노드 공통 종료 → 다음 웨이브 준비 ───────────────
 function onNodeClose() {
   state.phase = 'pre';
   cardSystem.drawHand();
+  _processCurseCards();
   renderHand();
   setWaveButton(i18n.t('btn_start_wave_n', state.wave + 1), false);
   updateHUD();
@@ -1004,7 +1236,7 @@ function onShopLeave() {
 }
 
 // ── 적 처리 콜백 ──────────────────────────────────────
-function onEnemyReachEnd() {
+function onEnemyReachEnd({ type: enemyType, displayName, isBoss = false } = {}) {
   state._nexusHitThisWave = true;  // PERFECT_WAVE 업적: 이번 웨이브 넥서스 피격 기록
 
   // DLC 2: Divine Shield — 넥서스 무적 상태
@@ -1058,31 +1290,50 @@ function onEnemyReachEnd() {
   audio.play('nexus_hit');
   log(i18n.t('log_nexus_hit', state.nexusHp), 'bad');
 
+  // 적 적응 기록: 처음 통과한 타입은 다음 웨이브부터 +10% 속도
+  if (enemyType && !isBoss && enemySystem) {
+    const isNew = !enemySystem._adaptedTypes.has(enemyType);
+    enemySystem.recordAdaptation(enemyType);
+    if (isNew) log(i18n.t('log_enemy_adapted', displayName ?? enemyType), 'bad');
+  }
+
   // Thorn Wall: 넥서스 피격 시 가장 가까운 적에게 반사 피해
   if (hasRelic('thorn_wall') && enemySystem) {
     const thornEffect = getRelicEffect('thorn_wall');
-    const hit = enemySystem.dealDamageToLead(thornEffect.damage);
-    if (hit) log(i18n.t('log_thorn_wall', thornEffect.damage), 'good');
+    const thornDmg = Math.round(thornEffect.damage * (state._synergyIronCitadel ?? 1));
+    const hit = enemySystem.dealDamageToLead(thornDmg);
+    if (hit) log(i18n.t('log_thorn_wall', thornDmg), 'good');
   }
 
   if (state.nexusHp <= 0) { audio.play('defeat'); endGame(false); }
 }
 
-function onEnemyKilled(reward) {
+function onEnemyKilled(reward, isSplitChild = false) {
   // QW#3: 적 등급별 히트스톱 (보스 75ms, 엘리트/탱크 40ms — 일반 적은 생략)
   if (reward >= 20) hitStop(75);
   else if (reward >= 3) hitStop(40);
 
-  // Bloodlust 패시브: Storm Warden — 적 처치 골드 +1
+  // 분열 자식 적은 골드 보너스 제외 (Bounty Mark, Bloodlust 비적용)
   let bonus = 0;
-  if (state?.warden?.passive === PASSIVES.BLOODLUST) {
-    bonus = reward >= 20 ? 5 : 1;  // 보스는 +5
+  if (!isSplitChild) {
+    // Bloodlust 패시브: Storm Warden — 적 처치 골드 +1
+    if (state?.warden?.passive === PASSIVES.BLOODLUST) {
+      bonus = reward >= 20 ? 5 : 1;  // 보스는 +5
+    }
+    // Bounty Mark 유물: 처치 시 +1g
+    const bountyEffect = getRelicEffect('kill_gold_bonus');
+    if (bountyEffect) bonus += bountyEffect.amount;
   }
-  // Bounty Mark 유물: 처치 시 +1g
-  const bountyEffect = getRelicEffect('kill_gold_bonus');
-  if (bountyEffect) bonus += bountyEffect.amount;
 
   addGold(reward + bonus, null, true);
+
+  // 승전 보너스: 보스 처치 시 다음 2웨이브 동안 웨이브 보상 추가
+  if (!isSplitChild && reward >= 20 && state) {
+    const streakBonus = reward >= 45 ? 5 : 4;  // DLC 중간보스 이상 +5g, 일반 보스 +4g
+    state._victoryStreakWaves = 2;
+    state._victoryStreakBonus = streakBonus;
+    log(i18n.t('log_victory_streak_start', 2), 'good');
+  }
 
   // Venom Fang: 처치 시 무작위 살아있는 적에게 독 피해
   if (hasRelic('venom_fang') && enemySystem?.enemies?.length > 0) {
@@ -1269,6 +1520,12 @@ function onCardClick(card) {
     ? 1 + (state.ascMods?.extraSurcharge ?? 0) : 0;
   const cost = Math.max(0, card.cost + waveSurcharge - arcaneDiscount);
 
+  // 저주 카드: 플레이 불가
+  if (card.type === 'curse') {
+    log(i18n.t('log_curse_unplayable'), 'bad');
+    return;
+  }
+
   // 골드 부족
   if (cost > state.gold) {
     log(waveSurcharge > 0
@@ -1360,47 +1617,119 @@ function onCellHover(col, row, entering) {
 
 // ── 셀 클릭 처리 ──────────────────────────────────────
 function onCellClick(col, row, cellEl) {
-  if (!state.selectedCard) return;
   if (state.phase === 'over') return;
 
-  const card = state.selectedCard;
+  if (state.selectedCard) {
+    const card = state.selectedCard;
 
-  if (card.type === 'summon') {
-    if (!isPlaceableCell(col, row)) { log(i18n.t('log_cannot_place'), 'bad'); return; }
-    if (towerSystem.getTower(col, row)) { log(i18n.t('log_tower_exists'), 'bad'); return; }
+    if (card.type === 'summon') {
+      if (!isPlaceableCell(col, row)) { log(i18n.t('log_cannot_place'), 'bad'); return; }
+      if (towerSystem.getTower(col, row)) { log(i18n.t('log_tower_exists'), 'bad'); return; }
 
-    const tDef = TOWER_DEFS[card.tower];
-    if (!tDef) return;
+      const tDef = TOWER_DEFS[card.tower];
+      if (!tDef) return;
 
-    spendGold(card.activeCost);
-    cardSystem.playCard(card.uid);
-    towerSystem.place(col, row, tDef);
-    renderer.placeTower(col, row, tDef);
-    audio.play('tower_place');
-    state.stats.towerTypesUsed.add(tDef.id);
-    steam?.checkAllTowers(state.stats.towerTypesUsed);
-    log(i18n.t('log_card_placed', tDef.name, col, row), 'good');
-    tutorial?.triggerEvent('tower_placed');
+      spendGold(card.activeCost);
+      cardSystem.playCard(card.uid);
+      towerSystem.place(col, row, tDef);
+      renderer.placeTower(col, row, tDef);
+      const t = towerSystem.getTower(col, row);
+      if (t) t.investedGold = card.activeCost;
+      audio.play('tower_place');
+      state.stats.towerTypesUsed.add(tDef.id);
+      steam?.checkAllTowers(state.stats.towerTypesUsed);
+      log(i18n.t('log_card_placed', tDef.name, col, row), 'good');
+      tutorial?.triggerEvent('tower_placed');
 
-  } else if (card.type === 'augment') {
-    const existing = towerSystem.getTower(col, row);
-    if (!existing) { log(i18n.t('log_no_tower'), 'bad'); return; }
-    if (existing.augments.length >= 2) { log(i18n.t('log_max_augments'), 'bad'); return; }
+    } else if (card.type === 'augment') {
+      const existing = towerSystem.getTower(col, row);
+      if (!existing) { log(i18n.t('log_no_tower'), 'bad'); return; }
+      if (existing.augments.length >= 2) { log(i18n.t('log_max_augments'), 'bad'); return; }
 
-    spendGold(card.activeCost);
-    cardSystem.playCard(card.uid);
-    const ok = towerSystem.augment(col, row, card.effect);
-    if (ok) {
-      const augLen = towerSystem.getTower(col, row)?.augments?.length ?? 1;
-      renderer.markAugmented(col, row, existing.def, augLen);
-      audio.play('augment_apply');
-      state.stats.augmentsApplied++;
+      spendGold(card.activeCost);
+      cardSystem.playCard(card.uid);
+      const ok = towerSystem.augment(col, row, card.effect);
+      if (ok) {
+        existing.investedGold = (existing.investedGold ?? 0) + card.activeCost;
+        const augLen = towerSystem.getTower(col, row)?.augments?.length ?? 1;
+        renderer.markAugmented(col, row, existing.def, augLen);
+        audio.play('augment_apply');
+        state.stats.augmentsApplied++;
+      }
     }
+
+    state.selectedCard = null;
+    state.selectedTower = null;
+    renderer.clearSelection();
+    renderHand();
+    updateHUD();
+    updateSellPanel();
+    return;
   }
 
-  state.selectedCard = null;
-  renderer.clearSelection();
-  renderHand();
+  // No card selected: toggle tower selection for sell
+  const existingTower = towerSystem.getTower(col, row);
+  if (existingTower) {
+    const same = state.selectedTower?.col === col && state.selectedTower?.row === row;
+    state.selectedTower = same ? null : { col, row };
+  } else {
+    state.selectedTower = null;
+  }
+  updateSellPanel();
+}
+
+function updateSellPanel() {
+  let panel = document.getElementById('tower-sell-panel');
+  if (!panel) {
+    panel = document.createElement('div');
+    panel.id = 'tower-sell-panel';
+    panel.className = 'tower-sell-panel hidden';
+    document.getElementById('map-area')?.appendChild(panel);
+  }
+
+  if (!state.selectedTower) {
+    panel.classList.add('hidden');
+    return;
+  }
+
+  const { col, row } = state.selectedTower;
+  const t = towerSystem.getTower(col, row);
+  if (!t) { panel.classList.add('hidden'); return; }
+
+  const sellValue = Math.floor((t.investedGold ?? 0) * 0.5);
+  const tName = i18n.lang === 'ko' ? (t.def.nameKo || t.def.name) : t.def.name;
+  panel.classList.remove('hidden');
+  panel.innerHTML = `
+    <div class="sell-panel-header">${t.def.icon ?? '🏰'} ${tName}</div>
+    <div class="sell-panel-aug">${t.augments.length > 0 ? `+${t.augments.length} ${i18n.t('tower_sell_aug')}` : ''}</div>
+    <div class="sell-panel-value">${i18n.t('tower_sell_value', sellValue)}</div>
+    <div class="sell-panel-btns">
+      <button id="btn-sell-tower">${i18n.t('tower_sell_btn')}</button>
+      <button id="btn-sell-cancel">${i18n.t('tower_sell_cancel')}</button>
+    </div>
+  `;
+  panel.querySelector('#btn-sell-tower').addEventListener('click', onSellTower);
+  panel.querySelector('#btn-sell-cancel').addEventListener('click', () => {
+    state.selectedTower = null;
+    updateSellPanel();
+  });
+}
+
+function onSellTower() {
+  if (!state.selectedTower) return;
+  const { col, row } = state.selectedTower;
+  const t = towerSystem.getTower(col, row);
+  if (!t) { state.selectedTower = null; updateSellPanel(); return; }
+
+  const sellValue = Math.floor((t.investedGold ?? 0) * 0.5);
+  const tName = i18n.lang === 'ko' ? (t.def.nameKo || t.def.name) : t.def.name;
+  towerSystem.removeTower(col, row);
+  renderer.removeTower(col, row);
+  if (sellValue > 0) addGold(sellValue, null);
+  audio.play('gold_gain');
+  log(i18n.t('log_tower_sold', tName, sellValue), 'gold');
+  state.selectedTower = null;
+  updateSellPanel();
   updateHUD();
 }
 
@@ -1509,7 +1838,7 @@ function _triggerShadowAutoSpell() {
 
   log(`👁️ ${i18n.t('dlc_sr_log_auto_cast', i18n.lang === 'ko' ? (card.nameKo || card.name) : card.name)}`, 'gold');
   audio?.play('spell_cast');
-  resolveSpell(card.effect);   // 무료 자동 발동 — 골드 소모 없음
+  resolveSpell({ ...card.effect, _isAutocast: true });   // 무료 자동 발동 — 골드 소모 없음, 연쇄 차단
 }
 
 // ── 이벤트 리스너 ─────────────────────────────────────
