@@ -966,20 +966,23 @@ export class EnemySystem {
     e.el.setAttribute('transform', `translate(${e.x.toFixed(1)},${e.y.toFixed(1)})`);
     this._updateHpBar(e);
 
-    if (e.slowTimer > 0 && e.bodyEl) {
-      e.bodyEl.setAttribute('fill', '#7EC8E3');
-    } else if (e.bodyEl) {
-      e.bodyEl.setAttribute('fill', e.color);
-    }
+    if (e.bodyEl) {
+      const wantFill = e.slowTimer > 0 ? '#7EC8E3' : e.color;
+      if (e._cachedFill !== wantFill) { e.bodyEl.setAttribute('fill', wantFill); e._cachedFill = wantFill; }
 
-    // 격노 임박 경보: 오렌지색 테두리 (깜빡임은 CSS 애니메이션으로 처리)
-    if (e.bodyEl && e._enrageImminent && !e.enraged) {
-      e.bodyEl.setAttribute('stroke', '#FF8C00');
-      e.bodyEl.setAttribute('stroke-width', '2.5');
-      e.bodyEl.classList.add('enrage-imminent');
-    } else if (e.bodyEl && !e.enraged) {
-      e.bodyEl.setAttribute('stroke', 'none');
-      e.bodyEl.classList.remove('enrage-imminent');
+      // 격노 임박 경보: dirty flag — 상태 변화 시에만 DOM 업데이트
+      const wantEnrage = e._enrageImminent && !e.enraged;
+      if (wantEnrage !== e._cachedEnrageImminent) {
+        e._cachedEnrageImminent = wantEnrage;
+        if (wantEnrage) {
+          e.bodyEl.setAttribute('stroke', '#FF8C00');
+          e.bodyEl.setAttribute('stroke-width', '2.5');
+          e.bodyEl.classList.add('enrage-imminent');
+        } else if (!e.enraged) {
+          e.bodyEl.setAttribute('stroke', 'none');
+          e.bodyEl.classList.remove('enrage-imminent');
+        }
+      }
     }
   }
 
@@ -1250,11 +1253,13 @@ export class EnemySystem {
     for (const e of targets) this.dealDamage(e.id, amount, dmgType);
   }
 
-  // 선두(가장 앞선) 적에게 피해
-  dealDamageToLead(amount, dmgType = null) {
+  // 선두(가장 앞선) 적에게 피해 — filterCamo: true 시 위장 적 제외 (주문 효과 등)
+  dealDamageToLead(amount, dmgType = null, filterCamo = false) {
     if (!this.enemies.length) return;
-    const lead = this.enemies.reduce((best, e) =>
-      e.waypointIndex > best.waypointIndex ? e : best, this.enemies[0]);
+    const candidates = filterCamo ? this.enemies.filter(e => !e.camo) : this.enemies;
+    if (!candidates.length) return;
+    const lead = candidates.reduce((best, e) =>
+      e.waypointIndex > best.waypointIndex ? e : best, candidates[0]);
     this.dealDamage(lead.id, amount, dmgType);
     return lead;
   }

@@ -92,6 +92,9 @@ let gameSpeed = 1;   // 1 = 1×, 2 = 2× (웨이브 중에만 적용)
 // 연속 처치(스플래시) 시 중첩 방지: 복원할 속도를 별도 저장
 let _hitStopTargetSpeed = 1;
 let _hitStopTimer       = null;
+
+// 웨이브 클리어 후 노드 선택 오픈 타이머 (startRun/endGame 시 클리어)
+let _waveClearedTimer   = null;
 function hitStop(ms) {
   if (!_hitStopTimer) _hitStopTargetSpeed = gameSpeed;
   clearTimeout(_hitStopTimer);
@@ -234,12 +237,12 @@ function _restoreFromSave(save) {
     updateHUD();
     log(i18n.t('autosave_loaded', save.wave), 'good');
     audio.play('wave_clear');
-    setTimeout(() => openNodeSelection(), 600);
+    _waveClearedTimer = setTimeout(() => openNodeSelection(), 600);
   } catch(err) {
     console.error('[AutoSave] Restore failed:', err);
     log('⚠️ 저장 데이터 손상 — 새 런을 시작합니다.', 'bad');
     localStorage.removeItem('rw_autosave');
-    setTimeout(() => _openRelicPicker(), 600);
+    _waveClearedTimer = setTimeout(() => _openRelicPicker(), 600);
   }
 }
 
@@ -258,6 +261,7 @@ function startRun() {
   // hitStop 타이머가 이전 런에서 살아남아 새 런 gameSpeed를 덮어쓰지 않도록 클리어
   clearTimeout(_hitStopTimer);
   _hitStopTimer = null;
+  clearTimeout(_waveClearedTimer); _waveClearedTimer = null;
 
   // DLC 상태에 따라 최대 웨이브 / 보스 웨이브 결정 (DLC2 > DLC1 > base)
   clearDLCs();
@@ -474,9 +478,9 @@ function startRun() {
   if (shared._savedRunData) {
     const saveData = shared._savedRunData;
     shared._savedRunData = null;
-    setTimeout(() => _restoreFromSave(saveData), 300);
+    _waveClearedTimer = setTimeout(() => _restoreFromSave(saveData), 300);
   } else if (TutorialUI.isDone()) {
-    setTimeout(() => _openRelicPicker(), 600);
+    _waveClearedTimer = setTimeout(() => _openRelicPicker(), 600);
   } else {
     if (tutorial && tutorial.isActive()) {
       // 이미 실행 중이면 건너뜀
@@ -954,7 +958,7 @@ function onWaveCleared() {
 
   // Act 전환: 1.5초 추가 대기 후 다음 Act 예고
   const delay = isActEnd ? 2500 : 1200;
-  setTimeout(() => (isBossWave && !isFinal) ? openPathFork() : openNodeSelection(), delay);
+  _waveClearedTimer = setTimeout(() => (isBossWave && !isFinal) ? openPathFork() : openNodeSelection(), delay);
 }
 
 // ── 노드 선택 화면 ────────────────────────────────────
@@ -993,6 +997,8 @@ function resolveGamblePath() {
     const relic = offered[0];
     state.relics.push(relic);
     _applyRelicToTowers(relic);
+    _checkAndActivateSynergies();
+    relicUI.updateHUD(state.relics, state._activeSynergies);
     updateHUD();
     log(i18n.t('log_gamble_relic', i18n.t('relic_' + relic.id)), 'good');
   }
@@ -1395,6 +1401,7 @@ function onEnemyKilled(reward, isSplitChild = false) {
 function endGame(victory) {
   state.phase = 'over';
   if (rafId) cancelAnimationFrame(rafId);
+  clearTimeout(_waveClearedTimer); _waveClearedTimer = null;
   // 런 종료 시 자동저장 클리어 (승리/패배 모두)
   localStorage.removeItem('rw_autosave');
 

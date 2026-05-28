@@ -315,7 +315,7 @@ describe('resolveSpell — chain_damage', () => {
     ctx.enemySystem.dealDamageToLead   = vi.fn().mockReturnValue(lead);
     ctx.enemySystem.getEnemiesInRange  = vi.fn().mockReturnValue([lead, ...nearby]);
     resolveSpell({ type: 'chain_damage', damage: 50, chainDmg: 25, chainCount: 2 }, ctx);
-    expect(ctx.enemySystem.dealDamageToLead).toHaveBeenCalledWith(50);
+    expect(ctx.enemySystem.dealDamageToLead).toHaveBeenCalledWith(50, null, true);
     expect(ctx.enemySystem.dealDamage).toHaveBeenCalledTimes(2);  // chainCount=2
   });
 
@@ -332,7 +332,7 @@ describe('resolveSpell — nova', () => {
   it('deals damage and slows all enemies', () => {
     const ctx = makeCtx();
     resolveSpell({ type: 'nova', damage: 30, slowAmt: 0.5, slowDuration: 2000 }, ctx);
-    expect(ctx.enemySystem.dealDamageToAll).toHaveBeenCalledWith(30);
+    expect(ctx.enemySystem.dealDamageToAll).toHaveBeenCalledWith(30, null);
     expect(ctx.enemySystem.slowAll).toHaveBeenCalledWith(0.5, 2000);
   });
 
@@ -359,7 +359,7 @@ describe('resolveSpell — damage_all', () => {
   it('calls dealDamageToAll', () => {
     const ctx = makeCtx();
     resolveSpell({ type: 'damage_all', amount: 40 }, ctx);
-    expect(ctx.enemySystem.dealDamageToAll).toHaveBeenCalledWith(40);
+    expect(ctx.enemySystem.dealDamageToAll).toHaveBeenCalledWith(40, null);
   });
 
   it('logs crimson_tide for amount >= 70', () => {
@@ -445,8 +445,8 @@ describe('resolveSpell — shadow_nova', () => {
       { id: 'e2', hp: 100, maxHp: 100 },  // missing=0  → max(1,0)=1
     ];
     resolveSpell({ type: 'shadow_nova', pct: 0.5 }, ctx);
-    expect(ctx.enemySystem.dealDamage).toHaveBeenCalledWith('e1', 20);
-    expect(ctx.enemySystem.dealDamage).toHaveBeenCalledWith('e2', 1);
+    expect(ctx.enemySystem.dealDamage).toHaveBeenCalledWith('e1', 20, 'shadow');
+    expect(ctx.enemySystem.dealDamage).toHaveBeenCalledWith('e2', 1, 'shadow');
   });
 });
 

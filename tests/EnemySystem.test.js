@@ -129,7 +129,7 @@ describe('dealDamage()', () => {
     es.enemies.push(e);
     const result = es.dealDamage('e1', 25);
     expect(result).toBe(true);
-    expect(es.onEnemyKilled).toHaveBeenCalledWith(e.reward);
+    expect(es.onEnemyKilled).toHaveBeenCalledWith(e.reward, false);
   });
 
   it('applies damageReduction correctly', () => {
