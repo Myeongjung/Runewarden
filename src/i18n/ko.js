@@ -141,9 +141,12 @@ const _BASE_KO = {
   howto_shortcuts_title: '⌨️ 키보드 단축키',
   howto_shortcuts_body:  `
     <div class="shortcut-grid">
+      <div class="sc-row"><kbd>Enter</kbd><span>새 런 시작 (메인 메뉴)</span></div>
+      <div class="sc-row"><kbd>C</kbd><span>이어하기 (메인 메뉴)</span></div>
       <div class="sc-row"><kbd>Space</kbd><span>웨이브 시작</span></div>
       <div class="sc-row"><kbd>1</kbd>–<kbd>5</kbd><span>카드 선택 / 사용</span></div>
       <div class="sc-row"><kbd>F</kbd><span>카드 선택 취소</span></div>
+      <div class="sc-row"><kbd>D</kbd><span>덱 보기 (웨이브 전 전용)</span></div>
       <div class="sc-row"><kbd>Tab</kbd><span>2배속 토글 (웨이브 중)</span></div>
       <div class="sc-row"><kbd>Esc</kbd><span>일시정지 / 창 닫기</span></div>
       <div class="sc-row"><kbd>1</kbd>–<kbd>3</kbd><span>노드 · 상점 · 이벤트 선택</span></div>

@@ -70,7 +70,10 @@ export function updateHUD() {
     const iconEl = $('hud-warden-icon');
     const nameEl = $('hud-warden-name');
     const actEl  = $('hud-act-badge');
-    if (iconEl) iconEl.textContent = w.icon;
+    if (iconEl) {
+      iconEl.textContent = w.icon;
+      iconEl.title = `Passive: ${i18n.t(w.passiveKey)}`;
+    }
     if (nameEl) nameEl.textContent = w.name;
     const diffIcon = state.difficulty?.icon ?? '';
     if (actEl)  actEl.textContent  = `ACT ${actNum} ${diffIcon}`;

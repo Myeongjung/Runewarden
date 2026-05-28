@@ -145,9 +145,12 @@ const _BASE_EN = {
   howto_shortcuts_title: '⌨️ Keyboard Shortcuts',
   howto_shortcuts_body:  `
     <div class="shortcut-grid">
+      <div class="sc-row"><kbd>Enter</kbd><span>New run (main menu)</span></div>
+      <div class="sc-row"><kbd>C</kbd><span>Continue saved run (main menu)</span></div>
       <div class="sc-row"><kbd>Space</kbd><span>Start Wave</span></div>
       <div class="sc-row"><kbd>1</kbd>–<kbd>5</kbd><span>Select / play card</span></div>
       <div class="sc-row"><kbd>F</kbd><span>Deselect card</span></div>
+      <div class="sc-row"><kbd>D</kbd><span>View Deck (pre-wave only)</span></div>
       <div class="sc-row"><kbd>Tab</kbd><span>2× Speed toggle (wave only)</span></div>
       <div class="sc-row"><kbd>Esc</kbd><span>Pause / Close overlay</span></div>
       <div class="sc-row"><kbd>1</kbd>–<kbd>3</kbd><span>Node · Shop · Event choice</span></div>

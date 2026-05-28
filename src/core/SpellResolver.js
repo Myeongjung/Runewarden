@@ -126,15 +126,9 @@ const BASE_HANDLERS = {
     audio.play('wave_start');
   },
 
-  gold_per_enemy(_effect, { enemySystem, addGold, log, i18n }) {
-    const count = enemySystem.enemies.length;
-    if (count > 0) {
-      addGold(count, null);
-      log(i18n.t('spell_soul_harvest', count), 'gold');
-    } else {
-      log(i18n.t('spell_no_enemies'), '');
-    }
-  },
+  // NOTE: gold_per_enemy appears again below for DLC2 (Gold Tithe).
+  // Handlers merged into the DLC2 entry; this original entry is intentionally removed.
+  // (The duplicate key would cause JavaScript to silently overwrite this with the DLC2 handler.)
 
   nature_cycle(_effect, { cardSystem, renderHand, log, i18n }) {
     cardSystem.discardHand();
@@ -209,7 +203,9 @@ const BASE_HANDLERS = {
   void_echo(effect, { state, log, i18n, resolveSpell }) {
     if (state.lastSpellEffect && state.lastSpellEffect.type !== 'void_echo') {
       log(i18n.t('spell_void_echo', state.lastSpellEffect.type), 'good');
-      resolveSpell(state.lastSpellEffect);
+      // _isAutocast: true prevents storm_circuit/void_echo_relic from double-triggering
+      // on the re-cast spell (those post-processing blocks already ran for this void_echo cast)
+      resolveSpell({ ...state.lastSpellEffect, _isAutocast: true });
     } else {
       log(i18n.t('spell_void_echo_empty'), '');
     }
@@ -330,12 +326,15 @@ const BASE_HANDLERS = {
     }
   },
 
+  // Unified handler for soul_harvest (no mult) and gold_tithe (has mult).
+  // The original soul_harvest entry above was a duplicate key that JavaScript silently discarded.
   gold_per_enemy(effect, { enemySystem, addGold, log, i18n }) {
     const count  = enemySystem.enemies.length;
     if (count === 0) { log(i18n.t('spell_no_enemies'), ''); return; }
     const gained = count * (effect.mult ?? 1);
     addGold(gained, null);
-    log(i18n.t('spell_gold_tithe', gained), 'gold');
+    const logKey = effect.mult ? 'spell_gold_tithe' : 'spell_soul_harvest';
+    log(i18n.t(logKey, gained), 'gold');
   },
 
   damage_all_solar_bonus(effect, { enemySystem, log, i18n }) {
@@ -372,10 +371,13 @@ const BASE_HANDLERS = {
   solar_dot_all_charge(effect, { enemySystem, state, log, i18n }) {
     enemySystem.applySolarDotAll?.(effect.dps ?? 12, effect.duration ?? 3000);
     if (state && effect.bonusCharge > 0) {
-      state._solarChargeCount = Math.min(
-        (state._solarChargeCount ?? 0) + effect.bonusCharge,
-        (state._solarChargeMax ?? 8) - 1
-      );
+      const max = state._solarChargeMax ?? 8;
+      state._solarChargeCount = (state._solarChargeCount ?? 0) + effect.bonusCharge;
+      if (state._solarChargeCount >= max) {
+        state._solarChargeCount = 0;
+        // Signal GameEngine to fire the auto-spell (can't call _triggerSolarAutoSpell directly)
+        state._solarAutoSpellPending = true;
+      }
     }
     log(i18n.t('spell_solar_corona', effect.dps ?? 12, (effect.duration ?? 3000) / 1000), 'good');
   },

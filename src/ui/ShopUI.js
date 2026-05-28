@@ -50,6 +50,9 @@ export class ShopUI {
             ${i18n.t('shop_leave')}
           </button>
         </div>
+        <div class="shop-shortcuts">
+          <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> Buy &nbsp;·&nbsp; <kbd>R</kbd> Reroll &nbsp;·&nbsp; <kbd>L</kbd> Leave
+        </div>
       </div>
     `;
 

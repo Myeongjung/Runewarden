@@ -63,10 +63,13 @@ export class TowerSystem {
     const { bonusKey, field, baseField } = this._STAT_MAP[stat];
     this[bonusKey][towerType] = (this[bonusKey][towerType] ?? 1) * mult;
     const combined = this[bonusKey][towerType];
+    const isAll = towerType === '__all__';
     for (const t of this.towers.values()) {
-      if (t.def.id !== towerType) continue;
+      if (!isAll && t.def.id !== towerType) continue;
       t[baseField] = t[baseField] ?? t[field];
-      t[field]     = t[baseField] * combined;
+      // For __all__, multiply current field by the incremental mult (not the stored combined)
+      // so type-specific bonuses are not clobbered
+      t[field] = isAll ? t[field] * mult : t[baseField] * combined;
     }
   }
 
