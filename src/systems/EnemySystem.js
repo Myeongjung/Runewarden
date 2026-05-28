@@ -248,6 +248,7 @@ export class EnemySystem {
     this._spawnIndex  = 0;
     this._waveActive  = false;
     this._dying = new Set();
+    this._sortedByProgress = []; // 프레임 타겟팅 캐시: getLeadEnemy O(n²) → O(n log n + k)
     this._boss        = null;
     this._slowBonus   = 1;    // 유물 감속 배율
     this._hpScale          = 1.15; // 난이도 HP 스케일 (기본: Standard)
@@ -418,6 +419,9 @@ export class EnemySystem {
       if (this._spawnIndex >= halfway) this._triggerAmbush();
     }
 
+    // 프레임 타겟팅 캐시: 진행도 내림차순 정렬 → TowerSystem의 getLeadEnemy가 첫 일치 즉시 반환
+    this._sortedByProgress = [...this.enemies].sort((a, b) => b.waypointIndex - a.waypointIndex);
+
     const reachedEnd = [];
     for (const e of [...this.enemies]) {  // 복사본으로 순회 (중간 제거 대비)
       // HP 재생 (Necromancer 등) — 빙결 중에도 계속
@@ -432,10 +436,9 @@ export class EnemySystem {
           if (e.isBoss) { this._boss = null; this.onBossUpdate?.({ hp: 0, maxHp: e.maxHp }); audio.play('boss_die'); }
           else if (e.isElite || e.type === 'tank') { audio.play(e.isElite ? 'elite_die' : 'tank_die'); }
           else { audio.play('enemy_die'); }
-          this.enemies = this.enemies.filter(x => x.id !== e.id);
-          this._playDeathAnim(e);
           this._handleSplitOnDeath(e);
-          this.onEnemyKilled(e.reward);
+          this._removeEnemy(e, true);
+          this.onEnemyKilled(e.reward, e.isSplitChild ?? false);
           continue;
         }
       }
@@ -443,20 +446,12 @@ export class EnemySystem {
       if (e.burns.length > 0) {
         this._updateBurns(e, delta);
         if (e.hp <= 0 && !this._dying.has(e.id)) {
-          // 보스 번 사망: 참조 정리 + HP 바 갱신
-          if (e.isBoss) {
-            this._boss = null;
-            this.onBossUpdate?.({ hp: 0, maxHp: e.maxHp });
-            audio.play('boss_die');
-          } else if (e.isElite || e.type === 'tank') {
-            audio.play(e.isElite ? 'elite_die' : 'tank_die');
-          } else {
-            audio.play('enemy_die');
-          }
-          this.enemies = this.enemies.filter(x => x.id !== e.id);
-          this._playDeathAnim(e);
+          if (e.isBoss) { this._boss = null; this.onBossUpdate?.({ hp: 0, maxHp: e.maxHp }); audio.play('boss_die'); }
+          else if (e.isElite || e.type === 'tank') { audio.play(e.isElite ? 'elite_die' : 'tank_die'); }
+          else { audio.play('enemy_die'); }
           this._handleSplitOnDeath(e);
-          this.onEnemyKilled(e.reward);
+          this._removeEnemy(e, true);
+          this.onEnemyKilled(e.reward, e.isSplitChild ?? false);
           continue;
         }
       }
@@ -1479,11 +1474,15 @@ export class EnemySystem {
   }
 
   getLeadEnemy(px, py, radiusPx, canDetectCamo = false) {
-    const inRange = this.getEnemiesInRange(px, py, radiusPx);
-    const visible = canDetectCamo ? inRange : inRange.filter(e => !e.camo);
-    if (!visible.length) return null;
-    return visible.reduce((best, e) =>
-      e.waypointIndex > best.waypointIndex ? e : best, visible[0]);
+    const r2 = radiusPx * radiusPx;
+    // _sortedByProgress는 update() 시작 시 진행도 내림차순으로 캐싱됨 — 첫 일치 즉시 반환 O(1)~O(n)
+    const list = this._sortedByProgress.length ? this._sortedByProgress : this.enemies;
+    for (const e of list) {
+      if (!canDetectCamo && e.camo) continue;
+      const dx = e.x - px, dy = e.y - py;
+      if (dx * dx + dy * dy <= r2) return e;
+    }
+    return null;
   }
 
   hasCamoWave(waveIndex) {
@@ -1506,6 +1505,7 @@ export class EnemySystem {
   clearAll() {
     for (const e of [...this.enemies]) e.el?.remove();
     this.enemies = [];
+    this._sortedByProgress = [];
     this._waveActive = false;
     this._dying.clear();
     this._boss = null;

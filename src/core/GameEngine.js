@@ -180,6 +180,7 @@ function saveCheckpoint() {
       maxNexusHp: state.maxNexusHp,
       relicIds: state.relics.map(r => r.id),
       deck, towers,
+      handIds: cardSystem.hand.map(c => c.id),
       stats: { ...state.stats, towerTypesUsed: [...state.stats.towerTypesUsed] },
     };
     localStorage.setItem('rw_autosave', JSON.stringify(cp));
@@ -217,11 +218,17 @@ function _restoreFromSave(save) {
 
     // 덱 복원
     cardSystem.drawPile = save.deck
-      .map(id => { const d = CARD_DEFS.find(c => c.id === id); return d ? { ...d, uid: Math.random() } : null; })
+      .map(id => { const d = CARD_DEFS.find(c => c.id === id); if (!d) { console.warn(`[AutoSave] Unknown card id: ${id}`); return null; } return { ...d, uid: CardSystem.nextUid() }; })
       .filter(Boolean);
     cardSystem.discardPile = [];
-    cardSystem.hand = [];
-    cardSystem.drawHand();
+    if (save.handIds?.length) {
+      cardSystem.hand = save.handIds
+        .map(id => { const d = CARD_DEFS.find(c => c.id === id); return d ? { ...d, uid: CardSystem.nextUid() } : null; })
+        .filter(Boolean);
+    } else {
+      cardSystem.hand = [];
+      cardSystem.drawHand();
+    }
     renderHand();
 
     // 타워 복원
@@ -256,6 +263,8 @@ function startRun() {
 
   // 핸드 dirty-flag 초기화 (새 런 강제 리렌더)
   shared._lastHandKey = '';
+  // 카드 uid 카운터 리셋 — 런마다 고유 uid 보장 (Math.random() 충돌 방지)
+  CardSystem._uidCounter = 0;
   // 이전 런 정리
   if (rafId) cancelAnimationFrame(rafId);
   // hitStop 타이머가 이전 런에서 살아남아 새 런 gameSpeed를 덮어쓰지 않도록 클리어
@@ -1006,7 +1015,7 @@ function resolveGamblePath() {
   // 50% 확률 저주 카드 추가
   if (Math.random() < 0.5) {
     const curseDef = CARD_DEFS.find(c => c.id === 'curse_dead_weight');
-    if (curseDef) cardSystem.discardPile.push({ ...curseDef, uid: Math.random() });
+    if (curseDef) cardSystem.discardPile.push({ ...curseDef, uid: CardSystem.nextUid() });
     log(i18n.t('log_gamble_curse'), 'bad');
   } else {
     log(i18n.t('log_gamble_no_curse'), 'good');
@@ -1136,7 +1145,7 @@ function onEventEffect(effect) {
       // 저주 카드 덱 추가 + 레어 카드 1장 + 골드
       const curseId  = effect.curseCard ?? 'curse_dead_weight';
       const curseDef = CARD_DEFS.find(c => c.id === curseId);
-      if (curseDef) cardSystem.discardPile.push({ ...curseDef, uid: Math.random() });
+      if (curseDef) cardSystem.discardPile.push({ ...curseDef, uid: CardSystem.nextUid() });
       const rareCards = pickRandomCards(1, 'rare');
       for (const c of rareCards) cardSystem.discardPile.push(c);
       if ((effect.gold ?? 0) > 0) addGold(effect.gold, null);
@@ -1146,7 +1155,7 @@ function onEventEffect(effect) {
     case 'add_curse_card': {
       const curseId2  = effect.curseCard ?? 'curse_dead_weight';
       const curseDef2 = CARD_DEFS.find(c => c.id === curseId2);
-      if (curseDef2) cardSystem.discardPile.push({ ...curseDef2, uid: Math.random() });
+      if (curseDef2) cardSystem.discardPile.push({ ...curseDef2, uid: CardSystem.nextUid() });
       log(i18n.t('log_cursed_bargain'), 'bad');
       break;
     }
@@ -1225,7 +1234,7 @@ function onShopBuy(card) {
     return;
   }
   spendGold(card.cost);
-  const newCard = { ...card, uid: Math.random() };
+  const newCard = { ...card, uid: CardSystem.nextUid() };
   delete newCard._bought;
   cardSystem.discardPile.push(newCard);
   shopUI.updateGold(state.gold);

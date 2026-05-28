@@ -171,10 +171,15 @@ export class MetaSystem {
       localStorage.setItem(SAVE_KEY, JSON.stringify({ ...this._data, _version: SAVE_VERSION }));
     } catch(e) {
       console.warn('[MetaSystem] Save failed — progress may be lost:', e.message);
-      // 용량 초과 시 run history 줄여서 재시도
+      // 용량 초과 시 run history를 1개로 줄여 재시도 — 실패 시 메모리 상태 원복
       if (e.name === 'QuotaExceededError' && this._data.runHistory?.length > 1) {
+        const rollback = [...this._data.runHistory];
         this._data.runHistory = this._data.runHistory.slice(0, 1);
-        try { localStorage.setItem(SAVE_KEY, JSON.stringify({ ...this._data, _version: SAVE_VERSION })); } catch {}
+        try {
+          localStorage.setItem(SAVE_KEY, JSON.stringify({ ...this._data, _version: SAVE_VERSION }));
+        } catch {
+          this._data.runHistory = rollback; // 재시도도 실패 시 원래 상태로 복원
+        }
       }
     }
   }

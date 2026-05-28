@@ -309,12 +309,17 @@ export class TowerSystem {
       this._spawnCannonball(tx, ty, ex, ey);
       audio.play('cannon_fire');
       const splashPx = tower.def.splash * HEX_W * 0.75;
+      const targetId = enemy.id;
       setTimeout(() => {
-        this._spawnSplashRing(ex, ey, splashPx, '#e74c3c');
+        // 임팩트 시점의 현재 적 위치 사용 — 발사 후 이동한 경우 스플래시 정확도 개선
+        const curr = this.enemySystem.enemies.find(e => e.id === targetId);
+        const ix = curr ? curr.x : ex;
+        const iy = curr ? curr.y : ey;
+        this._spawnSplashRing(ix, iy, splashPx, '#e74c3c');
         audio.play('cannon_explode');
-        const inSplash = this.enemySystem.getEnemiesInRange(ex, ey, splashPx);
+        const inSplash = this.enemySystem.getEnemiesInRange(ix, iy, splashPx);
         for (const e of inSplash) {
-          if (e.id !== enemy.id) this.enemySystem.dealDamage(e.id, Math.round(dmg * 0.6), dmgType);
+          if (e.id !== targetId) this.enemySystem.dealDamage(e.id, Math.round(dmg * 0.6), dmgType);
         }
       }, 180);
 
@@ -364,13 +369,17 @@ export class TowerSystem {
       this._spawnCannonball(tx, ty, ex, ey);
       audio.play('cannon_fire');
       const splashPx = tower.def.splash * HEX_W * 0.75;
+      const targetId = enemy.id;
       setTimeout(() => {
-        this._spawnSplashRing(ex, ey, splashPx, '#DAA520');
-        const inSplash = this.enemySystem.getEnemiesInRange(ex, ey, splashPx);
+        const curr = this.enemySystem.enemies.find(e => e.id === targetId);
+        const ix = curr ? curr.x : ex;
+        const iy = curr ? curr.y : ey;
+        this._spawnSplashRing(ix, iy, splashPx, '#DAA520');
+        const inSplash = this.enemySystem.getEnemiesInRange(ix, iy, splashPx);
         const stunDur  = (tower.def.stunDuration ?? 400) + this._crusaderStunBonus;
         const towerId  = `${tower.col ?? 0},${tower.row ?? 0}`;
         for (const e of inSplash) {
-          if (e.id !== enemy.id) this.enemySystem.dealDamage(e.id, Math.round(dmg * 0.7), dmgType);
+          if (e.id !== targetId) this.enemySystem.dealDamage(e.id, Math.round(dmg * 0.7), dmgType);
           this.enemySystem.applyStun?.(e.id, stunDur, towerId);
         }
       }, 180);

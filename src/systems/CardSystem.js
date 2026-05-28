@@ -1,6 +1,9 @@
 // 카드 덱·핸드·플레이·버림 시스템
 
 export class CardSystem {
+  static _uidCounter = 0;
+  static nextUid() { return `c${++CardSystem._uidCounter}`; }
+
   constructor(deckDefs, handSize = 5) {
     this.drawPile     = shuffle([...deckDefs]);
     this.hand         = [];
