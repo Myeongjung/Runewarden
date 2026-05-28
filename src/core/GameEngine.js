@@ -278,6 +278,12 @@ function startRun() {
   const ascMods       = getAscensionMods(shared.selectedAscension);
   const challengeMods = getChallengeMods(shared.selectedChallenges);
 
+  // 보스 약점: 런 시작 시 각 보스에 고유 속성 약점 랜덤 배정
+  const _WEAKNESS_TYPES = ['fire', 'frost', 'lightning', 'shadow', 'solar'];
+  const _weaknessShuffled = [..._WEAKNESS_TYPES].sort(() => Math.random() - 0.5);
+  const _bossWeaknessMap = {};
+  [...shared.bossWaves].forEach((wave, i) => { _bossWeaknessMap[wave] = _weaknessShuffled[i]; });
+
   // 챌린지 poverty: 시작 골드 오버라이드
   const finalGold = challengeMods.startGold !== null
     ? challengeMods.startGold
@@ -314,6 +320,7 @@ function startRun() {
     _victoryStreakWaves:    0,      // 승전 보너스 잔여 웨이브 수
     _victoryStreakBonus:    0,      // 승전 보너스 1회 지급 골드
     _cursedWave:           null,   // 현재 저주 웨이브 타입: 'speed' | 'hand' | 'revive' | null
+    bossWeaknesses:        _bossWeaknessMap,
     // 런 통계
     stats: {
       enemiesKilled:         0,
@@ -688,7 +695,13 @@ function beginWave() {
   const actNum     = Math.ceil(state.wave / ACT_SIZE);
 
   if (isBossWave) {
-    const bossName = state.wave === 5 ? 'Ironclad' : state.wave === 10 ? 'Void Titan' : 'Abyssal Dragon';
+    const BOSS_NAMES = { 5: 'Ironclad', 10: 'Void Titan', 15: 'Abyssal Dragon', 23: 'Shadow Colossus', 31: 'Sun God' };
+    const bossName = BOSS_NAMES[state.wave] ?? 'Boss';
+    const weakness = state.bossWeaknesses[state.wave] ?? null;
+    if (weakness) {
+      enemySystem.setBossWeakness(weakness);
+      log(i18n.t('log_boss_weakness', bossName, i18n.t('weakness_' + weakness)), 'bad');
+    }
     log(i18n.t('log_boss_wave', bossName), 'bad');
     showClearBanner(state.wave, true);
     audio.play('boss_warning');

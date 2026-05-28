@@ -207,7 +207,7 @@ describe('resolveSpell', () => {
     it('deals damage to all enemies and slows them', () => {
       ctx.enemySystem.enemies = [{ id: 'e1' }, { id: 'e2' }];
       resolveSpell({ type: 'solar_beam', damage: 50, slow: 0.30, slowDur: 3000 }, ctx);
-      expect(ctx.enemySystem.dealDamageToAll).toHaveBeenCalledWith(50);
+      expect(ctx.enemySystem.dealDamageToAll).toHaveBeenCalledWith(50, 'solar');
       expect(ctx.enemySystem.slowAll).toHaveBeenCalledWith(0.30, 3000);
     });
   });
@@ -226,7 +226,7 @@ describe('resolveSpell', () => {
       ctx.enemySystem.dealDamageToLead = vi.fn().mockReturnValue(lead);
       ctx.enemySystem.applySlow = vi.fn();
       resolveSpell({ type: 'damage_lead', amount: 25, slow: 0.40, slowDur: 4000 }, ctx);
-      expect(ctx.enemySystem.dealDamageToLead).toHaveBeenCalledWith(25);
+      expect(ctx.enemySystem.dealDamageToLead).toHaveBeenCalledWith(25, null);
       expect(ctx.enemySystem.applySlow).toHaveBeenCalledWith('lead1', 0.40, 4000);
     });
 
@@ -235,7 +235,7 @@ describe('resolveSpell', () => {
       ctx.enemySystem.dealDamageToLead = vi.fn().mockReturnValue(lead);
       ctx.enemySystem.applySlow = vi.fn();
       resolveSpell({ type: 'damage_lead', amount: 90 }, ctx);
-      expect(ctx.enemySystem.dealDamageToLead).toHaveBeenCalledWith(90);
+      expect(ctx.enemySystem.dealDamageToLead).toHaveBeenCalledWith(90, null);
       expect(ctx.enemySystem.applySlow).not.toHaveBeenCalled();
     });
   });

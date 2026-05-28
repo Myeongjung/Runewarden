@@ -521,6 +521,7 @@ export class EnemySystem {
       solarImmune: def.solarImmune ?? false,
       splitOnDeath: def.splitOnDeath ?? null,
       phase3: false,
+      weakness: (def.isBoss && this._upcomingBossWeakness) ? this._upcomingBossWeakness : null,
       el: null, hpBar: null, bodyEl: null, shieldEl: null,
     };
 
@@ -1061,7 +1062,11 @@ export class EnemySystem {
   }
 
   // ── 피해 처리 ─────────────────────────────────────────
-  dealDamage(enemyId, amount) {
+  setBossWeakness(type) {
+    this._upcomingBossWeakness = type ?? null;
+  }
+
+  dealDamage(enemyId, amount, dmgType = null) {
     const e = this.enemies.find(x => x.id === enemyId);
     if (!e) return false;
 
@@ -1069,6 +1074,11 @@ export class EnemySystem {
     let finalDmg = e.damageReduction > 0
       ? Math.max(1, Math.round(amount * (1 - e.damageReduction)))
       : amount;
+
+    // 보스 약점: 해당 속성으로 +50% 피해
+    if (e.isBoss && e.weakness && dmgType && e.weakness === dmgType) {
+      finalDmg = Math.round(finalDmg * 1.5);
+    }
 
     // Ironclad: 주기적 충격 방어막 — 피격 시 미활성이면 0.8s 방어막 생성 (60% 피해 감소)
     if (e.name === 'Ironclad') {
@@ -1164,7 +1174,7 @@ export class EnemySystem {
 
     // 보스 HP 갱신 알림 + 보스 피격 사운드
     if (e.isBoss) {
-      this.onBossUpdate?.({ hp: Math.max(0, e.hp), maxHp: e.maxHp, name: e.name });
+      this.onBossUpdate?.({ hp: Math.max(0, e.hp), maxHp: e.maxHp, name: e.name, weakness: e.weakness });
       audio.play('boss_hit');
     }
 
@@ -1193,22 +1203,22 @@ export class EnemySystem {
     return false;
   }
 
-  dealDamageToAll(amount) {
-    for (const e of [...this.enemies]) this.dealDamage(e.id, amount);
+  dealDamageToAll(amount, dmgType = null) {
+    for (const e of [...this.enemies]) this.dealDamage(e.id, amount, dmgType);
   }
 
   // N명의 무작위 적에게 피해
-  dealDamageToRandom(count, amount) {
+  dealDamageToRandom(count, amount, dmgType = null) {
     const targets = [...this.enemies].sort(() => Math.random() - 0.5).slice(0, count);
-    for (const e of targets) this.dealDamage(e.id, amount);
+    for (const e of targets) this.dealDamage(e.id, amount, dmgType);
   }
 
   // 선두(가장 앞선) 적에게 피해
-  dealDamageToLead(amount) {
+  dealDamageToLead(amount, dmgType = null) {
     if (!this.enemies.length) return;
     const lead = this.enemies.reduce((best, e) =>
       e.waypointIndex > best.waypointIndex ? e : best, this.enemies[0]);
-    this.dealDamage(lead.id, amount);
+    this.dealDamage(lead.id, amount, dmgType);
     return lead;
   }
 

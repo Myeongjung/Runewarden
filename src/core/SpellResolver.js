@@ -25,7 +25,7 @@ const BASE_HANDLERS = {
   },
 
   damage_all(effect, { enemySystem, log, i18n }) {
-    enemySystem.dealDamageToAll(effect.amount);
+    enemySystem.dealDamageToAll(effect.amount, effect.dmgType ?? null);
     if (effect.amount >= 70) {
       log(i18n.t('spell_crimson_tide', effect.amount), 'good');
     } else {
@@ -45,7 +45,7 @@ const BASE_HANDLERS = {
   },
 
   damage_random(effect, { enemySystem, log, i18n }) {
-    enemySystem.dealDamageToRandom(effect.count, effect.amount);
+    enemySystem.dealDamageToRandom(effect.count, effect.amount, effect.dmgType ?? null);
     if (effect.count >= 5) {
       log(i18n.t('spell_arcane_storm', effect.count, effect.amount), 'good');
     } else if (effect.count === 1) {
@@ -57,12 +57,13 @@ const BASE_HANDLERS = {
 
   chain_damage(effect, { enemySystem, log, i18n }) {
     const CHAIN_RADIUS = 120;
-    const lead = enemySystem.dealDamageToLead(effect.damage);
+    const dt = effect.dmgType ?? null;
+    const lead = enemySystem.dealDamageToLead(effect.damage, dt);
     if (lead) {
       const nearby = enemySystem.getEnemiesInRange(lead.x, lead.y, CHAIN_RADIUS)
         .filter(e => e.id !== lead.id)
         .slice(0, effect.chainCount);
-      for (const e of nearby) enemySystem.dealDamage(e.id, effect.chainDmg);
+      for (const e of nearby) enemySystem.dealDamage(e.id, effect.chainDmg, dt);
       log(i18n.t('spell_chain_bolt_hit', effect.damage, nearby.length, effect.chainDmg), 'good');
     } else {
       log(i18n.t('spell_chain_bolt_miss'), '');
@@ -98,7 +99,7 @@ const BASE_HANDLERS = {
   },
 
   nova(effect, { enemySystem, log, i18n }) {
-    enemySystem.dealDamageToAll(effect.damage);
+    enemySystem.dealDamageToAll(effect.damage, effect.dmgType ?? null);
     enemySystem.slowAll(effect.slowAmt, effect.slowDuration);
     if (effect.damage <= 20) {
       log(i18n.t('spell_ice_storm', effect.damage, Math.round(effect.slowAmt * 100), effect.slowDuration / 1000), 'good');
@@ -151,7 +152,7 @@ const BASE_HANDLERS = {
 
   freeze_damage(effect, { enemySystem, log, i18n, audio }) {
     enemySystem.freezeAll(effect.duration);
-    enemySystem.dealDamageToAll(effect.damage);
+    enemySystem.dealDamageToAll(effect.damage, 'frost');
     audio.play('spell_freeze');
     log(i18n.t('spell_cryowave', effect.damage, (effect.duration / 1000).toFixed(1)), 'good');
   },
@@ -242,7 +243,7 @@ const BASE_HANDLERS = {
     for (const e of enemies) {
       const missing = Math.max(0, e.maxHp - e.hp);
       const dmg = Math.max(1, Math.ceil(missing * effect.pct));
-      enemySystem.dealDamage(e.id, dmg);
+      enemySystem.dealDamage(e.id, dmg, 'shadow');
       totalDmg += dmg;
     }
     log(i18n.t('spell_shadow_nova', totalDmg), 'good');
@@ -285,7 +286,7 @@ const BASE_HANDLERS = {
   // ── DLC 2 Solar Dominion 스펠 핸들러 ─────────────────
 
   solar_beam(effect, { enemySystem, log, i18n }) {
-    enemySystem.dealDamageToAll(effect.damage ?? 50);
+    enemySystem.dealDamageToAll(effect.damage ?? 50, 'solar');
     if (effect.slow > 0) enemySystem.slowAll(effect.slow, effect.slowDur ?? 3000);
     log(i18n.t('spell_solar_beam', effect.damage ?? 50, Math.round((effect.slow ?? 0.30) * 100), (effect.slowDur ?? 3000) / 1000), 'good');
   },
@@ -313,13 +314,13 @@ const BASE_HANDLERS = {
     // Simple approach: deal immediate bonus damage to all enemies
     if (effect.damageMult && effect.damageMult > 1) {
       for (const e of [...enemySystem.enemies]) {
-        enemySystem.dealDamage(e.id, Math.floor(e.maxHp * 0.04));  // 즉시 타격 4% 최대 HP
+        enemySystem.dealDamage(e.id, Math.floor(e.maxHp * 0.04), 'solar');
       }
     }
   },
 
   damage_lead(effect, { enemySystem, log, i18n }) {
-    const lead = enemySystem.dealDamageToLead(effect.amount);
+    const lead = enemySystem.dealDamageToLead(effect.amount, effect.dmgType ?? null);
     if (effect.slow > 0 && lead) {
       enemySystem.applySlow(lead.id, effect.slow, effect.slowDur ?? 3000);
     }
@@ -343,7 +344,7 @@ const BASE_HANDLERS = {
       const dmg = (e.solarDots?.length > 0)
         ? Math.floor(effect.amount * (effect.solarBonusMult ?? 2))
         : effect.amount;
-      enemySystem.dealDamage(e.id, dmg);
+      enemySystem.dealDamage(e.id, dmg, 'solar');
     }
     log(i18n.t('spell_solar_nova', effect.amount), 'good');
   },

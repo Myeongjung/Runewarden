@@ -3,6 +3,17 @@ import { hexToPixel, svgEl } from '../rendering/MapRenderer.js';
 import { audio } from './AudioSystem.js';
 import { HEX_W } from '../config/constants.js';
 
+// 타워 태그 → 약점 피해 타입 매핑
+function _tagsToDmgType(tags) {
+  if (!tags?.length) return null;
+  if (tags.includes('Fire'))   return 'fire';
+  if (tags.includes('Ice'))    return 'frost';
+  if (tags.includes('Arcane')) return 'lightning';
+  if (tags.includes('Shadow') || tags.includes('Void')) return 'shadow';
+  if (tags.includes('Solar')  || tags.includes('Holy')) return 'solar';
+  return null;
+}
+
 // SVG 필터 정의 (글로우 이펙트)
 function ensureFilters(svg) {
   if (svg.querySelector('#glow-filter')) return;
@@ -275,7 +286,8 @@ export class TowerSystem {
       dmg = Math.round(dmg * tower.def.critOnSlow);
     }
 
-    this.enemySystem.dealDamage(enemy.id, dmg);
+    const dmgType = _tagsToDmgType(tower.def.tags);
+    this.enemySystem.dealDamage(enemy.id, dmg, dmgType);
 
     const ex = enemy.x, ey = enemy.y;
     const tx = tower.x, ty = tower.y;
@@ -295,7 +307,7 @@ export class TowerSystem {
         audio.play('cannon_explode');
         const inSplash = this.enemySystem.getEnemiesInRange(ex, ey, splashPx);
         for (const e of inSplash) {
-          if (e.id !== enemy.id) this.enemySystem.dealDamage(e.id, Math.round(dmg * 0.6));
+          if (e.id !== enemy.id) this.enemySystem.dealDamage(e.id, Math.round(dmg * 0.6), dmgType);
         }
       }, 180);
 
@@ -327,7 +339,7 @@ export class TowerSystem {
         .filter(e => e.id !== enemy.id)
         .slice(0, tower.def.chainCount + this._chainBonus);
       for (const ct of nearby) {
-        this.enemySystem.dealDamage(ct.id, chainDmg);
+        this.enemySystem.dealDamage(ct.id, chainDmg, dmgType);
         this._spawnLightningBolt(ex, ey, ct.x, ct.y);
       }
 
@@ -351,7 +363,7 @@ export class TowerSystem {
         const stunDur  = (tower.def.stunDuration ?? 400) + this._crusaderStunBonus;
         const towerId  = `${tower.col ?? 0},${tower.row ?? 0}`;
         for (const e of inSplash) {
-          if (e.id !== enemy.id) this.enemySystem.dealDamage(e.id, Math.round(dmg * 0.7));
+          if (e.id !== enemy.id) this.enemySystem.dealDamage(e.id, Math.round(dmg * 0.7), dmgType);
           this.enemySystem.applyStun?.(e.id, stunDur, towerId);
         }
       }, 180);
