@@ -624,5 +624,15 @@ export class TowerSystem {
   }
 
   getTower(col, row) { return this.towers.get(`${col},${row}`) ?? null; }
+
+  removeTower(col, row) {
+    const key = `${col},${row}`;
+    const t = this.towers.get(key);
+    if (!t) return false;
+    if (t.def.id === 'fire_drake') this._fireDrakeCount = Math.max(0, this._fireDrakeCount - 1);
+    this.towers.delete(key);
+    return true;
+  }
+
   clearAll() { this.towers.clear(); }
 }

@@ -965,6 +965,67 @@ kbd {
   100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
 }
 
+/* ── Tower Sell Panel ──────────────────────────────────── */
+.tower-sell-panel {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(10, 10, 28, 0.96);
+  border: 1px solid var(--gold-dim);
+  border-radius: 8px;
+  padding: 0.65rem 1rem;
+  z-index: 50;
+  text-align: center;
+  min-width: 170px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  animation: shopSlideIn 0.2s ease-out;
+}
+.tower-sell-panel.hidden { display: none; }
+.sell-panel-header {
+  font-family: 'Cinzel', serif;
+  font-size: 0.85rem;
+  color: var(--text);
+  font-weight: 700;
+}
+.sell-panel-aug {
+  font-size: 0.68rem;
+  color: var(--text-dim);
+  min-height: 0.8rem;
+}
+.sell-panel-value {
+  font-size: 0.78rem;
+  color: var(--gold);
+  font-weight: 600;
+}
+.sell-panel-btns {
+  display: flex;
+  gap: 0.4rem;
+  justify-content: center;
+  margin-top: 0.1rem;
+}
+.sell-panel-btns button {
+  font-family: 'Cinzel', serif;
+  font-size: 0.7rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+#btn-sell-tower {
+  background: #1a2a10;
+  border: 1px solid #4a8a1a;
+  color: #88dd44;
+}
+#btn-sell-tower:hover { background: #253a15; }
+#btn-sell-cancel {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+}
+#btn-sell-cancel:hover { color: var(--text); }
+
 #wave-clear-banner {
   position: fixed;
   top: 50%;

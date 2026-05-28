@@ -295,6 +295,7 @@ function startRun() {
     ascMods,                     // 누적 핸디캡 mods
     phase:       'pre',
     selectedCard: null,
+    selectedTower: null,
     warden:      warden,          // 런 내 Warden 참조
     relics:      [],              // 이번 런 보유 유물
     _soulAnchorUsed:       false,  // Soul Anchor 1회용 사용 여부
@@ -712,6 +713,8 @@ function beginWave() {
   cardSystem.hand = spellsKept;
   renderer.clearSelection();
   state.selectedCard = null;
+  state.selectedTower = null;
+  updateSellPanel();
   renderHand();
 
   if (state?.stats) {
@@ -1471,47 +1474,119 @@ function onCellHover(col, row, entering) {
 
 // ── 셀 클릭 처리 ──────────────────────────────────────
 function onCellClick(col, row, cellEl) {
-  if (!state.selectedCard) return;
   if (state.phase === 'over') return;
 
-  const card = state.selectedCard;
+  if (state.selectedCard) {
+    const card = state.selectedCard;
 
-  if (card.type === 'summon') {
-    if (!isPlaceableCell(col, row)) { log(i18n.t('log_cannot_place'), 'bad'); return; }
-    if (towerSystem.getTower(col, row)) { log(i18n.t('log_tower_exists'), 'bad'); return; }
+    if (card.type === 'summon') {
+      if (!isPlaceableCell(col, row)) { log(i18n.t('log_cannot_place'), 'bad'); return; }
+      if (towerSystem.getTower(col, row)) { log(i18n.t('log_tower_exists'), 'bad'); return; }
 
-    const tDef = TOWER_DEFS[card.tower];
-    if (!tDef) return;
+      const tDef = TOWER_DEFS[card.tower];
+      if (!tDef) return;
 
-    spendGold(card.activeCost);
-    cardSystem.playCard(card.uid);
-    towerSystem.place(col, row, tDef);
-    renderer.placeTower(col, row, tDef);
-    audio.play('tower_place');
-    state.stats.towerTypesUsed.add(tDef.id);
-    steam?.checkAllTowers(state.stats.towerTypesUsed);
-    log(i18n.t('log_card_placed', tDef.name, col, row), 'good');
-    tutorial?.triggerEvent('tower_placed');
+      spendGold(card.activeCost);
+      cardSystem.playCard(card.uid);
+      towerSystem.place(col, row, tDef);
+      renderer.placeTower(col, row, tDef);
+      const t = towerSystem.getTower(col, row);
+      if (t) t.investedGold = card.activeCost;
+      audio.play('tower_place');
+      state.stats.towerTypesUsed.add(tDef.id);
+      steam?.checkAllTowers(state.stats.towerTypesUsed);
+      log(i18n.t('log_card_placed', tDef.name, col, row), 'good');
+      tutorial?.triggerEvent('tower_placed');
 
-  } else if (card.type === 'augment') {
-    const existing = towerSystem.getTower(col, row);
-    if (!existing) { log(i18n.t('log_no_tower'), 'bad'); return; }
-    if (existing.augments.length >= 2) { log(i18n.t('log_max_augments'), 'bad'); return; }
+    } else if (card.type === 'augment') {
+      const existing = towerSystem.getTower(col, row);
+      if (!existing) { log(i18n.t('log_no_tower'), 'bad'); return; }
+      if (existing.augments.length >= 2) { log(i18n.t('log_max_augments'), 'bad'); return; }
 
-    spendGold(card.activeCost);
-    cardSystem.playCard(card.uid);
-    const ok = towerSystem.augment(col, row, card.effect);
-    if (ok) {
-      const augLen = towerSystem.getTower(col, row)?.augments?.length ?? 1;
-      renderer.markAugmented(col, row, existing.def, augLen);
-      audio.play('augment_apply');
-      state.stats.augmentsApplied++;
+      spendGold(card.activeCost);
+      cardSystem.playCard(card.uid);
+      const ok = towerSystem.augment(col, row, card.effect);
+      if (ok) {
+        existing.investedGold = (existing.investedGold ?? 0) + card.activeCost;
+        const augLen = towerSystem.getTower(col, row)?.augments?.length ?? 1;
+        renderer.markAugmented(col, row, existing.def, augLen);
+        audio.play('augment_apply');
+        state.stats.augmentsApplied++;
+      }
     }
+
+    state.selectedCard = null;
+    state.selectedTower = null;
+    renderer.clearSelection();
+    renderHand();
+    updateHUD();
+    updateSellPanel();
+    return;
   }
 
-  state.selectedCard = null;
-  renderer.clearSelection();
-  renderHand();
+  // No card selected: toggle tower selection for sell
+  const existingTower = towerSystem.getTower(col, row);
+  if (existingTower) {
+    const same = state.selectedTower?.col === col && state.selectedTower?.row === row;
+    state.selectedTower = same ? null : { col, row };
+  } else {
+    state.selectedTower = null;
+  }
+  updateSellPanel();
+}
+
+function updateSellPanel() {
+  let panel = document.getElementById('tower-sell-panel');
+  if (!panel) {
+    panel = document.createElement('div');
+    panel.id = 'tower-sell-panel';
+    panel.className = 'tower-sell-panel hidden';
+    document.getElementById('map-area')?.appendChild(panel);
+  }
+
+  if (!state.selectedTower) {
+    panel.classList.add('hidden');
+    return;
+  }
+
+  const { col, row } = state.selectedTower;
+  const t = towerSystem.getTower(col, row);
+  if (!t) { panel.classList.add('hidden'); return; }
+
+  const sellValue = Math.floor((t.investedGold ?? 0) * 0.5);
+  const tName = i18n.lang === 'ko' ? (t.def.nameKo || t.def.name) : t.def.name;
+  panel.classList.remove('hidden');
+  panel.innerHTML = `
+    <div class="sell-panel-header">${t.def.icon ?? '🏰'} ${tName}</div>
+    <div class="sell-panel-aug">${t.augments.length > 0 ? `+${t.augments.length} ${i18n.t('tower_sell_aug')}` : ''}</div>
+    <div class="sell-panel-value">${i18n.t('tower_sell_value', sellValue)}</div>
+    <div class="sell-panel-btns">
+      <button id="btn-sell-tower">${i18n.t('tower_sell_btn')}</button>
+      <button id="btn-sell-cancel">${i18n.t('tower_sell_cancel')}</button>
+    </div>
+  `;
+  panel.querySelector('#btn-sell-tower').addEventListener('click', onSellTower);
+  panel.querySelector('#btn-sell-cancel').addEventListener('click', () => {
+    state.selectedTower = null;
+    updateSellPanel();
+  });
+}
+
+function onSellTower() {
+  if (!state.selectedTower) return;
+  const { col, row } = state.selectedTower;
+  const t = towerSystem.getTower(col, row);
+  if (!t) { state.selectedTower = null; updateSellPanel(); return; }
+
+  const sellValue = Math.floor((t.investedGold ?? 0) * 0.5);
+  const tName = i18n.lang === 'ko' ? (t.def.nameKo || t.def.name) : t.def.name;
+  towerSystem.removeTower(col, row);
+  renderer.removeTower(col, row);
+  if (sellValue > 0) addGold(sellValue, null);
+  audio.play('gold_gain');
+  log(i18n.t('log_tower_sold', tName, sellValue), 'gold');
+  state.selectedTower = null;
+  updateSellPanel();
   updateHUD();
 }
 
