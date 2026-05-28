@@ -824,7 +824,7 @@ function beginWave() {
   const spawnIntervalStartWave = state.difficulty?.spawnIntervalStartWave ?? 3;
 
   // slow_next_wave 이벤트: 적 기본 속도 감소 (예: 0.25 → 75% 속도)
-  const spawnSpeedMult = state.nextWaveSlowMult
+  let spawnSpeedMult = state.nextWaveSlowMult
     ? (1 - state.nextWaveSlowMult)
     : 1;
   // extra_prep 이벤트: 첫 스폰 추가 지연 (ms 변환)
