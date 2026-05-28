@@ -180,8 +180,18 @@ const _BASE_EN = {
   card_type_summon:  'summon',
   card_type_augment: 'augment',
   card_type_spell:   'spell',
+  card_type_curse:   'CURSE',
   card_surcharge:    '+1 surcharge',
   card_free:         'FREE',
+
+  // ── Balance Sync #10: 저주 카드 + Cursed Wave + 엔레이지 경보 ─
+  log_curse_unplayable:   'Curse cards cannot be played.',
+  log_curse_regret:       (name) => `Regret discards ${name}!`,
+  log_cursed_bargain:     '💀 A dark pact corrupts your deck…',
+  log_cursed_wave_speed:  '⚠️ Cursed Wave: Enemies move 35% faster!',
+  log_cursed_wave_hand:   '⚠️ Cursed Wave: Hand size reduced by 2 this wave!',
+  log_cursed_wave_revive: '⚠️ Cursed Wave: Elites will revive at 30% HP!',
+  log_enrage_imminent:    (name) => `⚠️ ${name}: Enrage imminent!`,
 
   // ── 노드 선택 (추가) ────────────────────────────────
   node_after_wave:     (n) => `— After Wave ${n} —`,

@@ -44,6 +44,7 @@ const WAVE_GOLD   = 8;
 const BOSS_WAVES_BASE = new Set([5, 10, 15]);
 const BOSS_WAVES_DLC  = new Set([5, 10, 15, 23]);       // DLC1 보스 웨이브
 const BOSS_WAVES_DLC2 = new Set([5, 10, 15, 23, 31]);   // DLC2 보스 웨이브 (Solar Titan: W28도 특수)
+const CURSED_WAVES    = new Set([4, 9, 14, 20, 27]);     // 저주 웨이브 고정 시점 (Act당 1회)
 
 // ── DOM 참조 ───────────────────────────────────────────
 const $ = id => document.getElementById(id);
@@ -311,6 +312,7 @@ function startRun() {
     _tempDmgBonusMult:     1,      // temp_dmg_bonus 배율
     _victoryStreakWaves:    0,      // 승전 보너스 잔여 웨이브 수
     _victoryStreakBonus:    0,      // 승전 보너스 1회 지급 골드
+    _cursedWave:           null,   // 현재 저주 웨이브 타입: 'speed' | 'hand' | 'revive' | null
     // 런 통계
     stats: {
       enemiesKilled:         0,
@@ -353,6 +355,9 @@ function startRun() {
     onEnemyKilled,
     onBossUpdate,
   );
+  enemySystem.onEnrageImminent = (e) => {
+    if (e.isBoss) log(i18n.t('log_enrage_imminent', e.name || e.type), 'bad');
+  };
 
   towerSystem = new TowerSystem(
     renderer.getProjectileLayer(),
@@ -736,9 +741,28 @@ function beginWave() {
   state.nextWaveSlowMult  = 0;
   state.extraPrepSeconds  = 0;
 
+  // ── Cursed Wave (Balance Sync #10) ─────────────────────────────────────────
+  state._cursedWave = null;
+  if (CURSED_WAVES.has(state.wave)) {
+    const types = ['speed', 'hand', 'revive'];
+    const picked = types[Math.floor(Math.random() * types.length)];
+    state._cursedWave = picked;
+    if (picked === 'speed') {
+      spawnSpeedMult *= 1.35;
+      log(i18n.t('log_cursed_wave_speed'), 'bad');
+    } else if (picked === 'hand') {
+      cardSystem.bonusHandSize = (cardSystem.bonusHandSize || 0) - 2;
+      log(i18n.t('log_cursed_wave_hand'), 'bad');
+    } else {
+      log(i18n.t('log_cursed_wave_revive'), 'bad');
+    }
+    audio.play('nexus_hit');
+  }
+
   enemySystem.startWave(state.wave - 1, hpScale, eliteBonus, spawnDelay, spawnSpeedMult,
                         bossHpScale, enrageMult, spawnIntervalMult, veteranRegen,
-                        noviceRegen, spawnIntervalStartWave);
+                        noviceRegen, spawnIntervalStartWave,
+                        state._cursedWave === 'revive');
   updateHUD();
   tutorial?.triggerEvent('wave_started');
 }
@@ -768,6 +792,12 @@ function onWaveCleared() {
     state._victoryStreakWaves--;
     log(i18n.t('log_victory_streak', state._victoryStreakBonus, state._victoryStreakWaves), 'gold');
   }
+
+  // Cursed Wave 'hand' 패널티 해제
+  if (state._cursedWave === 'hand') {
+    cardSystem.bonusHandSize = (cardSystem.bonusHandSize || 0) + 2;
+  }
+  state._cursedWave = null;
 
   // DLC 2: temp_dmg_bonus 만료 처리
   if (state._tempDmgBonusWaves > 0) {
@@ -960,6 +990,24 @@ function onEventEffect(effect) {
       if (towerSystem) towerSystem.addRelicDmgBonus('__all__', effect.mult ?? 1.20);
       log(`✨ 다음 ${effect.waves}웨이브 동안 모든 타워 피해 +${Math.round((effect.mult - 1) * 100)}%!`, 'good');
       break;
+    case 'cursed_bargain': {
+      // 저주 카드 덱 추가 + 레어 카드 1장 + 골드
+      const curseId  = effect.curseCard ?? 'curse_dead_weight';
+      const curseDef = CARD_DEFS.find(c => c.id === curseId);
+      if (curseDef) cardSystem.discardPile.push({ ...curseDef, uid: Math.random() });
+      const rareCards = pickRandomCards(1, 'rare');
+      for (const c of rareCards) cardSystem.discardPile.push(c);
+      if ((effect.gold ?? 0) > 0) addGold(effect.gold, null);
+      log(i18n.t('log_cursed_bargain'), 'bad');
+      break;
+    }
+    case 'add_curse_card': {
+      const curseId2  = effect.curseCard ?? 'curse_dead_weight';
+      const curseDef2 = CARD_DEFS.find(c => c.id === curseId2);
+      if (curseDef2) cardSystem.discardPile.push({ ...curseDef2, uid: Math.random() });
+      log(i18n.t('log_cursed_bargain'), 'bad');
+      break;
+    }
     case 'nothing':
     default:
       log(i18n.t('log_nothing'), '');
@@ -977,10 +1025,26 @@ function onRestGoldBonus(amount) {
   addGold(amount, null);
 }
 
+// ── 저주 카드 처리 (드로우 후) ────────────────────────
+function _processCurseCards() {
+  // curse_regret: 드로우 시 손패에서 무작위 카드 1장 버림
+  const regretCards = cardSystem.hand.filter(c => c.id === 'curse_regret');
+  for (const _ of regretCards) {
+    const nonCurse = cardSystem.hand.filter(c => c.type !== 'curse');
+    if (nonCurse.length > 0) {
+      const victim = nonCurse[Math.floor(Math.random() * nonCurse.length)];
+      cardSystem.hand = cardSystem.hand.filter(c => c.uid !== victim.uid);
+      cardSystem.discardPile.push(victim);
+      log(i18n.t('log_curse_regret', victim.name || victim.nameKo || '?'), 'bad');
+    }
+  }
+}
+
 // ── 노드 공통 종료 → 다음 웨이브 준비 ───────────────
 function onNodeClose() {
   state.phase = 'pre';
   cardSystem.drawHand();
+  _processCurseCards();
   renderHand();
   setWaveButton(i18n.t('btn_start_wave_n', state.wave + 1), false);
   updateHUD();
@@ -1285,6 +1349,12 @@ function onCardClick(card) {
   const waveSurcharge = (state.phase === 'wave' && card.type !== 'spell')
     ? 1 + (state.ascMods?.extraSurcharge ?? 0) : 0;
   const cost = Math.max(0, card.cost + waveSurcharge - arcaneDiscount);
+
+  // 저주 카드: 플레이 불가
+  if (card.type === 'curse') {
+    log(i18n.t('log_curse_unplayable'), 'bad');
+    return;
+  }
 
   // 골드 부족
   if (cost > state.gold) {

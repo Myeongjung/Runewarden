@@ -342,7 +342,7 @@ export class EnemySystem {
   // spawnSpeedMult: 적 기본 속도 배율 (slow_next_wave 이벤트, 예: 0.75 = 25% 감속)
   startWave(waveIndex, hpScale = 1.15, eliteBonus = 0, spawnDelay = 0, spawnSpeedMult = 1,
             bossHpScale = 1, enrageMult = 1.8, spawnIntervalMult = 1, veteranRegen = false,
-            noviceRegen = false, spawnIntervalStartWave = 3) {
+            noviceRegen = false, spawnIntervalStartWave = 3, cursedRevive = false) {
     // 활성 맵 경로로 웨이포인트 갱신
     WAYPOINTS = ENEMY_PATH.current.map(([c, r]) => hexToPixel(c, r));
     this._hpScale           = hpScale;
@@ -366,9 +366,10 @@ export class EnemySystem {
       }
     }
     // extra_prep: 첫 스폰을 spawnDelay ms 뒤로 미룸 (음수 타이머 시작)
-    this._spawnTimer = -spawnDelay;
-    this._spawnIndex = 0;
-    this._waveActive = true;
+    this._spawnTimer        = -spawnDelay;
+    this._spawnIndex        = 0;
+    this._waveActive        = true;
+    this._cursedWaveRevive  = cursedRevive;
   }
 
   isWaveClear() {
@@ -932,6 +933,16 @@ export class EnemySystem {
     } else if (e.bodyEl) {
       e.bodyEl.setAttribute('fill', e.color);
     }
+
+    // 격노 임박 경보: 오렌지색 테두리 (깜빡임은 CSS 애니메이션으로 처리)
+    if (e.bodyEl && e._enrageImminent && !e.enraged) {
+      e.bodyEl.setAttribute('stroke', '#FF8C00');
+      e.bodyEl.setAttribute('stroke-width', '2.5');
+      e.bodyEl.classList.add('enrage-imminent');
+    } else if (e.bodyEl && !e.enraged) {
+      e.bodyEl.setAttribute('stroke', 'none');
+      e.bodyEl.classList.remove('enrage-imminent');
+    }
   }
 
   _handleSplitOnDeath(e) {
@@ -1088,6 +1099,14 @@ export class EnemySystem {
 
     // 격노 메커닉: berserker(40%) + shadow_elite(60%) + void_stalker(50%) + colossus(35%)
     const enrageThreshold = e.enrageThreshold ?? (e.type === 'berserker' ? 0.4 : null);
+    // 격노 임박 경보 (HP가 임계값 +15% 이내)
+    if (enrageThreshold && !e.enraged) {
+      const wasImminent = e._enrageImminent;
+      e._enrageImminent = (e.hp / e.maxHp) <= (enrageThreshold + 0.15);
+      if (e._enrageImminent && !wasImminent) {
+        this.onEnrageImminent?.(e);
+      }
+    }
     if (enrageThreshold && !e.enraged && e.hp <= e.maxHp * enrageThreshold) {
       e.enraged = true;
       e.speed   = e.baseSpeed * (this._enrageMult ?? 1.8);
@@ -1150,6 +1169,13 @@ export class EnemySystem {
     }
 
     if (e.hp <= 0) {
+      // Cursed Wave 'revive': 엘리트 처치 시 HP 30%로 1회 부활
+      if (this._cursedWaveRevive && e.isElite && !e._revived && !e.isSplitChild) {
+        e.hp      = Math.ceil(e.maxHp * 0.30);
+        e._revived = true;
+        audio.play('elite_die');
+        return false;
+      }
       if (e.isBoss) {
         this._boss = null;
         this.onBossUpdate?.({ hp: 0, maxHp: e.maxHp });

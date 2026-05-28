@@ -136,21 +136,23 @@ export function renderHand() {
       }
     }
 
+    const isCurse = card.type === 'curse';
+
     const el = document.createElement('div');
-    el.className = `card${(!canAfford || isBanned) ? ' unaffordable' : ''}${isSelected ? ' selected' : ''}${isBanned ? ' challenge-banned' : ''}`;
+    el.className = `card${(!canAfford || isBanned || isCurse) ? ' unaffordable' : ''}${isSelected ? ' selected' : ''}${isBanned ? ' challenge-banned' : ''}${isCurse ? ' curse-card' : ''}`;
     el.dataset.rarity = card.rarity;
     el.dataset.type   = card.type;
 
     el.innerHTML = `
       <div class="card-header">
         <span class="card-name">${card.icon} ${cName}</span>
-        <span class="card-cost">${effectiveCost > 0 ? effectiveCost + 'g' : i18n.t('free').toUpperCase()}</span>
+        <span class="card-cost">${isCurse ? '—' : (effectiveCost > 0 ? effectiveCost + 'g' : i18n.t('free').toUpperCase())}</span>
       </div>
-      <div class="card-type-badge">${i18n.t('card_type_' + card.type) ?? card.type}${surcharge ? ' (' + i18n.t('card_surcharge_label') + ')' : ''}${isBanned ? ' 🚫' : ''}</div>
+      <div class="card-type-badge">${i18n.t('card_type_' + card.type) ?? card.type}${surcharge && !isCurse ? ' (' + i18n.t('card_surcharge_label') + ')' : ''}${isBanned ? ' 🚫' : ''}</div>
       <div class="card-desc">${cDesc}</div>
     `;
 
-    if ((canAfford || isSelected) && !isBanned) {
+    if ((canAfford || isSelected) && !isBanned && !isCurse) {
       el.addEventListener('click', () => shared.onCardClick(card));
     }
     container.appendChild(el);

@@ -902,6 +902,30 @@ const BASE_CARD_DEFS = [
     descKo: '모든 적을 5초 동안 55% 감속시킵니다.',
     effect: { type: 'slow_all', amount: 0.55, duration: 5000, label: 'decay' },
   },
+
+  // ── CURSE CARDS (added to deck via events — never in shop/draft pool) ──
+  {
+    id: 'curse_dead_weight',
+    name: 'Dead Weight',      nameKo: '무거운 짐',
+    type: 'curse',
+    rarity: 'curse',
+    cost: 0,
+    icon: '💀',
+    desc: 'Cannot be played. Occupies your hand.',
+    descKo: '플레이 불가. 손패 자리를 차지합니다.',
+    effect: null,
+  },
+  {
+    id: 'curse_regret',
+    name: 'Regret',           nameKo: '후회',
+    type: 'curse',
+    rarity: 'curse',
+    cost: 0,
+    icon: '💔',
+    desc: 'Cannot be played. When drawn, a random card is discarded from your hand.',
+    descKo: '플레이 불가. 드로우 시 손패에서 카드 1장이 무작위로 버려집니다.',
+    effect: { type: 'discard_random_on_draw' },
+  },
 ];
 
 // DLC 카드 병합

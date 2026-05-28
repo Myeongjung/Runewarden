@@ -176,8 +176,18 @@ const _BASE_KO = {
   card_type_summon:  '소환',
   card_type_augment: '강화',
   card_type_spell:   '주문',
+  card_type_curse:   '저주',
   card_surcharge:    '+1 추가 비용',
   card_free:         '무료',
+
+  // ── Balance Sync #10: 저주 카드 + Cursed Wave + 엔레이지 경보 ─
+  log_curse_unplayable:   '저주 카드는 플레이할 수 없습니다.',
+  log_curse_regret:       (name) => `후회가 ${name}을(를) 버렸습니다!`,
+  log_cursed_bargain:     '💀 어두운 계약이 당신의 덱을 오염시킵니다…',
+  log_cursed_wave_speed:  '⚠️ 저주받은 웨이브: 적 이동속도 35% 증가!',
+  log_cursed_wave_hand:   '⚠️ 저주받은 웨이브: 이번 웨이브 손패 -2!',
+  log_cursed_wave_revive: '⚠️ 저주받은 웨이브: 엘리트가 HP 30%로 부활합니다!',
+  log_enrage_imminent:    (name) => `⚠️ ${name}: 폭주 임박!`,
 
   // ── 유물 시스템 ──────────────────────────────────────
   relic_pick_title:     '유물을 선택하세요',

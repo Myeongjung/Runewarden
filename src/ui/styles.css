@@ -590,6 +590,25 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg);
 .card[data-rarity="rare"].selected      { box-shadow: inset 0 0 16px rgba(155,89,182,0.2), 0 0 14px rgba(155,89,182,0.4); }
 .card[data-rarity="legendary"].selected { box-shadow: inset 0 0 20px rgba(243,156,18,0.22), 0 0 16px rgba(243,156,18,0.45); }
 
+/* ── 저주 카드 (Balance Sync #10) ──────────────────────── */
+.card.curse-card {
+  background: linear-gradient(160deg, #1e0a1e 0%, #0e0014 100%);
+  border-left: 3px solid #8B0000;
+  cursor: not-allowed;
+  opacity: 0.75;
+}
+.card.curse-card:hover { transform: none; border-color: #8B0000; }
+.card[data-rarity="curse"] { border-left: 3px solid #8B0000; }
+
+/* ── 엔레이지 임박 경보 펄스 (Balance Sync #10) ──────────── */
+@keyframes enrageImminentPulse {
+  0%, 100% { stroke-opacity: 1; }
+  50%       { stroke-opacity: 0.3; }
+}
+.enrage-imminent {
+  animation: enrageImminentPulse 0.8s ease-in-out infinite;
+}
+
 /* ── 웨이브 버튼 준비 펄스 ─────────────────────────────── */
 @keyframes waveReady {
   0%, 100% { box-shadow: 0 0 0 0 rgba(39,174,96,0.45); }
