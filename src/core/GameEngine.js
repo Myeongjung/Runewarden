@@ -237,12 +237,12 @@ function _restoreFromSave(save) {
     updateHUD();
     log(i18n.t('autosave_loaded', save.wave), 'good');
     audio.play('wave_clear');
-    setTimeout(() => openNodeSelection(), 600);
+    _waveClearedTimer = setTimeout(() => openNodeSelection(), 600);
   } catch(err) {
     console.error('[AutoSave] Restore failed:', err);
     log('⚠️ 저장 데이터 손상 — 새 런을 시작합니다.', 'bad');
     localStorage.removeItem('rw_autosave');
-    setTimeout(() => _openRelicPicker(), 600);
+    _waveClearedTimer = setTimeout(() => _openRelicPicker(), 600);
   }
 }
 
@@ -478,9 +478,9 @@ function startRun() {
   if (shared._savedRunData) {
     const saveData = shared._savedRunData;
     shared._savedRunData = null;
-    setTimeout(() => _restoreFromSave(saveData), 300);
+    _waveClearedTimer = setTimeout(() => _restoreFromSave(saveData), 300);
   } else if (TutorialUI.isDone()) {
-    setTimeout(() => _openRelicPicker(), 600);
+    _waveClearedTimer = setTimeout(() => _openRelicPicker(), 600);
   } else {
     if (tutorial && tutorial.isActive()) {
       // 이미 실행 중이면 건너뜀
