@@ -415,6 +415,23 @@ const _BASE_EN = {
   relic_keen_eye:               'Keen Eye',
   relic_keen_eye_desc:          'All towers can detect and attack camo enemies.',
 
+  // ── 시너지 이름 / 설명 ───────────────────────────────
+  synergy_merchant_king:        'Merchant King',
+  synergy_merchant_king_desc:   'Merchants Badge + Bounty Mark: Every 3 waves, gain +5g.',
+  synergy_inferno_pact:         'Inferno Pact',
+  synergy_inferno_pact_desc:    'Ember Core + Fire Pact: Burn DoT deals +4 extra DPS.',
+  synergy_thunder_surge:        'Thunder Surge',
+  synergy_thunder_surge_desc:   'Static Coil + Storm Circuit: Tesla chains to 1 extra target.',
+  synergy_iron_citadel:         'Iron Citadel',
+  synergy_iron_citadel_desc:    'Aegis Fragment + Thorn Wall: Thorn Wall damage ×1.5.',
+  synergy_void_surge:           'Void Surge',
+  synergy_void_surge_desc:      'Void Core + Void Echo: Void Echo cooldown halved.',
+  synergy_solar_ascendancy:     'Solar Ascendancy',
+  synergy_solar_ascendancy_desc:'Solar Pact + Blinding Amulet: Slow effects gain +15% power.',
+
+  log_synergy_active:       (icon, name) => `✨ SYNERGY ACTIVATED: ${icon} ${name}!`,
+  log_synergy_wave_gold:    (icon, name, amt) => `${icon} ${name}: +${amt}g`,
+
   // 유물 로그 메시지
   log_relic_picked:     (name) => `Relic acquired: ${name}`,
   log_soul_anchor:      'Soul Anchor absorbed the hit! Nexus protected.',

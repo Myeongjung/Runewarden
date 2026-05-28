@@ -2460,6 +2460,36 @@ kbd {
 .relic-hud-icon[data-rarity="uncommon"] { border-color: rgba(52,152,219,0.5); }
 .relic-hud-icon[data-rarity="rare"]     { border-color: rgba(155,89,182,0.6); box-shadow: 0 0 6px rgba(155,89,182,0.3); }
 
+/* 시너지 활성화된 유물 HUD 아이콘 글로우 */
+.relic-hud-icon.relic-synergy-active {
+  border-color: rgba(255, 220, 50, 0.9) !important;
+  box-shadow: 0 0 8px rgba(255, 220, 50, 0.6), 0 0 2px rgba(255, 220, 50, 0.9) inset;
+}
+
+/* 시너지 달성 가능 유물 선택 카드 */
+.relic-choice-card.synergy-completable {
+  border-color: rgba(255,220,50,0.7) !important;
+  box-shadow: 0 0 14px rgba(255,220,50,0.4);
+}
+.relic-choice-card.synergy-completable:hover {
+  border-color: #FFDC32 !important;
+  box-shadow: 0 0 22px rgba(255,220,50,0.7);
+}
+
+/* 시너지 배지 */
+.synergy-badge {
+  display: inline-block;
+  margin-top: 0.35rem;
+  padding: 0.15rem 0.5rem;
+  background: rgba(255,220,50,0.15);
+  border: 1px solid rgba(255,220,50,0.6);
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #FFDC32;
+  letter-spacing: 0.03em;
+}
+
 /* 유물 아이콘 팝 애니메이션 */
 @keyframes relicPop {
   0%   { transform: scale(0) rotate(-10deg); opacity: 0; }

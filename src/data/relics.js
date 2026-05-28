@@ -249,6 +249,58 @@ const _BASE_RELIC_DEFS = [
   },
 ];
 
+/**
+ * Relic Synergy pairs — 2개 이상 동시 보유 시 숨겨진 보너스 발동.
+ * effect.type 목록:
+ *  'synergy_burn_bonus'    — 번(DoT) 추가 DPS
+ *  'synergy_chain_bonus'   — Tesla 체인 추가
+ *  'synergy_slow_bonus'    — 감속 효과 배율 추가
+ *  'synergy_thorn_mult'    — 가시 반격 피해 배율
+ *  'synergy_void_cd'       — Void Echo 쿨다운 절반
+ *  'synergy_wave_gold'     — N웨이브마다 +Xg
+ */
+export const RELIC_SYNERGIES = [
+  // ── 기본 게임 시너지 ───────────────────────────────
+  {
+    id: 'merchant_king',
+    relics: ['merchants_badge', 'bounty_mark'],
+    icon: '👑',
+    effect: { type: 'synergy_wave_gold', amount: 5, every: 3 },
+  },
+  {
+    id: 'inferno_pact',
+    relics: ['ember_core', 'fire_pact'],
+    icon: '🔥',
+    effect: { type: 'synergy_burn_bonus', extraDps: 4 },
+  },
+  {
+    id: 'thunder_surge',
+    relics: ['static_coil', 'storm_circuit'],
+    icon: '⚡',
+    effect: { type: 'synergy_chain_bonus', extra: 1 },
+  },
+  {
+    id: 'iron_citadel',
+    relics: ['aegis_fragment', 'thorn_wall'],
+    icon: '🏰',
+    effect: { type: 'synergy_thorn_mult', mult: 1.5 },
+  },
+  // ── DLC1 Shadow Realm 시너지 ───────────────────────
+  {
+    id: 'void_surge',
+    relics: ['void_core', 'void_echo_relic'],
+    icon: '🌑',
+    effect: { type: 'synergy_void_cd' },
+  },
+  // ── DLC2 Solar Dominion 시너지 ─────────────────────
+  {
+    id: 'solar_ascendancy',
+    relics: ['solar_pact_relic', 'blinding_amulet'],
+    icon: '☀️',
+    effect: { type: 'synergy_slow_bonus', mult: 1.15 },
+  },
+];
+
 // DLC 유물 병합
 export const RELIC_DEFS = [..._BASE_RELIC_DEFS, ...SHADOW_RELICS, ...SOLAR_RELICS];
 

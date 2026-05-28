@@ -258,6 +258,23 @@ const _BASE_KO = {
   relic_keen_eye:               '날카로운 눈',
   relic_keen_eye_desc:          '모든 타워가 위장(Camo) 적을 감지하고 공격할 수 있습니다.',
 
+  // ── 시너지 이름 / 설명 ───────────────────────────────
+  synergy_merchant_king:        '상인 왕',
+  synergy_merchant_king_desc:   '상인의 배지 + 현상금 마크: 3웨이브마다 +5g.',
+  synergy_inferno_pact:         '인페르노 협약',
+  synergy_inferno_pact_desc:    '화염 코어 + 화염 서약: 번(DoT)이 +4 추가 DPS.',
+  synergy_thunder_surge:        '천둥 폭발',
+  synergy_thunder_surge_desc:   '정전기 코일 + 폭풍 회로: Tesla가 1개 더 체인.',
+  synergy_iron_citadel:         '철의 성채',
+  synergy_iron_citadel_desc:    '방패 파편 + 가시 장벽: 가시 반격 피해 ×1.5.',
+  synergy_void_surge:           '공허 폭발',
+  synergy_void_surge_desc:      '공허 코어 + 공허 에코: Void Echo 쿨다운 절반.',
+  synergy_solar_ascendancy:     '태양 패권',
+  synergy_solar_ascendancy_desc:'태양 협약 + 눈부신 부적: 감속 효과 +15% 강화.',
+
+  log_synergy_active:       (icon, name) => `✨ 시너지 발동: ${icon} ${name}!`,
+  log_synergy_wave_gold:    (icon, name, amt) => `${icon} ${name}: +${amt}g`,
+
   // 유물 로그 메시지
   log_relic_picked:     (name) => `유물 획득: ${name}`,
   log_soul_anchor:      '영혼 닻이 피격을 흡수했습니다! 넥서스 보호.',

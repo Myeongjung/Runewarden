@@ -17,7 +17,7 @@ import { TutorialUI }   from '../ui/TutorialUI.js';
 import { audio, music }  from '../systems/AudioSystem.js';
 import { i18n }          from '../i18n/i18n.js';
 import { RelicUI }       from '../ui/RelicUI.js';
-import { pickRandomRelics, RELIC_DEFS } from '../data/relics.js';
+import { pickRandomRelics, RELIC_DEFS, RELIC_SYNERGIES } from '../data/relics.js';
 import { pickRandomMap, getMapById }   from '../data/maps.js';
 import { setActiveMap }     from '../rendering/MapRenderer.js';
 import { DIFFICULTY_DEFS, getDifficultyById } from '../data/difficulty.js';
@@ -202,13 +202,14 @@ function _restoreFromSave(save) {
 
     // 유물 복원
     state.relics = save.relicIds.map(id => RELIC_DEFS.find(r => r.id === id)).filter(Boolean);
-    relicUI.updateHUD(state.relics);
     for (const r of state.relics) {
       _applyRelicToTowers(r);
       if (r.effect.type === 'card_draw_bonus') {
         cardSystem.bonusHandSize = (cardSystem.bonusHandSize || 0) + r.effect.amount;
       }
     }
+    _checkAndActivateSynergies(true);  // 시너지 조용히 복원
+    relicUI.updateHUD(state.relics, state._activeSynergies);
 
     // 덱 복원
     cardSystem.drawPile = save.deck
@@ -321,6 +322,9 @@ function startRun() {
     _victoryStreakWaves:    0,      // 승전 보너스 잔여 웨이브 수
     _victoryStreakBonus:    0,      // 승전 보너스 1회 지급 골드
     _cursedWave:           null,   // 현재 저주 웨이브 타입: 'speed' | 'hand' | 'revive' | null
+    _activeSynergies:      new Set(),  // 활성화된 시너지 ID 집합
+    _synergyIronCitadel:   1,          // iron_citadel 시너지: 가시 피해 배율 (기본 1 = 미활성)
+    _synergyVoidSurge:     false,      // void_surge 시너지: Void Echo CD 절반
     bossWeaknesses:        _bossWeaknessMap,
     // 런 통계
     stats: {
@@ -484,13 +488,13 @@ function _openRelicPicker() {
   const existingIds = state.relics.map(r => r.id);
   const choices = pickRandomRelics(3, existingIds);
   if (choices.length === 0) return;  // 모두 획득한 경우
-  relicUI.openPicker(choices);
+  relicUI.openPicker(choices, existingIds);
 }
 
 // ── 유물 획득 처리 ────────────────────────────────────
 function _applyRelicPicked(relic) {
   state.relics.push(relic);
-  relicUI.updateHUD(state.relics);
+  relicUI.updateHUD(state.relics, state._activeSynergies);
 
   const name = i18n.t('relic_' + relic.id);
   log(i18n.t('log_relic_picked', name), 'gold');
@@ -529,6 +533,49 @@ function _applyRelicPicked(relic) {
 
   // 타워 버프 즉시 적용 (배치된 타워에)
   _applyRelicToTowers(relic);
+
+  // 시너지 발동 체크
+  _checkAndActivateSynergies();
+}
+
+// ── 유물 시너지 발동 체크 ────────────────────────────────
+function _checkAndActivateSynergies(silent = false) {
+  const ownedIds = new Set(state.relics.map(r => r.id));
+  for (const syn of RELIC_SYNERGIES) {
+    if (state._activeSynergies.has(syn.id)) continue;
+    if (syn.relics.every(id => ownedIds.has(id))) {
+      state._activeSynergies.add(syn.id);
+      _applySynergyEffect(syn);
+      if (!silent) {
+        const name = i18n.t('synergy_' + syn.id);
+        log(i18n.t('log_synergy_active', syn.icon, name), 'gold');
+        audio.play('shop_buy');
+      }
+      relicUI.updateHUD(state.relics, state._activeSynergies);
+    }
+  }
+}
+
+function _applySynergyEffect(syn) {
+  const e = syn.effect;
+  switch (e.type) {
+    case 'synergy_burn_bonus':
+      enemySystem?.setBurnBonus(e.extraDps, 0);
+      break;
+    case 'synergy_chain_bonus':
+      towerSystem?.addChainBonus(e.extra);
+      break;
+    case 'synergy_slow_bonus':
+      enemySystem?.setSlowBonus(e.mult);
+      break;
+    case 'synergy_thorn_mult':
+      state._synergyIronCitadel = e.mult;
+      break;
+    case 'synergy_void_cd':
+      state._synergyVoidSurge = true;
+      break;
+    // synergy_wave_gold: handled per-wave in onWaveCleared()
+  }
 }
 
 // ── 유물 효과: 타워/적 시스템 패치 ──────────────────────
@@ -829,6 +876,15 @@ function onWaveCleared() {
     addGold(state._victoryStreakBonus, null);
     state._victoryStreakWaves--;
     log(i18n.t('log_victory_streak', state._victoryStreakBonus, state._victoryStreakWaves), 'gold');
+  }
+
+  // 시너지 주기적 골드 보너스
+  for (const syn of RELIC_SYNERGIES) {
+    if (!state._activeSynergies.has(syn.id)) continue;
+    if (syn.effect.type === 'synergy_wave_gold' && state.wave % syn.effect.every === 0) {
+      addGold(syn.effect.amount, null);
+      log(i18n.t('log_synergy_wave_gold', syn.icon, i18n.t('synergy_' + syn.id), syn.effect.amount), 'gold');
+    }
   }
 
   // Cursed Wave 'hand' 패널티 해제
@@ -1233,8 +1289,9 @@ function onEnemyReachEnd() {
   // Thorn Wall: 넥서스 피격 시 가장 가까운 적에게 반사 피해
   if (hasRelic('thorn_wall') && enemySystem) {
     const thornEffect = getRelicEffect('thorn_wall');
-    const hit = enemySystem.dealDamageToLead(thornEffect.damage);
-    if (hit) log(i18n.t('log_thorn_wall', thornEffect.damage), 'good');
+    const thornDmg = Math.round(thornEffect.damage * (state._synergyIronCitadel ?? 1));
+    const hit = enemySystem.dealDamageToLead(thornDmg);
+    if (hit) log(i18n.t('log_thorn_wall', thornDmg), 'good');
   }
 
   if (state.nexusHp <= 0) { audio.play('defeat'); endGame(false); }

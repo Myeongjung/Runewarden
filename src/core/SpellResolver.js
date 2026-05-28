@@ -413,7 +413,8 @@ export function resolveSpell(effect, ctx) {
     const now = Date.now();
     const lastFired = ctx.state?._voidEchoLastFired ?? 0;
     const relicEffect = ctx.state?.relics?.find(r => r.id === 'void_echo_relic')?.effect;
-    const cd = relicEffect?.cooldownMs ?? 8000;
+    const baseCd = relicEffect?.cooldownMs ?? 8000;
+    const cd = ctx.state?._synergyVoidSurge ? baseCd / 2 : baseCd;
     if (now - lastFired >= cd) {
       if (ctx.state) ctx.state._voidEchoLastFired = now;
       const count = ctx.towerSystem.triggerAllByTag('Void');
