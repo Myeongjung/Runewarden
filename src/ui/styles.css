@@ -1827,6 +1827,24 @@ kbd {
   cursor: not-allowed;
 }
 
+/* 경로 분기 — 2열 그리드 */
+.path-fork-grid {
+  grid-template-columns: 1fr 1fr;
+  max-width: 420px;
+  margin: 0 auto;
+}
+.node-card.path-safe:hover {
+  border-color: #5DADE2;
+  box-shadow: 0 0 14px rgba(93, 173, 226, 0.35);
+}
+.node-card.path-gamble {
+  border-color: rgba(184, 134, 11, 0.6);
+}
+.node-card.path-gamble:hover {
+  border-color: #FFD700;
+  box-shadow: 0 0 14px rgba(255, 215, 0, 0.35);
+}
+
 /* 챌린지로 금지된 노드 */
 .node-card.node-card-banned {
   opacity: 0.4;

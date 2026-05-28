@@ -290,6 +290,20 @@ const _BASE_KO = {
   node_hint_mystery:  '신비',
   node_hint_rest:     '회복',
 
+  // ── 경로 분기 ────────────────────────────────────────
+  path_fork_title:     (act) => `Act ${act} 클리어 — 경로를 선택하세요`,
+  path_fork_sub:       '이 선택이 앞으로의 흐름을 결정합니다.',
+  path_safe:           '안전 경로',
+  path_safe_desc:      '상점, 이벤트, 휴식 중 자유롭게 선택합니다. 패널티 없는 표준 진행.',
+  path_safe_tag:       '🏰 안정적',
+  path_gamble:         '도박 경로',
+  path_gamble_desc:    '+15 골드와 랜덤 유물 1개를 즉시 획득하지만, 50% 확률로 저주 카드가 덱에 추가됩니다.',
+  path_gamble_tag:     '🎲 고위험 / 고보상',
+  log_gamble_gold:     '🎲 도박 경로 선택: +15 골드!',
+  log_gamble_relic:    (name) => `🎲 용기에 행운이 따릅니다! 유물 획득: ${name}`,
+  log_gamble_curse:    '💀 도박의 대가 — 저주 카드가 덱에 추가되었습니다.',
+  log_gamble_no_curse: '✨ 운이 따릅니다 — 이번엔 저주 없음.',
+
   // ── 자동저장 ─────────────────────────────────────────
   btn_continue:       (wave, icon, map) => `↩ 계속하기 — ${icon} ${map} (웨이브 ${wave})`,
   autosave_loaded:    (wave) => `웨이브 ${wave}부터 런을 이어갑니다. 워든, 힘내세요!`,

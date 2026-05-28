@@ -91,6 +91,55 @@ export class NodeSelectionUI {
   _close() { this.container.classList.add('hidden'); }
 }
 
+// ── PathForkUI — Act 클리어 후 경로 2택 ──────────────
+export class PathForkUI {
+  constructor(container, callbacks) {
+    this.container = container;
+    this.onSafe    = callbacks.onSafe;
+    this.onGamble  = callbacks.onGamble;
+  }
+
+  open(actNum) {
+    this.container.classList.remove('hidden');
+    this.container.innerHTML = `
+      <div class="node-box">
+        <div class="node-header">
+          <span class="node-title">⚔️ ${i18n.t('path_fork_title', actNum)}</span>
+          <span class="node-sub">${i18n.t('path_fork_sub')}</span>
+        </div>
+        <div class="node-choices path-fork-grid">
+          <div class="node-card path-safe" id="path-safe">
+            <div class="node-card-icon">🏰</div>
+            <div class="node-card-name">${i18n.t('path_safe')}</div>
+            <div class="node-card-desc">${i18n.t('path_safe_desc')}</div>
+            <div class="node-card-tag">${i18n.t('path_safe_tag')}</div>
+          </div>
+          <div class="node-card path-gamble" id="path-gamble">
+            <div class="node-card-icon">🎲</div>
+            <div class="node-card-name">${i18n.t('path_gamble')}</div>
+            <div class="node-card-desc">${i18n.t('path_gamble_desc')}</div>
+            <div class="node-card-tag">${i18n.t('path_gamble_tag')}</div>
+          </div>
+        </div>
+      </div>
+    `;
+    const box = this.container.querySelector('.node-box');
+    box.style.animation = 'shopSlideIn 0.3s cubic-bezier(0.34,1.56,0.64,1)';
+
+    this.container.querySelector('#path-safe').addEventListener('click', () => {
+      this._close(); this.onSafe();
+    });
+    this.container.querySelector('#path-gamble').addEventListener('click', () => {
+      this._close(); this.onGamble();
+    });
+  }
+
+  _close() {
+    this.container.classList.add('hidden');
+    this.container.innerHTML = '';
+  }
+}
+
 // ── EventUI ───────────────────────────────────────────
 export class EventUI {
   constructor(container, callbacks) {

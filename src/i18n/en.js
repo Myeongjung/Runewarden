@@ -447,6 +447,20 @@ const _BASE_EN = {
   node_hint_mystery:  'Mystery',
   node_hint_rest:     'Recovery',
 
+  // ── 경로 분기 ────────────────────────────────────────
+  path_fork_title:     (act) => `Act ${act} Complete — Choose Your Path`,
+  path_fork_sub:       'This choice shapes what comes next.',
+  path_safe:           'Safe Path',
+  path_safe_desc:      'Choose freely from Shop, Event, or Rest. Standard progression with no downside.',
+  path_safe_tag:       '🏰 Controlled',
+  path_gamble:         'Gamble Path',
+  path_gamble_desc:    'Receive +15 gold and 1 random relic immediately — but there\'s a 50% chance a Curse card is added to your deck.',
+  path_gamble_tag:     '🎲 High Risk / High Reward',
+  log_gamble_gold:     '🎲 Gamble Path chosen: +15 gold!',
+  log_gamble_relic:    (name) => `🎲 Fortune favors the bold! Relic acquired: ${name}`,
+  log_gamble_curse:    '💀 The gamble extracts its toll — a Curse card has been added to your deck.',
+  log_gamble_no_curse: '✨ Luck smiles — no curse this time.',
+
   // ── 자동저장 ─────────────────────────────────────────
   btn_continue:       (wave, icon, map) => `↩ Continue — ${icon} ${map} (Wave ${wave})`,
   autosave_loaded:    (wave) => `Run restored from Wave ${wave}. Good luck, Warden!`,

@@ -6,7 +6,7 @@ import { EnemySystem } from '../systems/EnemySystem.js';
 import { TowerSystem } from '../systems/TowerSystem.js';
 import { CardSystem }  from '../systems/CardSystem.js';
 import { ShopUI }      from '../ui/ShopUI.js';
-import { NodeSelectionUI, EventUI, RestUI, pickRandomCards } from '../ui/NodeUI.js';
+import { NodeSelectionUI, EventUI, RestUI, PathForkUI, pickRandomCards } from '../ui/NodeUI.js';
 import { MetaSystem, CODEX_UNLOCKS, xpForLevel, MAX_RANK } from '../systems/MetaSystem.js';
 import { RunSummaryUI } from '../ui/RunSummaryUI.js';
 import { buildStarterDeck, CARD_DEFS } from '../data/cards.js';
@@ -75,6 +75,7 @@ let towerSystem = null;
 let cardSystem  = null;
 let shopUI      = null;
 let nodeUI      = null;
+let pathForkUI  = null;
 let eventUI     = null;
 let restUI      = null;
 let summaryUI   = null;
@@ -381,6 +382,11 @@ function startRun() {
     onShop:  openShop,
     onEvent: openEvent,
     onRest:  openRest,
+  });
+
+  pathForkUI = new PathForkUI($('screen-node'), {
+    onSafe:   () => openNodeSelection(),
+    onGamble: () => resolveGamblePath(),
   });
 
   shopUI = new ShopUI($('screen-shop'), {
@@ -850,8 +856,9 @@ function onWaveCleared() {
 
   $('boss-hpbar-wrap')?.classList.add('hidden');
 
-  const isFinal   = state.wave >= shared.maxWaves;
-  const isActEnd  = state.wave % ACT_SIZE === 0 && !isFinal;  // 액트 클리어 (보스)
+  const isFinal    = state.wave >= shared.maxWaves;
+  const isBossWave = shared.bossWaves.has(state.wave);
+  const isActEnd   = state.wave % ACT_SIZE === 0 && !isFinal;  // 액트 클리어 (보스)
 
   log(i18n.t('log_wave_clear', state.wave, totalWaveGold), 'good');
   audio.play(isFinal ? 'victory' : 'wave_clear');
@@ -882,7 +889,7 @@ function onWaveCleared() {
 
   // Act 전환: 1.5초 추가 대기 후 다음 Act 예고
   const delay = isActEnd ? 2500 : 1200;
-  setTimeout(() => openNodeSelection(), delay);
+  setTimeout(() => (isBossWave && !isFinal) ? openPathFork() : openNodeSelection(), delay);
 }
 
 // ── 노드 선택 화면 ────────────────────────────────────
@@ -899,6 +906,43 @@ function openNodeSelection() {
     noRest:  state.challengeMods?.noRest  ?? false,
     noEvent: state.challengeMods?.noEvent ?? false,
   });
+}
+
+// ── 경로 분기 화면 (보스 웨이브 클리어 후) ─────────────
+function openPathFork() {
+  state.phase = 'node';
+  setWaveButton(i18n.t('btn_start_wave_n', state.wave + 1), true);
+  const actNum = Math.ceil(state.wave / ACT_SIZE);
+  pathForkUI.open(actNum);
+}
+
+function resolveGamblePath() {
+  // +15g 즉시 보상
+  addGold(15, null);
+  log(i18n.t('log_gamble_gold'), 'gold');
+
+  // 랜덤 유물 1개 자동 지급 (선택 없음)
+  const excludeIds = (state.relics ?? []).map(r => r.id);
+  const offered = pickRandomRelics(1, excludeIds);
+  if (offered.length > 0) {
+    const relic = offered[0];
+    state.relics.push(relic);
+    _applyRelicToTowers(relic);
+    updateHUD();
+    log(i18n.t('log_gamble_relic', i18n.t('relic_' + relic.id)), 'good');
+  }
+
+  // 50% 확률 저주 카드 추가
+  if (Math.random() < 0.5) {
+    const curseDef = CARD_DEFS.find(c => c.id === 'curse_dead_weight');
+    if (curseDef) cardSystem.discardPile.push({ ...curseDef, uid: Math.random() });
+    log(i18n.t('log_gamble_curse'), 'bad');
+  } else {
+    log(i18n.t('log_gamble_no_curse'), 'good');
+  }
+
+  // 노드 선택 건너뜀 — 다음 웨이브 준비로 바로 이동
+  onNodeClose();
 }
 
 // ── 상점 열기 ─────────────────────────────────────────
