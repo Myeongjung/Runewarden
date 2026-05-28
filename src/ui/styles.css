@@ -2936,3 +2936,11 @@ kbd {
 #hud-deck { cursor: pointer; text-decoration: underline dotted rgba(255,255,255,0.35); }
 #hud-deck.deck-low   { color: #FF8C00; font-weight: 700; }
 #hud-deck.deck-empty { color: #FF4040; animation: goldEmptyBlink 0.9s ease-in-out infinite alternate; }
+
+/* Tower Upgrade Panel */
+.shop-upgrade { margin-top: 12px; padding: 8px 0; border-top: 1px solid rgba(255,255,255,0.1); }
+.shop-upgrade-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: #aaa; margin-bottom: 6px; }
+.shop-upgrade-row { display: flex; align-items: center; justify-content: space-between; padding: 4px 0; }
+.shop-upgrade-name { font-size: 13px; color: #ddd; }
+.shop-upgrade-btn { font-size: 12px; padding: 3px 8px; border-radius: 4px; background: #2a5; color: #fff; border: none; cursor: pointer; }
+.shop-upgrade-btn:disabled { background: #555; color: #888; cursor: default; }

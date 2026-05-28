@@ -164,10 +164,11 @@ function saveCheckpoint() {
     const towers = [...towerSystem.towers.values()].map(t => ({
       col: t.col, row: t.row,
       towerId: t.def.id,
+      starLevel: t.starLevel ?? 1,
       augments: t.augments.map(a => JSON.parse(JSON.stringify(a))),
     }));
     const cp = {
-      v: 2, ts: Date.now(),
+      v: 3, ts: Date.now(),
       wardenId: state.warden.id,
       diffId:   state.difficulty.id,
       mapId:    state.mapId,
@@ -196,6 +197,11 @@ function _restoreFromSave(save) {
     localStorage.removeItem('rw_autosave');
     setTimeout(() => _openRelicPicker(), 600);
     return;
+  }
+  // v2→v3 마이그레이션: starLevel 없는 세이브에 기본값 주입
+  if (save.v === 2) {
+    save.towers.forEach(t => { t.starLevel = t.starLevel ?? 1; });
+    console.info('[AutoSave] v2 migrated: starLevel=1 injected for all towers');
   }
   try {
     state.wave       = Math.max(0, Math.min(shared.maxWaves, save.wave));
@@ -229,7 +235,14 @@ function _restoreFromSave(save) {
       const tDef = TOWER_DEFS[t.towerId];
       if (!tDef) continue;
       towerSystem.place(t.col, t.row, tDef);
+      // starLevel 복원: _starMult 직접 설정 (fire-time 필드, relic/augment 보너스 무관)
+      const star = t.starLevel ?? 1;
+      if (star > 1) {
+        const placed = towerSystem.getTower(t.col, t.row);
+        if (placed) { placed.starLevel = star; placed._starMult = 1.5 ** (star - 1); }
+      }
       renderer.placeTower(t.col, t.row, tDef);
+      if (star > 1) renderer.setTowerStar(t.col, t.row, star);
       for (const aug of (t.augments ?? [])) towerSystem.augment(t.col, t.row, aug);
       if (t.augments?.length > 0) renderer.markAugmented(t.col, t.row, tDef, t.augments.length);
     }
@@ -410,6 +423,16 @@ function startRun() {
     onBuy:   onShopBuy,
     onLeave: onShopLeave,
     onLog:   (msg, cls) => log(msg, cls),
+    onUpgradeTower: (col, row, cost) => {
+      if (state.gold < cost) return false;
+      if (!towerSystem.upgradeStar(col, row)) return false;
+      spendGold(cost);
+      const t = towerSystem.towers.get(`${col},${row}`);
+      renderer.setTowerStar(col, row, t.starLevel);
+      shopUI.updateGold(state.gold);
+      log(i18n.t('tower_star_upgraded', t.def.name, t.starLevel), 'good');
+      return true;
+    },
   });
 
   eventUI = new EventUI($('screen-event'), {
@@ -1017,6 +1040,14 @@ function resolveGamblePath() {
 }
 
 // ── 상점 열기 ─────────────────────────────────────────
+function placedTowersSnapshot() {
+  return [...towerSystem.towers.values()].map(t => ({
+    col: t.col, row: t.row, def: t.def,
+    starLevel: t.starLevel ?? 1,
+    augments: t.augments,
+  }));
+}
+
 function openShop() {
   state.phase = 'shop';
   $('screen-shop').classList.remove('hidden');
@@ -1030,7 +1061,7 @@ function openShop() {
   // Ascension I: 상점 카드 2장으로 감소. Wave 16+: Elite 슬롯 +1
   const baseShopSize = state.ascMods?.shopSize ?? 3;
   const shopSize     = state.wave >= 16 ? baseShopSize + 1 : baseShopSize;
-  shopUI.open(state.gold, state.wave, unlockedIds, totalDiscount, freeRerolls, shopSize, state.challengeMods);
+  shopUI.open(state.gold, state.wave, unlockedIds, totalDiscount, freeRerolls, shopSize, state.challengeMods, placedTowersSnapshot());
 }
 
 // ── 이벤트 열기 ───────────────────────────────────────

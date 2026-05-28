@@ -210,3 +210,81 @@ describe('applyGlobalDamageBoost()', () => {
     expect(ts._globalDmgTimer).toBe(4000);
   });
 });
+
+// ── star system ───────────────────────────────────────────────────────────────
+describe('upgradeStar()', () => {
+  let ts;
+
+  beforeEach(() => {
+    ({ ts } = makeTS());
+    ts.place(0, 0, TOWER_DEFS['archer']);
+  });
+
+  it('increments starLevel and _starMult correctly: 1→2→3', () => {
+    const t = ts.towers.get('0,0');
+    expect(t.starLevel).toBe(1);
+    expect(t._starMult).toBeCloseTo(1.0);
+
+    const result1 = ts.upgradeStar(0, 0);
+    expect(result1).toBe(true);
+    expect(t.starLevel).toBe(2);
+    expect(t._starMult).toBeCloseTo(1.5);
+
+    const result2 = ts.upgradeStar(0, 0);
+    expect(result2).toBe(true);
+    expect(t.starLevel).toBe(3);
+    expect(t._starMult).toBeCloseTo(2.25);
+  });
+
+  it('returns false and makes no changes when already at 3★', () => {
+    const t = ts.towers.get('0,0');
+    ts.upgradeStar(0, 0);
+    ts.upgradeStar(0, 0);
+    const dmgBefore      = t.damage;
+    const baseDmgBefore  = t.baseDamage;
+
+    const result = ts.upgradeStar(0, 0);
+    expect(result).toBe(false);
+    expect(t.starLevel).toBe(3);
+    expect(t._starMult).toBeCloseTo(2.25);
+    expect(t.damage).toBeCloseTo(dmgBefore);
+    expect(t.baseDamage).toBeCloseTo(baseDmgBefore);
+  });
+
+  it('preserves __all__ relic damage bonus when upgrading star', () => {
+    const t = ts.towers.get('0,0');
+    const dmgBeforeRelic = t.damage;
+    ts.addRelicDmgBonus('__all__', 1.5);
+    const dmgAfterRelic = t.damage;
+    expect(dmgAfterRelic).toBeCloseTo(dmgBeforeRelic * 1.5);
+
+    ts.upgradeStar(0, 0);
+    // upgradeStar only changes _starMult — t.damage itself must be unchanged
+    expect(t.damage).toBeCloseTo(dmgAfterRelic);
+    expect(t._starMult).toBeCloseTo(1.5);
+  });
+
+  it('preserves augment damage bonus when upgrading star', () => {
+    const t = ts.towers.get('0,0');
+    ts.augment(0, 0, { stat: 'damage', mult: 1.3 });
+    const dmgAfterAugment = t.damage;
+
+    ts.upgradeStar(0, 0);
+    // upgradeStar only changes _starMult — t.damage itself must be unchanged
+    expect(t.damage).toBeCloseTo(dmgAfterAugment);
+    expect(t._starMult).toBeCloseTo(1.5);
+  });
+});
+
+// ── reroll cost sequence ──────────────────────────────────────────────────────
+describe('_nextRerollCost() sequence', () => {
+  it('produces the expected cost sequence [2, 3, 5, 7, 9, 10, 10]', () => {
+    function nextRerollCost(rerolls) {
+      if (rerolls === 0) return 2;
+      return Math.min(2 * rerolls + 1, 10);
+    }
+
+    const seq = [0, 1, 2, 3, 4, 5, 6].map(nextRerollCost);
+    expect(seq).toEqual([2, 3, 5, 7, 9, 10, 10]);
+  });
+});

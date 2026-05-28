@@ -491,6 +491,32 @@ export class MapRenderer {
     }
   }
 
+  setTowerStar(col, row, starLevel) {
+    const tg = document.getElementById(`tower-${col}-${row}`);
+    if (!tg) return;
+    // 기존 배지 제거
+    tg.querySelectorAll('.star-badge').forEach(el => el.remove());
+    if (starLevel <= 1) return; // 1★: 배지 없음
+
+    const { x, y } = hexToPixel(col, row);
+    // augment dot 위치: y - HEX_SIZE * 0.54 (상단)
+    // 별 배지 위치: y + HEX_SIZE * 0.60 (하단) — 약 38px 간격으로 완전 분리
+    const badge = svgEl('text', {
+      x,
+      y: y + HEX_SIZE * 0.60,
+      'text-anchor': 'middle',
+      'dominant-baseline': 'central',
+      'font-size': `${HEX_SIZE * 0.35}px`,
+      fill: starLevel === 2 ? '#FFD700' : '#FF8C00',
+      stroke: '#1A1A2E',
+      'stroke-width': 0.5,
+      class: 'star-badge',
+      'pointer-events': 'none',
+    });
+    badge.textContent = starLevel === 2 ? '★' : '★★';
+    tg.appendChild(badge);
+  }
+
   // ── 범위 표시 (rangePx: 픽셀 단위 or rangeHex: 헥스 단위) ──
   showRange(col, row, rangePx) {
     this.hideRange();

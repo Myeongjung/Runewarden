@@ -209,8 +209,19 @@ export class TowerSystem {
       baseRange:        baseRange,
       baseAttackCooldown: baseSpd,
       cooldown: 0,
+      starLevel: 1,
+      _starMult: 1.0,
       augments: [],
     });
+    return true;
+  }
+
+  // ── 성급 업그레이드 ───────────────────────────────────
+  upgradeStar(col, row) {
+    const t = this.towers.get(`${col},${row}`);
+    if (!t || t.starLevel >= 3) return false;
+    t.starLevel++;
+    t._starMult = 1.5 ** (t.starLevel - 1); // 2★: 1.5x, 3★: 2.25x
     return true;
   }
 
@@ -286,7 +297,7 @@ export class TowerSystem {
     if (tower.def.tankSlayBonus && enemy.hp >= (tower.def.tankSlayHpThreshold ?? 500)) {
       tankSlayMult = 1 + tower.def.tankSlayBonus;
     }
-    let dmg = Math.round(tower.damage * this._globalDmgMult * druidMult * lightPrismMult * firePactMult * solarPactMult * tankSlayMult);
+    let dmg = Math.round(tower.damage * (tower._starMult ?? 1) * this._globalDmgMult * druidMult * lightPrismMult * firePactMult * solarPactMult * tankSlayMult);
 
     // ── DLC: critOnSlow — 감속 적에게 크리티컬 ─────────────
     if (tower.def.critOnSlow && enemy.slowTimer > 0) {
