@@ -152,9 +152,9 @@ const ENEMY_DEFS = {
   siege_beast:   { name: 'Siege Beast',   hp: 880, speed:  20, color: '#4A4A4A', size: 25, reward:  8,
                    slowImmune: true },
 
-  // Act 3: 고속 유령형 — 빠름 + 피해 감소 25%
+  // Act 3: 고속 유령형 — 빠름 + 피해 감소 25% + 위장 (camo)
   phantom:       { name: 'Phantom',       hp: 165, speed: 108, color: '#7D3C98', size: 10, reward:  3,
-                   damageReduction: 0.25 },
+                   damageReduction: 0.25, camo: true },
 
   // Act 3: 최강 탱커 — 슬로우 면역 + HP 35% 격노 + 거대한 크기
   colossus:      { name: 'Colossus',      hp:1250, speed:  16, color: '#17202A', size: 29, reward:  9,
@@ -163,8 +163,8 @@ const ENEMY_DEFS = {
   // ── DLC Act 4 적 10종 ───────────────────────────────
   // 공허 군단 — 그림자 왕국의 적들
   void_shade:    { name: 'Void Shade',    hp:  80, speed: 130, color: '#1A0033', size:  9, reward:  2,
-                   damageReduction: 0.15 },                         // 고속 + 소량 피해감소
-  shadow_hound:  { name: 'Shadow Hound',  hp:  45, speed: 160, color: '#2D004D', size:  8, reward:  1 }, // 최고속 경량
+                   damageReduction: 0.15, camo: true },             // 고속 + 소량 피해감소 + 위장
+  shadow_hound:  { name: 'Shadow Hound',  hp:  45, speed: 160, color: '#2D004D', size:  8, reward:  1, camo: true }, // 최고속 경량 + 위장
   void_knight:   { name: 'Void Knight',   hp: 480, speed:  35, color: '#0D0025', size: 18, reward:  7,
                    isElite: true, shieldHits: 3 },                  // 쉴드 + 엘리트
   shadow_titan:  { name: 'Shadow Titan',  hp:1800, speed:  12, color: '#0A001A', size: 30, reward: 25,
@@ -522,6 +522,7 @@ export class EnemySystem {
       splitOnDeath: def.splitOnDeath ?? null,
       phase3: false,
       weakness: (def.isBoss && this._upcomingBossWeakness) ? this._upcomingBossWeakness : null,
+      camo: def.camo ?? false,
       el: null, hpBar: null, bodyEl: null, shieldEl: null,
     };
 
@@ -540,6 +541,9 @@ export class EnemySystem {
         enemy.el = g;
         enemy.bodyEl = pooled.bodyEl;
         enemy.hpBar = pooled.hpBar;
+        // 위장 적 시각 처리
+        g.style.opacity = def.camo ? '0.4' : '';
+        pooled.bodyEl.setAttribute('stroke-dasharray', def.camo ? '3,2' : 'none');
         this.layer.appendChild(g);  // bring to front (z-order)
         this.enemies.push(enemy);
         return;
@@ -562,6 +566,12 @@ export class EnemySystem {
     });
     g.appendChild(body);
     enemy.bodyEl = body;
+
+    // 위장 적 시각 처리
+    if (def.camo) {
+      g.style.opacity = '0.4';
+      body.setAttribute('stroke-dasharray', '3,2');
+    }
 
     // 적 타입별 마킹
     if (type === 'tank') {
@@ -1436,11 +1446,18 @@ export class EnemySystem {
     });
   }
 
-  getLeadEnemy(px, py, radiusPx) {
+  getLeadEnemy(px, py, radiusPx, canDetectCamo = false) {
     const inRange = this.getEnemiesInRange(px, py, radiusPx);
-    if (!inRange.length) return null;
-    return inRange.reduce((best, e) =>
-      e.waypointIndex > best.waypointIndex ? e : best, inRange[0]);
+    const visible = canDetectCamo ? inRange : inRange.filter(e => !e.camo);
+    if (!visible.length) return null;
+    return visible.reduce((best, e) =>
+      e.waypointIndex > best.waypointIndex ? e : best, visible[0]);
+  }
+
+  hasCamoWave(waveIndex) {
+    const wave = WAVE_CONFIGS[waveIndex];
+    if (!wave) return false;
+    return wave.some(g => ENEMY_DEFS[g.type]?.camo);
   }
 
   clearAll() {

@@ -255,6 +255,8 @@ const _BASE_KO = {
   relic_wardens_sigil_desc:     '웨이브 클리어 후 카드 2장을 즉시 핸드에 드로우합니다.',
   relic_blood_price:            '피의 대가',
   relic_blood_price_desc:       '넥서스 HP 1을 희생하여 즉시 +20 골드를 획득합니다.',
+  relic_keen_eye:               '날카로운 눈',
+  relic_keen_eye_desc:          '모든 타워가 위장(Camo) 적을 감지하고 공격할 수 있습니다.',
 
   // 유물 로그 메시지
   log_relic_picked:     (name) => `유물 획득: ${name}`,
@@ -268,6 +270,7 @@ const _BASE_KO = {
   log_blood_price:      (g) => `피의 대가: 넥서스 HP 1 희생, +${g} 골드 획득.`,
   log_savings_bond:     (n) => `저축 채권: 이자 +${n} 추가 골드.`,
   log_free_reroll:      '무료 리롤! (상인의 반지)',
+  log_camo_warn:        '👁️ 위장 적 출현! Marksman 또는 날카로운 눈으로만 감지 가능합니다.',
 
   // ── 난이도 ────────────────────────────────────────────
   difficulty_title:     '난이도 선택',

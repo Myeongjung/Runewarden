@@ -56,6 +56,8 @@ export class TowerSystem {
     // DLC 2 Solar Dominion
     this._solarPact           = 0;    // Solar Pact 추가 배율
     this._solarPactTag        = 'Solar';
+    // 위장 감지
+    this._camoDetect          = false; // Keen Eye 유물 — 모든 타워 위장 감지
     this._lightPrismBuff      = 1;    // Light Prism aura 누적 배율 (cap ×1.51)
     this._lightPrismExtraRadius = 0;  // Prism Lens 유물 추가 반경
     this._crusaderStunBonus   = 0;    // Crusader 스턴 추가 ms
@@ -126,12 +128,14 @@ export class TowerSystem {
     this._crusaderStunBonus += extraMs;
   }
 
+  enableGlobalCamoDetect() { this._camoDetect = true; }
+
   // Storm Circuit: 모든 Tesla 즉시 발사
   triggerAllTeslas() {
     let count = 0;
     for (const t of this.towers.values()) {
       if (t.def.id !== 'tesla') continue;
-      const target = this.enemySystem.getLeadEnemy(t.x, t.y, t.range);
+      const target = this.enemySystem.getLeadEnemy(t.x, t.y, t.range, t.def.camoDetect || this._camoDetect);
       if (!target) continue;
       this._fireAt(t, target);
       t.cooldown = t.attackSpeed * this._globalSpeedMult;
@@ -145,7 +149,7 @@ export class TowerSystem {
     let count = 0;
     for (const t of this.towers.values()) {
       if (!t.def.tags?.includes(tag)) continue;
-      const target = this.enemySystem.getLeadEnemy(t.x, t.y, t.range);
+      const target = this.enemySystem.getLeadEnemy(t.x, t.y, t.range, t.def.camoDetect || this._camoDetect);
       if (!target) continue;
       this._fireAt(t, target);
       t.cooldown = t.attackSpeed * this._globalSpeedMult;
@@ -251,7 +255,7 @@ export class TowerSystem {
 
     for (const t of this.towers.values()) {
       if (t.cooldown > 0) { t.cooldown -= delta; continue; }
-      const target = this.enemySystem.getLeadEnemy(t.x, t.y, t.range);
+      const target = this.enemySystem.getLeadEnemy(t.x, t.y, t.range, t.def.camoDetect || this._camoDetect);
       if (!target) continue;
       this._fireAt(t, target);
       t.cooldown = t.attackSpeed * this._globalSpeedMult;

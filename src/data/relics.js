@@ -237,6 +237,16 @@ const _BASE_RELIC_DEFS = [
     category: 'special',
     effect: { type: 'blood_price', goldGain: 20, hpCost: 1 },
   },
+
+  // ── 위장 감지 (Camo Detect) ─────────────────────────
+
+  {
+    id: 'keen_eye',
+    icon: '👁️',
+    rarity: 'uncommon',
+    category: 'utility',
+    effect: { type: 'camo_detect' },
+  },
 ];
 
 // DLC 유물 병합

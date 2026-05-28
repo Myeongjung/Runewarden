@@ -412,6 +412,8 @@ const _BASE_EN = {
   relic_wardens_sigil_desc:     'After clearing each wave, draw 2 extra cards into your hand.',
   relic_blood_price:            'Blood Price',
   relic_blood_price_desc:       'Sacrifice 1 Nexus HP to gain +20 gold immediately.',
+  relic_keen_eye:               'Keen Eye',
+  relic_keen_eye_desc:          'All towers can detect and attack camo enemies.',
 
   // 유물 로그 메시지
   log_relic_picked:     (name) => `Relic acquired: ${name}`,
@@ -425,6 +427,7 @@ const _BASE_EN = {
   log_blood_price:      (g) => `Blood Price: Sacrificed 1 Nexus HP for +${g} gold.`,
   log_savings_bond:     (n) => `Savings Bond: +${n} bonus interest gold.`,
   log_free_reroll:      'Free reroll! (Merchant\'s Ring)',
+  log_camo_warn:        '👁️ Camo enemies incoming! Marksman or Keen Eye needed to detect them.',
 
   // ── 난이도 ────────────────────────────────────────────
   difficulty_title:     'Choose Difficulty',

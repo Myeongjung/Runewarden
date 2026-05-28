@@ -556,6 +556,9 @@ function _applyRelicToTowers(relic) {
       case 'crusader_stun_bonus':
         towerSystem.addCrusaderStunBonus?.(e.extraMs);
         break;
+      case 'camo_detect':
+        towerSystem.enableGlobalCamoDetect?.();
+        break;
     }
   }
   if (enemySystem) {
@@ -709,6 +712,13 @@ function beginWave() {
   } else {
     log(i18n.t('log_wave_start', state.wave, actNum), 'bad');
     audio.play('wave_start');
+  }
+
+  // 위장 적 경고: 이 웨이브에 camo 적이 있고 감지 수단이 없으면 경고
+  if (enemySystem.hasCamoWave(state.wave - 1)) {
+    const hasDetect = towerSystem._camoDetect ||
+      [...towerSystem.towers.values()].some(t => t.def.camoDetect);
+    if (!hasDetect) log(i18n.t('log_camo_warn'), 'bad');
   }
 
   // GRAVE_GOLD 패시브: 주문 카드는 웨이브 중 유지되므로 제외하고 계산

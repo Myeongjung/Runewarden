@@ -153,6 +153,7 @@ const _BASE_TOWER_DEFS = {
     range: 7.0,           // 최장 사거리 (Archer 4.2의 1.7배)
     attackSpeed: 1800,
     splash: 0,
+    camoDetect: true,     // 위장 적 감지 가능
     tags: [],
     shape: 'archer',
   },
