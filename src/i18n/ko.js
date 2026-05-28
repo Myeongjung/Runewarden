@@ -314,6 +314,13 @@ const _BASE_KO = {
   rest_leave:          '떠나기 →',
   rest_deck_empty:     '덱이 비어 있습니다!',
   rest_scavenged:      (g) => `주변을 수색했습니다. +${g} 골드.`,
+  rest_forge:          '단조',
+  rest_forge_desc:     '덱의 카드 1장을 영구 강화합니다 (무료).',
+  rest_forge_choose:   '단조할 카드를 선택하세요:',
+  rest_forge_empty:    '단조 가능한 카드가 없습니다.',
+  rest_forge_cost:     '비용',
+  rest_forge_btn:      '단조',
+  rest_forged:         (name) => `${name} 단조 완료!`,
   card_btn_remove:     '제거',
   event_log:           (title, label) => `[${title}] ${label}`,
 

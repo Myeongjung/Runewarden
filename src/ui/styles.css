@@ -1253,7 +1253,7 @@ kbd {
 }
 .rest-options {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 0.75rem;
   margin-bottom: 1rem;
 }
@@ -1337,6 +1337,33 @@ kbd {
   font-family: 'Cinzel', serif;
 }
 .btn-remove-card:hover { background: #5a1a1a; }
+.btn-forge-card {
+  background: #1a2a15;
+  border: 1px solid #4a7a1a;
+  color: #88cc44;
+  font-size: 0.68rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: 'Cinzel', serif;
+  flex-shrink: 0;
+}
+.btn-forge-card:hover { background: #253a1a; }
+.rest-forge-preview {
+  font-size: 0.65rem;
+  color: #88cc44;
+  flex: 1;
+  text-align: right;
+  padding-right: 0.4rem;
+  opacity: 0.85;
+}
+.forged-badge {
+  display: inline-block;
+  font-size: 0.6rem;
+  color: #88cc44;
+  vertical-align: super;
+  margin-left: 2px;
+}
 .rest-cancel-btn { margin-top: 0.5rem; font-size: 0.75rem; padding: 0.35rem 1rem; }
 .rest-leave-btn { width: 100%; margin-top: 0.25rem; }
 .rest-empty { color: var(--text-dim); font-size: 0.8rem; text-align: center; padding: 0.5rem; }
@@ -1347,7 +1374,7 @@ kbd {
   #game-layout { flex-direction: column; }
   #map-area { flex: 1; }
   .node-choices { grid-template-columns: 1fr; }
-  .rest-options { grid-template-columns: 1fr; }
+  .rest-options { grid-template-columns: 1fr 1fr; }
   .summary-stats { grid-template-columns: repeat(2, 1fr); }
 }
 

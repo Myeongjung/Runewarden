@@ -124,6 +124,7 @@ export function renderHand() {
     const isKo = i18n.lang === 'ko';
     const cName = isKo ? (card.nameKo || card.name) : card.name;
     const cDesc = isKo ? (card.descKo || card.desc) : card.desc;
+    const forgedBadge = card.forged ? ' <span class="forged-badge">⬆</span>' : '';
 
     const _cm = state.challengeMods;
     let isBanned = false;
@@ -145,7 +146,7 @@ export function renderHand() {
 
     el.innerHTML = `
       <div class="card-header">
-        <span class="card-name">${card.icon} ${cName}</span>
+        <span class="card-name">${card.icon} ${cName}${forgedBadge}</span>
         <span class="card-cost">${isCurse ? '—' : (effectiveCost > 0 ? effectiveCost + 'g' : i18n.t('free').toUpperCase())}</span>
       </div>
       <div class="card-type-badge">${i18n.t('card_type_' + card.type) ?? card.type}${surcharge && !isCurse ? ' (' + i18n.t('card_surcharge_label') + ')' : ''}${isBanned ? ' 🚫' : ''}</div>

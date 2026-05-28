@@ -390,6 +390,7 @@ function startRun() {
   restUI = new RestUI($('screen-rest'), {
     onRemoveCard: onRestRemoveCard,
     onGoldBonus:  onRestGoldBonus,
+    onForgeCard:  onRestForgeCard,
     onClose:      onNodeClose,
     onLog:        (msg, cls) => log(msg, cls),
   });
@@ -1023,6 +1024,29 @@ function onRestRemoveCard(uid) {
 
 function onRestGoldBonus(amount) {
   addGold(amount, null);
+}
+
+function onRestForgeCard(uid) {
+  const fmult = (m) => m >= 1 ? 1 + (m - 1) * 1.25 : 1 - (1 - m) * 1.25;
+  for (const pile of [cardSystem.drawPile, cardSystem.discardPile]) {
+    const card = pile.find(c => c.uid === uid);
+    if (!card) continue;
+    card.forged = true;
+    if (card.type === 'summon') {
+      card.cost = Math.max(1, card.cost - 1);
+    } else if (card.type === 'spell') {
+      card.cost = Math.max(0, card.cost - 1);
+    } else if (card.type === 'augment') {
+      card.cost = Math.max(1, card.cost - 1);
+      if (card.effect?.stats) {
+        card.effect = { ...card.effect, stats: card.effect.stats.map(s => ({ ...s, mult: fmult(s.mult) })) };
+      } else if (card.effect?.stat) {
+        card.effect = { ...card.effect, mult: fmult(card.effect.mult) };
+      }
+    }
+    break;
+  }
+  updateHUD();
 }
 
 // ── 저주 카드 처리 (드로우 후) ────────────────────────

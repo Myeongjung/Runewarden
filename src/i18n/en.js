@@ -215,6 +215,13 @@ const _BASE_EN = {
   rest_leave:          'Leave →',
   rest_deck_empty:     'Deck is empty!',
   rest_scavenged:      (g) => `Scavenged the area. +${g} gold.`,
+  rest_forge:          'Forge',
+  rest_forge_desc:     'Permanently enhance one card in your deck (free).',
+  rest_forge_choose:   'Choose a card to forge:',
+  rest_forge_empty:    'No forgeable cards in deck.',
+  rest_forge_cost:     'Cost',
+  rest_forge_btn:      'Forge',
+  rest_forged:         (name) => `Forged ${name}!`,
   card_btn_remove:     'Remove',
   event_log:           (title, label) => `[${title}] ${label}`,
 
