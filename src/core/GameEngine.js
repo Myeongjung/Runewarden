@@ -41,7 +41,7 @@ const MAX_WAVES_DLC2  = 31;  // + Act 5(8) — DLC Solar Dominion
 const ACT_SIZE    = 5;   // 액트당 웨이브 수
 const NEXUS_HP    = 3;
 const START_GOLD  = 25;
-const WAVE_GOLD   = 8;
+const WAVE_GOLD   = 6;
 const BOSS_WAVES_BASE = new Set([5, 10, 15]);
 const BOSS_WAVES_DLC  = new Set([5, 10, 15, 23]);       // DLC1 보스 웨이브
 const BOSS_WAVES_DLC2 = new Set([5, 10, 15, 23, 31]);   // DLC2 보스 웨이브 (Solar Titan: W28도 특수)
@@ -1290,6 +1290,12 @@ function onNodeClose() {
 function onShopBuy(card) {
   if (card._rerollCost) {
     spendGold(card._rerollCost);
+    shopUI.updateGold(state.gold);
+    audio.play('shop_reroll');
+    return;
+  }
+  if (card._refreshCost) {
+    spendGold(card._refreshCost);
     shopUI.updateGold(state.gold);
     audio.play('shop_reroll');
     return;

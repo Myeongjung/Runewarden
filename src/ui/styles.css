@@ -3089,3 +3089,7 @@ kbd {
   z-index: 9999;
 }
 [data-tooltip]:hover::after { opacity: 1; }
+
+/* Shop Refresh All button */
+.shop-refresh-btn { font-size: 12px; padding: 4px 8px; border-radius: 4px; background: #446; color: #ccc; border: 1px solid rgba(255,255,255,0.15); cursor: pointer; }
+.shop-refresh-btn:disabled { opacity: 0.45; cursor: default; }

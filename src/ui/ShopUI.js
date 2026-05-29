@@ -50,6 +50,7 @@ export class ShopUI {
             ${i18n.t('shop_reroll')} <span id="reroll-cost">(2g)</span>
             <span id="reroll-remaining" class="reroll-remain"></span>
           </button>
+          <button id="shop-refresh-all" class="btn-secondary shop-refresh-btn">🔄 12g</button>
           <button id="shop-leave" class="btn-primary shop-leave-btn">
             ${i18n.t('shop_leave')}
           </button>
@@ -62,6 +63,7 @@ export class ShopUI {
 
     this.container.querySelector('#shop-buy-xp').addEventListener('click', () => this._buyXp());
     this.container.querySelector('#shop-reroll').addEventListener('click', () => this._reroll());
+    this.container.querySelector('#shop-refresh-all').addEventListener('click', () => this._refreshAll());
     this.container.querySelector('#shop-leave').addEventListener('click', () => this.onLeave());
   }
 
@@ -84,6 +86,7 @@ export class ShopUI {
     this._refreshRerollBtn();
     this._renderUpgrades();
     this._refreshXpBtn();
+    this._refreshRefreshBtn();
 
     // 입장 애니메이션
     const box = this.container.querySelector('.shop-box');
@@ -104,6 +107,7 @@ export class ShopUI {
     this._refreshCardAffordability();
     this._renderUpgrades();
     this._refreshXpBtn();
+    this._refreshRefreshBtn();
   }
 
   // ── 카드 진열 ─────────────────────────────────────
@@ -144,11 +148,18 @@ export class ShopUI {
     const _plevel     = shared.state?.playerLevel ?? 1;
     const _commonOnly = this._challengeMods?.maxCardRarity === 'common';
     const regularSize = (this._waveNum >= 16 && size >= 4 && !_commonOnly) ? size - 1 : size;
+    // 레벨별 첫 슬롯 보장 등급 (common_only 챌린지 제외)
+    const _guaranteedRarity = (!_commonOnly && _plevel >= 6) ? 'rare'
+      : (!_commonOnly && _plevel >= 4) ? 'uncommon' : null;
+
     for (let i = 0; i < regularSize && pool.length > 0; i++) {
       let card;
       let targetRarity;
       if (_commonOnly) {
         targetRarity = 'common';
+      } else if (i === 0 && _guaranteedRarity) {
+        // 첫 슬롯: 레벨 보장 (Lv4+: uncommon, Lv6+: rare)
+        targetRarity = _guaranteedRarity;
       } else {
         targetRarity = weightedPickRarity(_plevel);
       }
@@ -288,6 +299,24 @@ export class ShopUI {
   _nextRerollCost() {
     if (this._rerolls === 0) return 2;
     return Math.min(2 * this._rerolls + 1, 10);
+  }
+
+  _refreshAll() {
+    const REFRESH_COST = 12;
+    if (this._gold < REFRESH_COST) return;
+    if (this._challengeMods?.noReroll) return;
+    // onBuy → onShopBuy → spendGold → updateGold() 순서로 골드 차감
+    this.onBuy({ _refreshCost: REFRESH_COST });
+    this._offer(); // 상점 전체 교체
+    this._refreshRefreshBtn();
+  }
+
+  _refreshRefreshBtn() {
+    const btn = this.container.querySelector('#shop-refresh-all');
+    if (!btn) return;
+    const disabled = this._gold < 12 || this._challengeMods?.noReroll;
+    btn.disabled = disabled;
+    btn.style.opacity = disabled ? '0.45' : '1';
   }
 
   _buyXp() {
