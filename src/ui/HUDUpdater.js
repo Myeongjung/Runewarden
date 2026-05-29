@@ -7,6 +7,7 @@ import { i18n }   from '../i18n/i18n.js';
 import { PASSIVES } from '../data/wardens.js';
 import { TOWER_DEFS } from '../data/towers.js';
 import { MAX_RANK } from '../systems/MetaSystem.js';
+import { MAX_PLAYER_LEVEL, XP_THRESHOLDS } from '../systems/PlayerLevelSystem.js';
 import { ACT_SIZE } from '../config/constants.js';
 
 const $ = id => document.getElementById(id);
@@ -95,6 +96,16 @@ export function updateHUD() {
     'nexus-critical',
     state.nexusHp === 1 && state.phase !== 'over'
   );
+
+  const lvEl = $('hud-player-level');
+  const xpEl = $('hud-player-xp');
+  if (lvEl && state?.playerLevel !== undefined) {
+    const atMax = state.playerLevel >= MAX_PLAYER_LEVEL;
+    lvEl.textContent = atMax ? `${MAX_PLAYER_LEVEL} MAX` : state.playerLevel;
+    xpEl.textContent = atMax
+      ? '—'
+      : `${state.playerXP}/${XP_THRESHOLDS[state.playerLevel - 1]}`;
+  }
 
   renderHand();
 }

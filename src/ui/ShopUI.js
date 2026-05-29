@@ -1,6 +1,8 @@
 // 웨이브 간 상점 UI
 import { CARD_DEFS } from '../data/cards.js';
 import { i18n } from '../i18n/i18n.js';
+import { weightedPickRarity, MAX_PLAYER_LEVEL } from '../systems/PlayerLevelSystem.js';
+import { shared } from '../core/GameState.js';
 
 const SHOP_SIZE    = 3;   // 카드 슬롯 수
 const REROLL_COST  = 2;
@@ -43,6 +45,7 @@ export class ShopUI {
 
         <div id="shop-upgrade" class="shop-upgrade"></div>
         <div class="shop-footer">
+          <button id="shop-buy-xp" class="btn-secondary shop-xp-btn"></button>
           <button id="shop-reroll" class="btn-reroll">
             ${i18n.t('shop_reroll')} <span id="reroll-cost">(2g)</span>
             <span id="reroll-remaining" class="reroll-remain"></span>
@@ -57,6 +60,7 @@ export class ShopUI {
       </div>
     `;
 
+    this.container.querySelector('#shop-buy-xp').addEventListener('click', () => this._buyXp());
     this.container.querySelector('#shop-reroll').addEventListener('click', () => this._reroll());
     this.container.querySelector('#shop-leave').addEventListener('click', () => this.onLeave());
   }
@@ -79,6 +83,7 @@ export class ShopUI {
     this._refreshGold();
     this._refreshRerollBtn();
     this._renderUpgrades();
+    this._refreshXpBtn();
 
     // 입장 애니메이션
     const box = this.container.querySelector('.shop-box');
@@ -98,6 +103,7 @@ export class ShopUI {
     this._refreshGold();
     this._refreshCardAffordability();
     this._renderUpgrades();
+    this._refreshXpBtn();
   }
 
   // ── 카드 진열 ─────────────────────────────────────
@@ -135,21 +141,29 @@ export class ShopUI {
     this._offered = [];
     const used = new Set();
     // Wave 16+: 마지막 슬롯은 Elite(레어) 전용으로 예약 — 기존 슬롯은 size-1개
-    const regularSize = (this._waveNum >= 16 && size >= 4) ? size - 1 : size;
+    const _plevel     = shared.state?.playerLevel ?? 1;
+    const _commonOnly = this._challengeMods?.maxCardRarity === 'common';
+    const regularSize = (this._waveNum >= 16 && size >= 4 && !_commonOnly) ? size - 1 : size;
     for (let i = 0; i < regularSize && pool.length > 0; i++) {
-      // 같은 카드 ID 중복 방지
-      let idx, card, tries = 0;
-      do {
-        idx  = Math.floor(Math.random() * pool.length);
-        card = pool[idx];
-        tries++;
-      } while (used.has(card.id) && tries < 20);
+      let card;
+      let targetRarity;
+      if (_commonOnly) {
+        targetRarity = 'common';
+      } else {
+        targetRarity = weightedPickRarity(_plevel);
+      }
+      // targetRarity 풀에서 선택, 없으면 전체 풀로 폴백
+      const rarityPool = pool.filter(c => c.rarity === targetRarity && !used.has(c.id));
+      const pickPool   = rarityPool.length > 0 ? rarityPool : pool.filter(c => !used.has(c.id));
+      if (pickPool.length === 0) break;
+      card = pickPool[Math.floor(Math.random() * pickPool.length)];
+      if (!card) break;
       used.add(card.id);
-      pool.splice(idx, 1);
+      pool.splice(pool.indexOf(card), 1);
       this._offered.push({ ...card, uid: Math.random() });
     }
     // Wave 16+ Elite 슬롯: rare 카드 1장, 비용 +7g (최소 12g)
-    if (this._waveNum >= 16 && size >= 4) {
+    if (this._waveNum >= 16 && size >= 4 && !_commonOnly) {
       const rarePool = CARD_DEFS.filter(c => c.rarity === 'rare' && !used.has(c.id));
       if (rarePool.length > 0) {
         const pick = rarePool[Math.floor(Math.random() * rarePool.length)];
@@ -263,6 +277,7 @@ export class ShopUI {
     btn.disabled = this._gold < cost;
     const costSpan = this.container.querySelector('#reroll-cost');
     if (costSpan) costSpan.textContent = `(${cost}g)`;
+    this._refreshXpBtn();
   }
 
   _refreshCardAffordability() {
@@ -272,6 +287,27 @@ export class ShopUI {
   _nextRerollCost() {
     if (this._rerolls === 0) return 2;
     return Math.min(2 * this._rerolls + 1, 10);
+  }
+
+  _buyXp() {
+    const cost     = 5;
+    const xpAmount = 10;
+    if (this._gold < cost) return;
+    // onBuy → onShopBuy → spendGold → shopUI.updateGold(state.gold) 순서로 실행됨
+    // updateGold()가 this._gold를 state.gold로 재설정하므로 여기서 차감 금지
+    this.onBuy({ _xpPurchase: true, cost, xpAmount });
+    this._refreshXpBtn();
+  }
+
+  _refreshXpBtn() {
+    const btn = this.container.querySelector('#shop-buy-xp');
+    if (!btn) return;
+    const level = shared.state?.playerLevel ?? 1;
+    const atMax = level >= MAX_PLAYER_LEVEL;
+    btn.disabled = this._gold < 5 || atMax;
+    btn.textContent = atMax
+      ? i18n.t('shop_xp_max')
+      : i18n.t('shop_buy_xp', 10, 5);
   }
 
   _renderUpgrades() {

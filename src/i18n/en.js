@@ -821,6 +821,14 @@ const _BASE_EN = {
   shop_tower_max_star:    'MAX ★★★',
   tower_star_upgraded:    '{0} upgraded to {1}★!',
   shop_next_reroll_cost:  'Next reroll: {0}g',
+
+  // ── 플레이어 레벨 시스템 ──────────────────────────────
+  hud_level:          'LV',
+  hud_xp:             'XP',
+  log_level_up:       'Level Up! Player Lv{0}',
+  log_xp_purchased:   '+{0} XP purchased. (Total: {1})',
+  shop_buy_xp:        '+{0} XP ({1}g)',
+  shop_xp_max:        'XP MAX',
 };
 
 // DLC 번역 병합

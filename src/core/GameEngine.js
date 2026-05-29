@@ -30,6 +30,7 @@ import { shared } from './GameState.js';
 import { updateHUD, renderHand, onBossUpdate, updateShadowChargeHUD, showClearBanner, showAmbushBanner, updateMenuRank } from '../ui/HUDUpdater.js';
 import { showScreen, openWardenSelect, openDifficultySelect, openCodex, openDeckView } from '../ui/UIOrchestrator.js';
 import { registerDLC, hasDLC, clearDLCs } from '../systems/DLCRegistry.js';
+import { MAX_PLAYER_LEVEL, getWaveXpGrant, getLevelFromXp, XP_THRESHOLDS } from '../systems/PlayerLevelSystem.js';
 
 function rangeToPixel(hexRange) { return hexRange * HEX_W * 0.75; }
 
@@ -168,7 +169,7 @@ function saveCheckpoint() {
       augments: t.augments.map(a => JSON.parse(JSON.stringify(a))),
     }));
     const cp = {
-      v: 3, ts: Date.now(),
+      v: 4, ts: Date.now(),
       wardenId: state.warden.id,
       diffId:   state.difficulty.id,
       mapId:    state.mapId,
@@ -179,6 +180,8 @@ function saveCheckpoint() {
       gold:     state.gold,
       nexusHp:  state.nexusHp,
       maxNexusHp: state.maxNexusHp,
+      playerLevel: state.playerLevel,
+      playerXP:    state.playerXP,
       relicIds: state.relics.map(r => r.id),
       deck, towers,
       handIds: cardSystem.hand.map(c => c.id),
@@ -204,11 +207,19 @@ function _restoreFromSave(save) {
     save.towers.forEach(t => { t.starLevel = t.starLevel ?? 1; });
     console.info('[AutoSave] v2 migrated: starLevel=1 injected for all towers');
   }
+  // v3→v4 마이그레이션: playerLevel/XP 없는 세이브에 기본값 주입
+  if (save.v === 3) {
+    save.playerLevel = 1;
+    save.playerXP    = 0;
+    console.info('[AutoSave] v3 migrated: playerLevel=1, playerXP=0 injected');
+  }
   try {
     state.wave       = Math.max(0, Math.min(shared.maxWaves, save.wave));
     state.gold       = Math.max(0, save.gold);
     state.nexusHp    = Math.max(1, Math.min(save.maxNexusHp ?? save.nexusHp, save.nexusHp));
     state.maxNexusHp = Math.max(1, save.maxNexusHp ?? state.maxNexusHp);
+    state.playerLevel = Math.min(MAX_PLAYER_LEVEL, Math.max(1, save.playerLevel ?? 1));
+    state.playerXP    = Math.max(0, save.playerXP ?? 0);
     state.stats = { ...save.stats, towerTypesUsed: new Set(save.stats.towerTypesUsed) };
 
     // 유물 복원
@@ -331,6 +342,8 @@ function startRun() {
     challenges:     [...shared.selectedChallenges],
     challengeMods,
     ascMods,                     // 누적 핸디캡 mods
+    playerLevel: 1,
+    playerXP:    0,
     phase:       'pre',
     selectedCard: null,
     selectedTower: null,
@@ -990,6 +1003,17 @@ function onWaveCleared() {
     return;
   }
 
+  // 런 내 플레이어 XP 지급
+  const _waveXp   = getWaveXpGrant(state.wave);
+  state.playerXP += _waveXp;
+  const _newLevel  = getLevelFromXp(state.playerXP);
+  if (_newLevel > state.playerLevel) {
+    state.playerLevel = _newLevel;
+    log(i18n.t('log_level_up', state.playerLevel), 'gold');
+    audio.play('shop_buy');
+  }
+  updateHUD();
+
   // 웨이브 클리어 체크포인트 저장
   saveCheckpoint();
 
@@ -1268,6 +1292,21 @@ function onShopBuy(card) {
     spendGold(card._rerollCost);
     shopUI.updateGold(state.gold);
     audio.play('shop_reroll');
+    return;
+  }
+  if (card._xpPurchase) {
+    spendGold(card.cost);
+    state.playerXP += card.xpAmount;
+    const newLevel = getLevelFromXp(state.playerXP);
+    if (newLevel > state.playerLevel) {
+      state.playerLevel = newLevel;
+      log(i18n.t('log_level_up', state.playerLevel), 'gold');
+      audio.play('shop_buy');
+    }
+    shopUI.updateGold(state.gold);
+    shopUI._refreshXpBtn?.();
+    updateHUD();
+    log(i18n.t('log_xp_purchased', card.xpAmount, state.playerXP), 'gold');
     return;
   }
   spendGold(card.cost);
