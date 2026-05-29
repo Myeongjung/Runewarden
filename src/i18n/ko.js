@@ -817,7 +817,7 @@ const _BASE_KO = {
 
   shop_rerolled_cost:     (cost) => `${cost}골드로 리롤했습니다`,
   shop_upgrade_tower:     '타워 성급 업그레이드',
-  shop_tower_upgrade_btn: (cost) => `↑ ${cost}골드`,
+  shop_tower_upgrade_btn: (cost) => `↑ ${cost}골드 (공격력+1.5배)`,
   shop_tower_max_star:    '최대 ★★★',
   tower_star_upgraded:    (name, lv) => `${name} ${lv}★으로 성급 향상!`,
   shop_next_reroll_cost:  (cost) => `다음 리롤: ${cost}골드`,

@@ -395,7 +395,7 @@ export class ShopUI {
       const nextMult = isMax ? '' : (t.starLevel === 1 ? ' ×1.4' : ' ×1.6');
       btn.textContent = isMax
         ? i18n.t('shop_tower_max_star')
-        : `${i18n.t('shop_tower_upgrade_btn', cost)}${nextMult}`;
+        : i18n.t('shop_tower_upgrade_btn', cost);
 
       const label = document.createElement('span');
       label.className = 'shop-upgrade-name';

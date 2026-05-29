@@ -817,7 +817,7 @@ const _BASE_EN = {
 
   shop_rerolled_cost:     (cost) => `Rerolled for ${cost}g`,
   shop_upgrade_tower:     'Upgrade Towers',
-  shop_tower_upgrade_btn: (cost) => `↑ ${cost}g`,
+  shop_tower_upgrade_btn: (cost) => `↑ ${cost}g (DMG+50%)`,
   shop_tower_max_star:    'MAX ★★★',
   tower_star_upgraded:    (name, lv) => `${name} upgraded to ${lv}★!`,
   shop_next_reroll_cost:  (cost) => `Next reroll: ${cost}g`,
