@@ -375,6 +375,7 @@ export class TowerSystem {
         const ix = curr ? curr.x : ex;
         const iy = curr ? curr.y : ey;
         this._spawnSplashRing(ix, iy, splashPx, '#DAA520');
+        audio.play('cannon_explode');
         const inSplash = this.enemySystem.getEnemiesInRange(ix, iy, splashPx);
         const stunDur  = (tower.def.stunDuration ?? 400) + this._crusaderStunBonus;
         const towerId  = `${tower.col ?? 0},${tower.row ?? 0}`;

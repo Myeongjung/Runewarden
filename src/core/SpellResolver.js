@@ -248,7 +248,7 @@ const BASE_HANDLERS = {
 
   void_pulse(effect, { enemySystem, log, i18n, audio }) {
     const sorted = [...enemySystem.enemies]
-      .sort((a, b) => (b.pathProgress ?? 0) - (a.pathProgress ?? 0))
+      .sort((a, b) => (b.waypointIndex ?? 0) - (a.waypointIndex ?? 0))
       .slice(0, effect.count ?? 3);
     for (const e of sorted) {
       enemySystem.pushBack(e.id, effect.steps ?? 3);

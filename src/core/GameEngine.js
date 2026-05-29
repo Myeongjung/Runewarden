@@ -195,7 +195,7 @@ function _restoreFromSave(save) {
     console.warn('[AutoSave] Invalid save — missing:', missing);
     log('⚠️ 저장 데이터 손상 — 이전 체크포인트를 사용할 수 없습니다.', 'bad');
     localStorage.removeItem('rw_autosave');
-    setTimeout(() => _openRelicPicker(), 600);
+    _waveClearedTimer = setTimeout(() => _openRelicPicker(), 600);
     return;
   }
   try {
@@ -713,7 +713,7 @@ function startTutorial() {
       tutorial = null;
       log(i18n.t('log_tutorial_done'), 'good');
       // 튜토리얼 완료 후 유물 선택
-      setTimeout(() => _openRelicPicker(), 800);
+      _waveClearedTimer = setTimeout(() => _openRelicPicker(), 800);
     },
     onStepChange: (stepId) => {
       // 특정 스텝에서 게임 상태 힌트
@@ -1316,7 +1316,7 @@ function onEnemyReachEnd({ type: enemyType, displayName, isBoss = false } = {}) 
   if (hasRelic('thorn_wall') && enemySystem) {
     const thornEffect = getRelicEffect('thorn_wall');
     const thornDmg = Math.round(thornEffect.damage * (state._synergyIronCitadel ?? 1));
-    const hit = enemySystem.dealDamageToLead(thornDmg);
+    const hit = enemySystem.dealDamageToLead(thornDmg, null, true);
     if (hit) log(i18n.t('log_thorn_wall', thornDmg), 'good');
   }
 

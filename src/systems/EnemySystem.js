@@ -973,7 +973,7 @@ export class EnemySystem {
           e.bodyEl.setAttribute('stroke', '#FF8C00');
           e.bodyEl.setAttribute('stroke-width', '2.5');
           e.bodyEl.classList.add('enrage-imminent');
-        } else if (!e.enraged) {
+        } else {
           e.bodyEl.setAttribute('stroke', 'none');
           e.bodyEl.classList.remove('enrage-imminent');
         }
