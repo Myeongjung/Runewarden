@@ -1294,10 +1294,9 @@ function onShopBuy(card) {
     audio.play('shop_reroll');
     return;
   }
-  if (card._refreshCost) {
-    spendGold(card._refreshCost);
+  if (card._addCardCost) {
+    spendGold(card._addCardCost);
     shopUI.updateGold(state.gold);
-    audio.play('shop_reroll');
     return;
   }
   if (card._xpPurchase) {

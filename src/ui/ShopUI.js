@@ -50,7 +50,7 @@ export class ShopUI {
             ${i18n.t('shop_reroll')} <span id="reroll-cost">(2g)</span>
             <span id="reroll-remaining" class="reroll-remain"></span>
           </button>
-          <button id="shop-refresh-all" class="btn-secondary shop-refresh-btn">🔄 12g</button>
+          <button id="shop-add-card" class="btn-secondary shop-addcard-btn">＋1 8g</button>
           <button id="shop-leave" class="btn-primary shop-leave-btn">
             ${i18n.t('shop_leave')}
           </button>
@@ -63,7 +63,7 @@ export class ShopUI {
 
     this.container.querySelector('#shop-buy-xp').addEventListener('click', () => this._buyXp());
     this.container.querySelector('#shop-reroll').addEventListener('click', () => this._reroll());
-    this.container.querySelector('#shop-refresh-all').addEventListener('click', () => this._refreshAll());
+    this.container.querySelector('#shop-add-card').addEventListener('click', () => this._addCard());
     this.container.querySelector('#shop-leave').addEventListener('click', () => this.onLeave());
   }
 
@@ -86,7 +86,7 @@ export class ShopUI {
     this._refreshRerollBtn();
     this._renderUpgrades();
     this._refreshXpBtn();
-    this._refreshRefreshBtn();
+    this._refreshAddCardBtn();
 
     // 입장 애니메이션
     const box = this.container.querySelector('.shop-box');
@@ -107,7 +107,7 @@ export class ShopUI {
     this._refreshCardAffordability();
     this._renderUpgrades();
     this._refreshXpBtn();
-    this._refreshRefreshBtn();
+    this._refreshAddCardBtn();
   }
 
   // ── 카드 진열 ─────────────────────────────────────
@@ -301,22 +301,41 @@ export class ShopUI {
     return Math.min(2 * this._rerolls + 1, 10);
   }
 
-  _refreshAll() {
-    const REFRESH_COST = 12;
-    if (this._gold < REFRESH_COST) return;
-    if (this._challengeMods?.noReroll) return;
-    // onBuy → onShopBuy → spendGold → updateGold() 순서로 골드 차감
-    this.onBuy({ _refreshCost: REFRESH_COST });
-    this._offer(); // 상점 전체 교체
-    this._refreshRefreshBtn();
+  _addCard() {
+    const ADD_COST = 8;
+    if (this._gold < ADD_COST) return;
+    const usedIds = new Set(this._offered.map(c => c.id));
+    const _plevel = shared.state?.playerLevel ?? 1;
+    const _commonOnly = this._challengeMods?.maxCardRarity === 'common';
+
+    let pool = this._unlockedIds
+      ? CARD_DEFS.filter(c => {
+          const aU = this._unlockedIds.includes('__all_uncommon__');
+          const aR = this._unlockedIds.includes('__all_rare__');
+          return this._unlockedIds.includes(c.id) || (aU && c.rarity === 'uncommon') || (aR && c.rarity === 'rare');
+        })
+      : [...CARD_DEFS];
+    if (_commonOnly) pool = pool.filter(c => c.rarity === 'common');
+    const available = pool.filter(c => !usedIds.has(c.id));
+    if (available.length === 0) return;
+
+    const targetRarity = _commonOnly ? 'common' : weightedPickRarity(_plevel);
+    const candidates = available.filter(c => c.rarity === targetRarity);
+    const pick = candidates.length > 0
+      ? candidates[Math.floor(Math.random() * candidates.length)]
+      : available[Math.floor(Math.random() * available.length)];
+
+    this.onBuy({ _addCardCost: ADD_COST });
+    this._offered.push({ ...pick, uid: Math.random() });
+    this._renderCards();
+    this._refreshAddCardBtn();
   }
 
-  _refreshRefreshBtn() {
-    const btn = this.container.querySelector('#shop-refresh-all');
+  _refreshAddCardBtn() {
+    const btn = this.container.querySelector('#shop-add-card');
     if (!btn) return;
-    const disabled = this._gold < 12 || this._challengeMods?.noReroll;
-    btn.disabled = disabled;
-    btn.style.opacity = disabled ? '0.45' : '1';
+    btn.disabled = this._gold < 8;
+    btn.style.opacity = this._gold < 8 ? '0.45' : '1';
   }
 
   _buyXp() {

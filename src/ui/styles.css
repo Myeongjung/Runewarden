@@ -3091,5 +3091,14 @@ kbd {
 [data-tooltip]:hover::after { opacity: 1; }
 
 /* Shop Refresh All button */
-.shop-refresh-btn { font-size: 12px; padding: 4px 8px; border-radius: 4px; background: #446; color: #ccc; border: 1px solid rgba(255,255,255,0.15); cursor: pointer; }
-.shop-refresh-btn:disabled { opacity: 0.45; cursor: default; }
+.shop-addcard-btn { font-size: 12px; padding: 4px 8px; border-radius: 4px; background: #446; color: #ccc; border: 1px solid rgba(255,255,255,0.15); cursor: pointer; }
+.shop-addcard-btn:disabled { opacity: 0.45; cursor: default; }
+
+/* Relic HUD icon tooltip: 우측 패널 내부라 왼쪽으로 표시 */
+.relic-hud-icon[data-tooltip]::after {
+  left: auto;
+  right: calc(100% + 8px);
+  margin-left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+}

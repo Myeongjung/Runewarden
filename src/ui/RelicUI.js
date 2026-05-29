@@ -97,7 +97,7 @@ export class RelicUI {
       const desc = i18n.t('relic_' + r.id + '_desc');
       const glowClass = synergyRelicIds.has(r.id) ? ' relic-synergy-active' : '';
       return `
-        <div class="relic-hud-icon${glowClass}" data-rarity="${r.rarity}" title="${name}: ${desc}">
+        <div class="relic-hud-icon${glowClass}" data-rarity="${r.rarity}" data-tooltip="${name}: ${desc}">
           ${r.icon}
         </div>
       `;
