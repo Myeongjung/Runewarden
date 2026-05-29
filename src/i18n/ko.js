@@ -815,19 +815,19 @@ const _BASE_KO = {
     },
   ],
 
-  shop_rerolled_cost:     '{0}골드로 리롤했습니다',
+  shop_rerolled_cost:     (cost) => `${cost}골드로 리롤했습니다`,
   shop_upgrade_tower:     '타워 성급 업그레이드',
-  shop_tower_upgrade_btn: '↑ {0}골드',
+  shop_tower_upgrade_btn: (cost) => `↑ ${cost}골드`,
   shop_tower_max_star:    '최대 ★★★',
-  tower_star_upgraded:    '{0} {1}★으로 성급 향상!',
-  shop_next_reroll_cost:  '다음 리롤: {0}골드',
+  tower_star_upgraded:    (name, lv) => `${name} ${lv}★으로 성급 향상!`,
+  shop_next_reroll_cost:  (cost) => `다음 리롤: ${cost}골드`,
 
   // ── 플레이어 레벨 시스템 ──────────────────────────────
   hud_level:          '레벨',
   hud_xp:             '경험치',
-  log_level_up:       '레벨 업! 플레이어 Lv{0}',
-  log_xp_purchased:   'XP +{0} 구매. (누적: {1})',
-  shop_buy_xp:        'XP +{0} ({1}g)',
+  log_level_up:       (lv) => `레벨 업! 플레이어 Lv${lv}`,
+  log_xp_purchased:   (amt, total) => `XP +${amt} 구매. (누적: ${total})`,
+  shop_buy_xp:        (amt, cost) => `XP +${amt} (${cost}g)`,
   shop_xp_max:        'XP 최대',
 };
 

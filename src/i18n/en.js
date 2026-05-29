@@ -815,19 +815,19 @@ const _BASE_EN = {
     },
   ],
 
-  shop_rerolled_cost:     'Rerolled for {0}g',
+  shop_rerolled_cost:     (cost) => `Rerolled for ${cost}g`,
   shop_upgrade_tower:     'Upgrade Towers',
-  shop_tower_upgrade_btn: '↑ {0}g',
+  shop_tower_upgrade_btn: (cost) => `↑ ${cost}g`,
   shop_tower_max_star:    'MAX ★★★',
-  tower_star_upgraded:    '{0} upgraded to {1}★!',
-  shop_next_reroll_cost:  'Next reroll: {0}g',
+  tower_star_upgraded:    (name, lv) => `${name} upgraded to ${lv}★!`,
+  shop_next_reroll_cost:  (cost) => `Next reroll: ${cost}g`,
 
   // ── 플레이어 레벨 시스템 ──────────────────────────────
   hud_level:          'LV',
   hud_xp:             'XP',
-  log_level_up:       'Level Up! Player Lv{0}',
-  log_xp_purchased:   '+{0} XP purchased. (Total: {1})',
-  shop_buy_xp:        '+{0} XP ({1}g)',
+  log_level_up:       (lv) => `Level Up! Player Lv${lv}`,
+  log_xp_purchased:   (amt, total) => `+${amt} XP purchased. (Total: ${total})`,
+  shop_buy_xp:        (amt, cost) => `+${amt} XP (${cost}g)`,
   shop_xp_max:        'XP MAX',
 };
 
