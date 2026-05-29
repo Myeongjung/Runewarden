@@ -34,7 +34,9 @@ class I18n {
       console.warn(`[i18n] Missing key "${key}" in lang "${this._lang}"`);
       return key;
     }
-    return typeof val === 'function' ? val(...args) : val;
+    if (typeof val === 'function') return val(...args);
+    if (args.length > 0) return val.replace(/\{(\d+)\}/g, (_, i) => args[+i] ?? '');
+    return val;
   }
 
   /** 언어 전환 */

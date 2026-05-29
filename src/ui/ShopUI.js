@@ -286,7 +286,17 @@ export class ShopUI {
     title.textContent = i18n.t('shop_upgrade_tower');
     panel.appendChild(title);
 
+    // 같은 종류+등급 타워를 묶어서 표시
+    const groupMap = new Map();
     for (const t of this._placedTowers) {
+      const key = `${t.def.id}-${t.starLevel}`;
+      if (!groupMap.has(key)) groupMap.set(key, []);
+      groupMap.get(key).push(t);
+    }
+
+    for (const towers of groupMap.values()) {
+      const t      = towers[0];
+      const count  = towers.length;
       const isMax  = t.starLevel >= 3;
       const cost   = t.starLevel * 5;
       const name   = i18n.lang === 'ko' ? (t.def.nameKo ?? t.def.name) : t.def.name;
@@ -304,13 +314,15 @@ export class ShopUI {
 
       const label = document.createElement('span');
       label.className = 'shop-upgrade-name';
-      label.textContent = `${name} ${starStr}`;
+      label.textContent = count > 1
+        ? `${name} ${starStr} ×${count}`
+        : `${name} ${starStr}`;
 
       if (!isMax) {
         btn.addEventListener('click', () => {
           if (this.onUpgradeTower?.(t.col, t.row, cost)) {
             t.starLevel++;
-            this._renderUpgrades(); // 즉시 재렌더
+            this._renderUpgrades();
           }
         });
       }
