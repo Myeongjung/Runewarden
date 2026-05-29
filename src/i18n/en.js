@@ -80,8 +80,9 @@ const _BASE_EN = {
   pause_title:    '⚙️ Paused',
   btn_resume:     '▶ Resume',
   btn_how_pause:  '📖 How to Play',
-  btn_quit_menu:  '✕ Quit to Menu',
-  vol_label:      '🔊 Volume',
+  btn_quit_menu:          '✕ Quit to Menu',
+  input_method_notice:    'Keyboard & Mouse Only — No controller support',
+  vol_label:              '🔊 Volume',
 
   // ── 챌린지 ────────────────────────────────────────────
   challenge_section_title: '⚔️ Challenges (Optional)',
@@ -564,6 +565,14 @@ const _BASE_EN = {
   tut_hint_select:   'Tutorial: Select an Archer Tower card from your hand.',
   tut_hint_place:    'Tutorial: Click a green cell near the path.',
   tut_hint_wave:     'Tutorial: Click Start Wave when ready!',
+
+  hint_shop_title:   '🏪 Shop Guide',
+  hint_shop_text:    'Spend gold to add cards to your deck.\n[C] Common · [U] Uncommon · [R] Rare — higher rarity means more power.\nReroll (R key or 🎲) to see new cards (2g each).',
+  hint_augment_title:'⬆️ Augment Cards',
+  hint_augment_text: 'Augment cards power up existing towers!\nSelect an Augment card, then click a placed tower to apply it.\nEach tower can receive multiple augments.',
+  hint_camo_title:   '⚠️ Camo Enemies Incoming!',
+  hint_camo_text:    'Phantoms are CAMOUFLAGED — normal towers can\'t detect them!\n• Place a Marksman tower to reveal camo enemies\n• The Keen Eye relic grants all towers camo detection\n• AoE spells like Fireball hit camo enemies regardless',
+  hint_close:        'Got it',
 
   // ── 런 요약 (맵·난이도 표시) ────────────────────────
   summary_map:       'Map',

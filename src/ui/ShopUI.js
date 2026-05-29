@@ -183,13 +183,15 @@ export class ShopUI {
       const _cName = _isKo ? (card.nameKo || card.name) : card.name;
       const _cDesc = _isKo ? (card.descKo || card.desc) : card.desc;
       const _cType = i18n.t('card_type_' + card.type) ?? card.type;
+      const rarityLabel = { common: 'C', uncommon: 'U', rare: 'R' };
+      const rarityBadge = `<span class="rarity-badge rarity-badge--${card.rarity}">${rarityLabel[card.rarity] ?? card.rarity[0].toUpperCase()}</span>`;
       slot.innerHTML = `
         <div class="shop-card-inner">
           <div class="shop-card-top">
             <span class="shop-card-icon">${card.icon}</span>
             <div class="shop-card-info">
               <div class="shop-card-name">${_cName}</div>
-              <div class="shop-card-type">${_cType.toUpperCase()}</div>
+              <div class="shop-card-type">${_cType.toUpperCase()}${rarityBadge}</div>
             </div>
             <div class="shop-card-cost ${canAfford ? 'affordable' : ''}">
               ${this._discount > 0 && card.cost > effectiveCost

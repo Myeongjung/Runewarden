@@ -893,6 +893,7 @@ function beginWave() {
                         state._cursedWave === 'revive');
   updateHUD();
   tutorial?.triggerEvent('wave_started');
+  if (state.wave === 11) tutorial?.triggerHint('camo_wave', i18n.t('hint_camo_title'), i18n.t('hint_camo_text'));
 }
 
 // ── 웨이브 클리어 ─────────────────────────────────────
@@ -1076,6 +1077,7 @@ function openShop() {
   const baseShopSize = state.ascMods?.shopSize ?? 3;
   const shopSize     = state.wave >= 16 ? baseShopSize + 1 : baseShopSize;
   shopUI.open(state.gold, state.wave, unlockedIds, totalDiscount, freeRerolls, shopSize, state.challengeMods, placedTowersSnapshot());
+  tutorial?.triggerHint('shop_intro', i18n.t('hint_shop_title'), i18n.t('hint_shop_text'));
 }
 
 // ── 이벤트 열기 ───────────────────────────────────────
@@ -1339,6 +1341,7 @@ function onEnemyReachEnd({ type: enemyType, displayName, isBoss = false } = {}) 
   state.nexusHp--;
   updateHUD();
   shakeNexus();
+  enemySystem?._triggerScreenShake();
   audio.play('nexus_hit');
   log(i18n.t('log_nexus_hit', state.nexusHp), 'bad');
 
@@ -1736,6 +1739,7 @@ function onCellClick(col, row, cellEl) {
 
       spendGold(card.activeCost);
       cardSystem.playCard(card.uid);
+      tutorial?.triggerHint('augment_intro', i18n.t('hint_augment_title'), i18n.t('hint_augment_text'));
       const ok = towerSystem.augment(col, row, card.effect);
       if (ok) {
         existing.investedGold = (existing.investedGold ?? 0) + card.activeCost;
