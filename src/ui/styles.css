@@ -3092,9 +3092,10 @@ kbd {
 
 /* Shop footer — reroll & leave buttons keep their size; utility buttons smaller */
 .shop-xp-btn, .shop-addcard-btn {
-  font-size: 0.72rem;
-  padding: 0.25rem 0.35rem;
+  font-size: 0.72rem !important;
+  padding: 0.25rem 0.5rem !important;
   height: auto;
+  min-width: 0 !important;
   white-space: nowrap;
 }
 .shop-addcard-btn {
