@@ -13,6 +13,7 @@ const _BASE_MAP_DEFS = [
     name: 'Crossroads',
     icon: '⚔️',
     desc: 'A winding path through the heart of the fortress.',
+    hexColor: '#1e2030', pathColor: 'rgba(220,70,70,0.4)',
     path: [
       [0,4],[1,4],[2,4],[2,3],[3,3],[4,3],[4,4],
       [5,4],[5,5],[6,5],[6,4],[7,4],[8,4],[8,3],
@@ -26,6 +27,7 @@ const _BASE_MAP_DEFS = [
     name: "Serpent's Run",
     icon: '🐍',
     desc: 'A winding S-shaped path. Towers near the curves cover twice.',
+    hexColor: '#1e2a1e', pathColor: 'rgba(80,180,80,0.35)',
     path: [
       [0,1],[1,1],[2,1],[3,1],[4,1],[4,2],[4,3],[4,4],
       [5,4],[6,4],[7,4],[7,5],[7,6],[7,7],
@@ -40,6 +42,7 @@ const _BASE_MAP_DEFS = [
     name: 'Gauntlet',
     icon: '🏰',
     desc: 'A straight path with a narrow chokepoint in the center.',
+    hexColor: '#201e1e', pathColor: 'rgba(200,100,50,0.4)',
     path: [
       [0,2],[1,2],[2,2],[3,2],[3,3],[3,4],[3,5],[3,6],
       [4,6],[5,6],[5,5],[6,5],[6,4],[7,4],[7,5],[8,5],
@@ -55,6 +58,7 @@ const _BASE_MAP_DEFS = [
     name: 'Twin Peaks',
     icon: '🏔️',
     desc: 'A U-shaped path. Towers on both flanks cover the route twice.',
+    hexColor: '#1e2030', pathColor: 'rgba(180,180,220,0.38)',
     path: [
       [0,0],[1,0],[2,0],[3,0],[4,0],[5,0],[6,0],
       [6,1],[6,2],[6,3],[6,4],[6,5],[6,6],[6,7],[6,8],
@@ -70,6 +74,7 @@ const _BASE_MAP_DEFS = [
     name: 'Labyrinth',
     icon: '🌀',
     desc: 'A complex winding path. Tower coverage at each corner is key.',
+    hexColor: '#1a1a30', pathColor: 'rgba(140,60,220,0.38)',
     path: [
       [0,8],[1,8],[2,8],[3,8],[3,7],[3,6],[3,5],
       [4,5],[5,5],[6,5],[6,4],[6,3],[6,2],[6,1],

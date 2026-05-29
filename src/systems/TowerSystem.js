@@ -167,6 +167,7 @@ export class TowerSystem {
     s.id = 'tower-fx-style';
     s.textContent = `
       @keyframes towerPop   { 0%{transform:scale(0)} 70%{transform:scale(1.15)} 100%{transform:scale(1)} }
+      @keyframes towerKick  { 0%{transform:scale(1)} 35%{transform:scale(1.18)} 100%{transform:scale(1)} }
       @keyframes muzzleFlash { 0%{opacity:1;transform:scale(1)} 100%{opacity:0;transform:scale(2.5)} }
       @keyframes splashRing  { 0%{opacity:0.7;transform:scale(0.3)} 100%{opacity:0;transform:scale(1)} }
       @keyframes projFade    { 0%{opacity:0.9} 100%{opacity:0} }
@@ -299,6 +300,16 @@ export class TowerSystem {
     const ex = enemy.x, ey = enemy.y;
     const tx = tower.x, ty = tower.y;
     const tid = tower.def.id;
+
+    // 사격 반동 애니메이션
+    const tg = document.getElementById(`tower-${tower.col}-${tower.row}`);
+    if (tg) {
+      tg.style.transformOrigin = `${tx}px ${ty}px`;
+      tg.style.animation = 'none';
+      void tg.offsetWidth;
+      tg.style.animation = 'towerKick 0.14s ease-out';
+      setTimeout(() => { if (tg) tg.style.animation = ''; }, 150);
+    }
 
     // ── 발사체 타입별 처리 ───────────────────────────────
     if (tid === 'archer') {

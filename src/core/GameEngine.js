@@ -371,7 +371,7 @@ function startRun() {
   const selectedMap = shared._savedRunData?.mapId
     ? (getMapById(shared._savedRunData.mapId) ?? pickRandomMap())
     : pickRandomMap();
-  setActiveMap(selectedMap.path);
+  setActiveMap(selectedMap.path, selectedMap);
   state.mapId   = selectedMap.id;
   state.mapName = selectedMap.name;
   state.mapIcon = selectedMap.icon;

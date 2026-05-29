@@ -16,6 +16,7 @@ export const SHADOW_MAPS = [
     desc:   'A long winding passage through the Shadow Realm. Two key chokepoints.',
     descKo: '그림자 왕국을 관통하는 길고 구불구불한 통로. 두 곳의 핵심 목 지점.',
     theme:  'shadow',
+    hexColor: '#1a0030', pathColor: 'rgba(140,50,220,0.42)',
     path: [
       [0,2],[1,2],[2,2],[3,2],[4,2],
       [4,3],[4,4],[4,5],[4,6],
@@ -36,6 +37,7 @@ export const SHADOW_MAPS = [
     desc:   'Two paths converge at the center. Coverage and timing are everything.',
     descKo: '두 경로가 중앙에서 만납니다. 커버리지와 타이밍이 핵심.',
     theme:  'shadow',
+    hexColor: '#1a0030', pathColor: 'rgba(120,40,200,0.42)',
     path: [
       [0,1],[1,1],[2,1],[3,1],
       [3,2],[3,3],[3,4],[3,5],[3,6],[3,7],
@@ -57,6 +59,7 @@ export const SHADOW_MAPS = [
     desc:   'A spiraling path that winds inward. Every tower covers multiple segments.',
     descKo: '안쪽으로 말려드는 나선형 경로. 모든 타워가 여러 구간을 커버합니다.',
     theme:  'shadow',
+    hexColor: '#1a0030', pathColor: 'rgba(160,60,240,0.4)',
     path: [
       [0,4],[1,4],[2,4],[3,4],[4,4],[5,4],[6,4],
       [6,3],[6,2],[6,1],
