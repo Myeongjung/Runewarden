@@ -136,7 +136,7 @@ export class RunSummaryUI {
   }
 
   _buildHints(waveNum) {
-    const hints = getWaveHints(waveNum);
+    const hints = getWaveHints(waveNum).slice(0, 2);
     if (!hints.length) return '';
     const isKo = i18n.lang === 'ko';
     const title = isKo ? `💡 웨이브 ${waveNum} 공략 도움말` : `💡 Wave ${waveNum} Tips`;

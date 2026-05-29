@@ -1679,7 +1679,7 @@ kbd {
 }
 
 .summary-header {
-  padding: 1.5rem 2rem 1.2rem;
+  padding: 1.1rem 2rem 0.9rem;
   text-align: center;
 }
 .summary-header.victory { background: linear-gradient(135deg, #1a3a1a, #0f2a1a); border-bottom: 1px solid #2ecc71; }
@@ -1727,9 +1727,9 @@ kbd {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 0.85rem 0.5rem;
+  padding: 0.6rem 0.5rem;
   border-right: 1px solid var(--border);
-  gap: 0.2rem;
+  gap: 0.15rem;
 }
 .stat-item:last-child { border-right: none; }
 .stat-icon { font-size: 1.2rem; }
@@ -1743,7 +1743,7 @@ kbd {
 
 /* XP Section */
 .summary-xp-section {
-  padding: 1rem 1.5rem;
+  padding: 0.7rem 1.5rem;
   border-bottom: 1px solid var(--border);
 }
 .summary-rank-row {
@@ -1857,30 +1857,30 @@ kbd {
   padding: 0.75rem 1.5rem 0.25rem;
 }
 .summary-hints {
-  margin: 0.75rem 1.5rem 0.5rem;
+  margin: 0.4rem 1.5rem 0.3rem;
   background: rgba(255, 200, 50, 0.06);
   border: 1px solid rgba(255, 200, 50, 0.2);
   border-radius: 8px;
-  padding: 0.6rem 0.8rem;
+  padding: 0.45rem 0.75rem;
 }
 .summary-hints-title {
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   font-weight: 700;
   color: #f5c518;
   letter-spacing: 0.03em;
-  margin-bottom: 0.4rem;
+  margin-bottom: 0.3rem;
   text-transform: uppercase;
 }
 .hint-item {
   display: flex;
   align-items: flex-start;
-  gap: 0.45rem;
-  padding: 0.25rem 0;
+  gap: 0.4rem;
+  padding: 0.18rem 0;
   border-top: 1px solid rgba(255,255,255,0.04);
 }
 .hint-item:first-of-type { border-top: none; }
-.hint-icon { font-size: 0.85rem; flex-shrink: 0; line-height: 1.4; }
-.hint-text  { font-size: 0.72rem; color: var(--text-dim); line-height: 1.45; }
+.hint-icon { font-size: 0.8rem; flex-shrink: 0; line-height: 1.4; }
+.hint-text  { font-size: 0.68rem; color: var(--text-dim); line-height: 1.4; }
 
 .summary-buttons {
   display: flex;
