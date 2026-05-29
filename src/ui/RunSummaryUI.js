@@ -151,7 +151,7 @@ export class RunSummaryUI {
   _buildRunHistory(history) {
     if (!history?.length) return '';
     const isKo = i18n.lang === 'ko';
-    const items = history.map(r => {
+    const items = history.slice(0, 3).map(r => {
       const result = r.victory ? '✅' : '❌';
       const waves  = `W${r.wavesCleared}`;
       const asc    = r.ascension > 0 ? ` ⚡${r.ascension}` : '';
