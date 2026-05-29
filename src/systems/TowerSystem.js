@@ -167,6 +167,7 @@ export class TowerSystem {
     s.id = 'tower-fx-style';
     s.textContent = `
       @keyframes towerPop   { 0%{transform:scale(0)} 70%{transform:scale(1.15)} 100%{transform:scale(1)} }
+      @keyframes towerKick  { 0%{transform:scale(1)} 35%{transform:scale(1.18)} 100%{transform:scale(1)} }
       @keyframes muzzleFlash { 0%{opacity:1;transform:scale(1)} 100%{opacity:0;transform:scale(2.5)} }
       @keyframes splashRing  { 0%{opacity:0.7;transform:scale(0.3)} 100%{opacity:0;transform:scale(1)} }
       @keyframes projFade    { 0%{opacity:0.9} 100%{opacity:0} }
@@ -311,6 +312,16 @@ export class TowerSystem {
     const tx = tower.x, ty = tower.y;
     const tid = tower.def.id;
 
+    // 사격 반동 애니메이션
+    const tg = document.getElementById(`tower-${tower.col}-${tower.row}`);
+    if (tg) {
+      tg.style.transformOrigin = `${tx}px ${ty}px`;
+      tg.style.animation = 'none';
+      void tg.offsetWidth;
+      tg.style.animation = 'towerKick 0.14s ease-out';
+      setTimeout(() => { if (tg) tg.style.animation = ''; }, 150);
+    }
+
     // ── 발사체 타입별 처리 ───────────────────────────────
     if (tid === 'archer') {
       this._spawnArrow(tx, ty, ex, ey, tower.def.accentColor);
@@ -320,12 +331,17 @@ export class TowerSystem {
       this._spawnCannonball(tx, ty, ex, ey);
       audio.play('cannon_fire');
       const splashPx = tower.def.splash * HEX_W * 0.75;
+      const targetId = enemy.id;
       setTimeout(() => {
-        this._spawnSplashRing(ex, ey, splashPx, '#e74c3c');
+        // 임팩트 시점의 현재 적 위치 사용 — 발사 후 이동한 경우 스플래시 정확도 개선
+        const curr = this.enemySystem.enemies.find(e => e.id === targetId);
+        const ix = curr ? curr.x : ex;
+        const iy = curr ? curr.y : ey;
+        this._spawnSplashRing(ix, iy, splashPx, '#e74c3c');
         audio.play('cannon_explode');
-        const inSplash = this.enemySystem.getEnemiesInRange(ex, ey, splashPx);
+        const inSplash = this.enemySystem.getEnemiesInRange(ix, iy, splashPx);
         for (const e of inSplash) {
-          if (e.id !== enemy.id) this.enemySystem.dealDamage(e.id, Math.round(dmg * 0.6), dmgType);
+          if (e.id !== targetId) this.enemySystem.dealDamage(e.id, Math.round(dmg * 0.6), dmgType);
         }
       }, 180);
 
@@ -375,13 +391,18 @@ export class TowerSystem {
       this._spawnCannonball(tx, ty, ex, ey);
       audio.play('cannon_fire');
       const splashPx = tower.def.splash * HEX_W * 0.75;
+      const targetId = enemy.id;
       setTimeout(() => {
-        this._spawnSplashRing(ex, ey, splashPx, '#DAA520');
-        const inSplash = this.enemySystem.getEnemiesInRange(ex, ey, splashPx);
+        const curr = this.enemySystem.enemies.find(e => e.id === targetId);
+        const ix = curr ? curr.x : ex;
+        const iy = curr ? curr.y : ey;
+        this._spawnSplashRing(ix, iy, splashPx, '#DAA520');
+        audio.play('cannon_explode');
+        const inSplash = this.enemySystem.getEnemiesInRange(ix, iy, splashPx);
         const stunDur  = (tower.def.stunDuration ?? 400) + this._crusaderStunBonus;
         const towerId  = `${tower.col ?? 0},${tower.row ?? 0}`;
         for (const e of inSplash) {
-          if (e.id !== enemy.id) this.enemySystem.dealDamage(e.id, Math.round(dmg * 0.7), dmgType);
+          if (e.id !== targetId) this.enemySystem.dealDamage(e.id, Math.round(dmg * 0.7), dmgType);
           this.enemySystem.applyStun?.(e.id, stunDur, towerId);
         }
       }, 180);

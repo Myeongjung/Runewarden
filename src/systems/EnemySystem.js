@@ -248,6 +248,7 @@ export class EnemySystem {
     this._spawnIndex  = 0;
     this._waveActive  = false;
     this._dying = new Set();
+    this._sortedByProgress = []; // 프레임 타겟팅 캐시: getLeadEnemy O(n²) → O(n log n + k)
     this._boss        = null;
     this._slowBonus   = 1;    // 유물 감속 배율
     this._hpScale          = 1.15; // 난이도 HP 스케일 (기본: Standard)
@@ -341,8 +342,13 @@ export class EnemySystem {
         100% { opacity: 0; transform: translateY(-30px) scale(0.8); }
       }
       @keyframes deathParticle {
-        0%   { opacity: 0.9; }
-        100% { opacity: 0; }
+        0%   { opacity: 0.9; transform: translate(0,0) scale(1); }
+        100% { opacity: 0;   transform: translate(var(--dx,0px),var(--dy,0px)) scale(0.4); }
+      }
+      @keyframes deathParticleElite {
+        0%   { opacity: 1;   transform: translate(0,0) scale(1.2); }
+        60%  { opacity: 0.7; }
+        100% { opacity: 0;   transform: translate(var(--dx,0px),var(--dy,0px)) scale(0.2); }
       }
       @keyframes splashRing {
         0%   { opacity: 0.7; transform: scale(0.3); }
@@ -418,6 +424,9 @@ export class EnemySystem {
       if (this._spawnIndex >= halfway) this._triggerAmbush();
     }
 
+    // 프레임 타겟팅 캐시: 진행도 내림차순 정렬 → TowerSystem의 getLeadEnemy가 첫 일치 즉시 반환
+    this._sortedByProgress = [...this.enemies].sort((a, b) => b.waypointIndex - a.waypointIndex);
+
     const reachedEnd = [];
     for (const e of [...this.enemies]) {  // 복사본으로 순회 (중간 제거 대비)
       // HP 재생 (Necromancer 등) — 빙결 중에도 계속
@@ -432,10 +441,9 @@ export class EnemySystem {
           if (e.isBoss) { this._boss = null; this.onBossUpdate?.({ hp: 0, maxHp: e.maxHp }); audio.play('boss_die'); }
           else if (e.isElite || e.type === 'tank') { audio.play(e.isElite ? 'elite_die' : 'tank_die'); }
           else { audio.play('enemy_die'); }
-          this.enemies = this.enemies.filter(x => x.id !== e.id);
-          this._playDeathAnim(e);
           this._handleSplitOnDeath(e);
-          this.onEnemyKilled(e.reward);
+          this._removeEnemy(e, true);
+          this.onEnemyKilled(e.reward, e.isSplitChild ?? false);
           continue;
         }
       }
@@ -443,20 +451,12 @@ export class EnemySystem {
       if (e.burns.length > 0) {
         this._updateBurns(e, delta);
         if (e.hp <= 0 && !this._dying.has(e.id)) {
-          // 보스 번 사망: 참조 정리 + HP 바 갱신
-          if (e.isBoss) {
-            this._boss = null;
-            this.onBossUpdate?.({ hp: 0, maxHp: e.maxHp });
-            audio.play('boss_die');
-          } else if (e.isElite || e.type === 'tank') {
-            audio.play(e.isElite ? 'elite_die' : 'tank_die');
-          } else {
-            audio.play('enemy_die');
-          }
-          this.enemies = this.enemies.filter(x => x.id !== e.id);
-          this._playDeathAnim(e);
+          if (e.isBoss) { this._boss = null; this.onBossUpdate?.({ hp: 0, maxHp: e.maxHp }); audio.play('boss_die'); }
+          else if (e.isElite || e.type === 'tank') { audio.play(e.isElite ? 'elite_die' : 'tank_die'); }
+          else { audio.play('enemy_die'); }
           this._handleSplitOnDeath(e);
-          this.onEnemyKilled(e.reward);
+          this._removeEnemy(e, true);
+          this.onEnemyKilled(e.reward, e.isSplitChild ?? false);
           continue;
         }
       }
@@ -978,7 +978,7 @@ export class EnemySystem {
           e.bodyEl.setAttribute('stroke', '#FF8C00');
           e.bodyEl.setAttribute('stroke-width', '2.5');
           e.bodyEl.classList.add('enrage-imminent');
-        } else if (!e.enraged) {
+        } else {
           e.bodyEl.setAttribute('stroke', 'none');
           e.bodyEl.classList.remove('enrage-imminent');
         }
@@ -1030,30 +1030,32 @@ export class EnemySystem {
     el.style.transformOrigin = `${cx}px ${cy}px`;
     el.style.animation = 'enemyDeath 0.4s ease-out forwards';
 
-    // 2) 파티클 — QW#3: 수 증가(6~10), 크기 1.7× 확대, 엘리트/보스는 추가 버스트
+    // 2) 방향성 파티클 — CSS custom properties로 translate 방향 지정
     const isBig = e.isElite || e.isBoss;
-    const count = isBig ? (7 + Math.floor(Math.random() * 4)) : (6 + Math.floor(Math.random() * 3));
+    const count = isBig ? (8 + Math.floor(Math.random() * 4)) : (6 + Math.floor(Math.random() * 3));
     const particleDur = isBig ? 0.62 : 0.48;
     const anim = isBig ? 'deathParticleElite' : 'deathParticle';
     for (let i = 0; i < count; i++) {
       const angle = (Math.PI * 2 * i) / count + Math.random() * 0.6;
-      const dist  = e.size * (1.5 + Math.random() * 2.0);
-      const px = cx + Math.cos(angle) * dist;
-      const py = cy + Math.sin(angle) * dist;
-      const r  = (isBig ? 3.5 : 2.2) + Math.random() * (isBig ? 3.5 : 2.5);
+      const dist  = e.size * (2.2 + Math.random() * 2.5);
+      const dx    = (Math.cos(angle) * dist).toFixed(1);
+      const dy    = (Math.sin(angle) * dist).toFixed(1);
+      const r     = (isBig ? 3.5 : 2.0) + Math.random() * (isBig ? 3.0 : 2.2);
 
       const pid = `particle-${this._idCounter}-${i}`;
       const particle = svgEl('circle', {
-        id: pid, cx: px.toFixed(1), cy: py.toFixed(1), r: r.toFixed(1),
+        id: pid, cx: cx.toFixed(1), cy: cy.toFixed(1), r: r.toFixed(1),
         fill: e.color, opacity: 0.9,
         'pointer-events': 'none',
-        style: `animation: ${anim} ${particleDur}s ease-out forwards`,
+        style: `--dx:${dx}px;--dy:${dy}px;animation:${anim} ${particleDur}s ease-out forwards`,
       });
       this.layer.appendChild(particle);
       setTimeout(() => document.getElementById(pid)?.remove(), Math.round(particleDur * 1000) + 10);
     }
     // 보스/엘리트 사망 시 큰 방사형 플래시
     if (isBig) this._spawnImpactFlash(cx, cy, e.color, true);
+    // 보스 사망 시 화면 플래시 + 라벨 팝
+    if (e.isBoss) this._bossSlainfanfare(cx, cy, e);
 
     // 3) 정리 — 풀 가능한 타입은 반환, 아니면 제거
     const { type, bodyEl, hpBar } = e;
@@ -1066,6 +1068,39 @@ export class EnemySystem {
       }
       this._dying.delete(e.id);
     }, 400);
+  }
+
+  // ── 보스 처치 연출 (화면 플래시 + SLAIN 팝업) ────────────
+  _bossSlainfanfare(cx, cy, e) {
+    // 화면 전체 밝은 플래시
+    const app = document.getElementById('app');
+    if (app) {
+      app.classList.remove('boss-slain');
+      void app.offsetWidth; // reflow to restart animation
+      app.classList.add('boss-slain');
+      setTimeout(() => app.classList.remove('boss-slain'), 650);
+    }
+
+    // SLAIN 텍스트 팝
+    const label = svgEl('text', {
+      x: cx.toFixed(1),
+      y: (cy - 28).toFixed(1),
+      'text-anchor': 'middle',
+      'dominant-baseline': 'central',
+      fill: e.color ?? '#FFD700',
+      stroke: '#000',
+      'stroke-width': '2',
+      'paint-order': 'stroke',
+      'font-family': 'Cinzel, serif',
+      'font-size': '14px',
+      'font-weight': '700',
+      'letter-spacing': '0.12em',
+      'pointer-events': 'none',
+      style: 'animation: dmgFloat 1.1s ease-out forwards',
+    });
+    label.textContent = 'SLAIN';
+    this.layer.appendChild(label);
+    setTimeout(() => label.remove(), 1150);
   }
 
   // ── 피격 플래시 ───────────────────────────────────────
@@ -1479,11 +1514,15 @@ export class EnemySystem {
   }
 
   getLeadEnemy(px, py, radiusPx, canDetectCamo = false) {
-    const inRange = this.getEnemiesInRange(px, py, radiusPx);
-    const visible = canDetectCamo ? inRange : inRange.filter(e => !e.camo);
-    if (!visible.length) return null;
-    return visible.reduce((best, e) =>
-      e.waypointIndex > best.waypointIndex ? e : best, visible[0]);
+    const r2 = radiusPx * radiusPx;
+    // _sortedByProgress는 update() 시작 시 진행도 내림차순으로 캐싱됨 — 첫 일치 즉시 반환 O(1)~O(n)
+    const list = this._sortedByProgress.length ? this._sortedByProgress : this.enemies;
+    for (const e of list) {
+      if (!canDetectCamo && e.camo) continue;
+      const dx = e.x - px, dy = e.y - py;
+      if (dx * dx + dy * dy <= r2) return e;
+    }
+    return null;
   }
 
   hasCamoWave(waveIndex) {
@@ -1506,6 +1545,7 @@ export class EnemySystem {
   clearAll() {
     for (const e of [...this.enemies]) e.el?.remove();
     this.enemies = [];
+    this._sortedByProgress = [];
     this._waveActive = false;
     this._dying.clear();
     this._boss = null;

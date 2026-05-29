@@ -16,6 +16,8 @@ let _activePathData = [
 ];
 let _pathSet         = new Set(_activePathData.map(([c,r]) => `${c},${r}`));
 let _pathAdjacentSet = _buildAdjacent(_pathSet);
+let _mapHexColor     = null;   // 맵 테마 헥스 배경색 (null = 기본)
+let _mapPathColor    = null;   // 맵 테마 경로색 (null = 기본)
 
 function _buildAdjacent(pathSet) {
   const OFFSETS = [[1,0],[-1,0],[0,1],[0,-1],[1,-1],[-1,1],[1,1],[-1,-1]];
@@ -32,10 +34,12 @@ function _buildAdjacent(pathSet) {
 }
 
 /** 런 시작 시 맵 변경 — MapRenderer 생성 전에 호출 */
-export function setActiveMap(pathArray) {
+export function setActiveMap(pathArray, mapDef = null) {
   _activePathData  = pathArray;
   _pathSet         = new Set(pathArray.map(([c,r]) => `${c},${r}`));
   _pathAdjacentSet = _buildAdjacent(_pathSet);
+  _mapHexColor     = mapDef?.hexColor  ?? null;
+  _mapPathColor    = mapDef?.pathColor ?? null;
 }
 
 /** 현재 활성 경로 반환 (EnemySystem의 웨이포인트 계산용) */
@@ -99,11 +103,13 @@ export class MapRenderer {
   _init() {
     // SVG defs — 헥스 깊이감용 radialGradient 정의
     const defs = svgEl('defs');
-    // 기본 헥스 그라디언트 (중앙 약간 밝음)
+    // 기본 헥스 그라디언트 (중앙 약간 밝음) — 맵 테마 반영
+    const hexBase   = _mapHexColor ?? '#222240';
+    const hexOuter  = _mapHexColor ?? '#141428';
     const rg = svgEl('radialGradient', { id: 'hexGrad', cx: '50%', cy: '40%', r: '60%' });
-    rg.appendChild(this._mkStop('0%', '#222240'));
-    rg.appendChild(this._mkStop('100%', '#141428'));
-    // 경로 인접 셀 그라디언트 (초록 서브톤)
+    rg.appendChild(this._mkStop('0%',   hexBase));
+    rg.appendChild(this._mkStop('100%', hexOuter));
+    // 경로 인접 셀 그라디언트 (초록 서브톤 — 테마 비의존)
     const rg2 = svgEl('radialGradient', { id: 'hexGradAdj', cx: '50%', cy: '40%', r: '60%' });
     rg2.appendChild(this._mkStop('0%', '#1e2e1e'));
     rg2.appendChild(this._mkStop('100%', '#10180f'));
@@ -146,13 +152,19 @@ export class MapRenderer {
   _drawPathLine(layer) {
     const path = ENEMY_PATH.current;  // 현재 활성 맵 경로 (getter)
 
+    // 맵 테마 경로색 결정
+    const pathColor    = _mapPathColor ?? 'rgba(220,70,70,0.4)';
+    const pathFill     = pathColor.replace(/[\d.]+\)$/, s => String(parseFloat(s) * 0.45) + ')');
+    const pathStroke   = pathColor;
+    const lineColor    = pathColor.replace(/[\d.]+\)$/, s => String(Math.min(1, parseFloat(s) + 0.1)) + ')');
+
     // 1) 경로 헥스마다 반투명 오버레이 — 헥스 위에 그려지므로 선명하게 보임
     for (const [c, r] of path) {
       const { x, y } = hexToPixel(c, r);
       layer.appendChild(svgEl('polygon', {
         points: hexCorners(x, y),
-        fill: 'rgba(180,40,40,0.18)',
-        stroke: 'rgba(220,70,70,0.45)',
+        fill: pathFill,
+        stroke: pathStroke,
         'stroke-width': 1,
         'pointer-events': 'none',
       }));
@@ -165,7 +177,7 @@ export class MapRenderer {
     }).join(' ');
     layer.appendChild(svgEl('polyline', {
       points: pts, fill: 'none',
-      stroke: 'rgba(255,100,100,0.4)',
+      stroke: lineColor,
       'stroke-width': 2.5,
       'stroke-linecap': 'round', 'stroke-linejoin': 'round',
       'stroke-dasharray': '7 5',
@@ -244,11 +256,12 @@ export class MapRenderer {
     const g = svgEl('g', { class: `hex-cell${isPath ? ' path-cell' : ' placeable'}` });
 
     const isAdj = !isPath && isPathAdjacent(col, row);
+    // 맵 테마 헥스 배경색 적용
+    const themeHex = _mapHexColor;
     const poly = svgEl('polygon', {
       class: 'hex-bg',
       points: hexCorners(x, y),
-      // 깊이감 있는 radialGradient 적용 (경로/인접/일반 세 가지)
-      fill: isPath ? '#1f1520' : isAdj ? 'url(#hexGradAdj)' : 'url(#hexGrad)',
+      fill: isPath ? (themeHex ?? '#1f1520') : isAdj ? 'url(#hexGradAdj)' : 'url(#hexGrad)',
       stroke: isPath ? '#3a2030' : isAdj ? '#1e3a1e' : '#232340',
       'stroke-width': 1,
     });
@@ -449,6 +462,18 @@ export class MapRenderer {
     g.appendChild(icon);
 
     return g;
+  }
+
+  // 사격 반동 애니메이션 — 타워가 잠깐 커졌다 돌아오는 효과
+  kickTower(col, row) {
+    const tg = document.getElementById(`tower-${col}-${row}`);
+    if (!tg) return;
+    const { x, y } = hexToPixel(col, row);
+    tg.style.transformOrigin = `${x}px ${y}px`;
+    tg.style.animation = 'none';
+    void tg.offsetWidth;
+    tg.style.animation = 'towerKick 0.14s ease-out';
+    setTimeout(() => { if (tg) tg.style.animation = ''; }, 150);
   }
 
   removeTower(col, row) {

@@ -16,6 +16,7 @@ export const SOLAR_MAPS = [
     desc:   'A grand U-shaped arena. Towers at the center cover three segments simultaneously.',
     descKo: '웅장한 U자형 경기장. 중앙 배치 타워가 세 구간을 동시에 커버합니다.',
     theme:  'solar',
+    hexColor: '#2e1800', pathColor: 'rgba(245,197,24,0.38)',
     path: [
       [0,7],[1,7],[2,7],[2,6],[2,5],[2,4],[2,3],[2,2],[2,1],
       [3,1],[4,1],[5,1],[6,1],[7,1],[8,1],[9,1],[10,1],[11,1],
@@ -35,6 +36,7 @@ export const SOLAR_MAPS = [
     desc:   'Three vertical zigzags through ancient ruins. The longest path — use every second well.',
     descKo: '고대 폐허를 관통하는 세 번의 수직 지그재그. 최장 경로 — 매 초를 활용하세요.',
     theme:  'solar',
+    hexColor: '#281600', pathColor: 'rgba(232,121,26,0.4)',
     path: [
       [0,1],[1,1],[2,1],[3,1],[4,1],
       [4,2],[4,3],[4,4],[4,5],[4,6],[4,7],
@@ -56,6 +58,7 @@ export const SOLAR_MAPS = [
     desc:   'A straight hall curves into an S-bend. One central tower position covers three lanes.',
     descKo: '직선 통로가 S자 곡선으로 이어집니다. 중앙 1개 포지션이 세 구간을 커버합니다.',
     theme:  'solar',
+    hexColor: '#2e1600', pathColor: 'rgba(255,160,30,0.38)',
     path: [
       [0,4],[1,4],[2,4],[3,4],[4,4],
       [5,4],[5,3],[5,2],[5,1],

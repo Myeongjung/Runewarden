@@ -201,7 +201,8 @@ const BASE_HANDLERS = {
     }
   },
 
-  void_echo(effect, { state, log, i18n, resolveSpell }) {
+  void_echo(effect, { state, log, i18n, resolveSpell, _depth }) {
+    if (_depth >= 1) { log(i18n.t('spell_void_echo_empty'), ''); return; }
     if (state.lastSpellEffect && state.lastSpellEffect.type !== 'void_echo') {
       log(i18n.t('spell_void_echo', state.lastSpellEffect.type), 'good');
       // _isAutocast: true prevents storm_circuit/void_echo_relic from double-triggering
@@ -247,7 +248,7 @@ const BASE_HANDLERS = {
 
   void_pulse(effect, { enemySystem, log, i18n, audio }) {
     const sorted = [...enemySystem.enemies]
-      .sort((a, b) => (b.pathProgress ?? 0) - (a.pathProgress ?? 0))
+      .sort((a, b) => (b.waypointIndex ?? 0) - (a.waypointIndex ?? 0))
       .slice(0, effect.count ?? 3);
     for (const e of sorted) {
       enemySystem.pushBack(e.id, effect.steps ?? 3);
@@ -389,11 +390,11 @@ const BASE_HANDLERS = {
  * @param {object} effect - 카드 effect 정의 (type, ...params)
  * @param {object} ctx    - GameEngine에서 주입되는 의존성 묶음
  */
-export function resolveSpell(effect, ctx) {
+export function resolveSpell(effect, ctx, _depth = 0) {
   const handler = BASE_HANDLERS[effect.type];
   if (handler) {
-    // void_echo가 재귀 호출할 수 있도록 ctx에 resolveSpell 자체를 포함
-    handler(effect, { ...ctx, resolveSpell: (e) => resolveSpell(e, ctx) });
+    // void_echo가 재귀 호출할 수 있도록 ctx에 resolveSpell과 _depth를 포함
+    handler(effect, { ...ctx, _depth, resolveSpell: (e) => resolveSpell(e, ctx, _depth + 1) });
   } else {
     ctx.log(`Unknown spell effect: ${effect.type}`, '');
   }

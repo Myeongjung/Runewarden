@@ -8,6 +8,7 @@
  */
 
 import { CARD_DEFS } from './cards.js';
+import { CardSystem } from '../systems/CardSystem.js';
 import { SHADOW_WARDENS } from '../dlc/shadow_realm/wardens.js';
 import { SOLAR_WARDENS }  from '../dlc/solar_dominion/wardens.js';
 
@@ -26,7 +27,7 @@ function makeDeck(idList) {
   return idList.map(id => {
     const def = CARD_DEFS.find(c => c.id === id);
     if (!def) { console.warn(`[Warden] Card not found: ${id}`); return null; }
-    return { ...def, uid: Math.random() };
+    return { ...def, uid: CardSystem.nextUid() };
   }).filter(Boolean);
 }
 
