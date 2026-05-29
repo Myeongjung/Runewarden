@@ -3115,3 +3115,12 @@ kbd {
   to   { filter: drop-shadow(0 0 14px #FFD700) drop-shadow(0 0 6px #fff8); }
 }
 .tower-highlight { animation: towerPulse 0.55s ease-in-out infinite alternate; }
+
+/* HUD level row tooltip: right panel → show tooltip to the LEFT */
+#hud-level-row[data-tooltip]::after {
+  left: auto;
+  right: calc(100% + 8px);
+  margin-left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+}
