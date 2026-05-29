@@ -3090,15 +3090,23 @@ kbd {
 }
 [data-tooltip]:hover::after { opacity: 1; }
 
-/* Shop Refresh All button */
-.shop-addcard-btn { font-size: 12px; padding: 4px 8px; border-radius: 4px; background: #446; color: #ccc; border: 1px solid rgba(255,255,255,0.15); cursor: pointer; }
-.shop-addcard-btn:disabled { opacity: 0.45; cursor: default; }
-
-/* Relic HUD icon tooltip: 우측 패널 내부라 왼쪽으로 표시 */
-.relic-hud-icon[data-tooltip]::after {
-  left: auto;
-  right: calc(100% + 8px);
-  margin-left: 0;
-  top: 50%;
-  transform: translateY(-50%);
+/* Shop footer buttons — uniform height */
+.shop-footer button {
+  height: 36px;
+  box-sizing: border-box;
+  white-space: nowrap;
 }
+.shop-addcard-btn {
+  font-family: 'Cinzel', serif;
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  padding: 0 0.8rem;
+  background: rgba(100,100,180,0.18);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.shop-addcard-btn:hover:not(:disabled) { border-color: var(--gold-dim); color: var(--text); }
+.shop-addcard-btn:disabled { opacity: 0.35; cursor: not-allowed; }
