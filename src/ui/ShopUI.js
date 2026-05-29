@@ -50,7 +50,7 @@ export class ShopUI {
             ${i18n.t('shop_reroll')} <span id="reroll-cost">(2g)</span>
             <span id="reroll-remaining" class="reroll-remain"></span>
           </button>
-          <button id="shop-add-card" class="btn-secondary shop-addcard-btn">＋1 8g</button>
+          <button id="shop-add-card" class="btn-secondary shop-addcard-btn">카드+1 (8g)</button>
           <button id="shop-leave" class="btn-primary shop-leave-btn">
             ${i18n.t('shop_leave')}
           </button>
