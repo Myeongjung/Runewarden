@@ -1444,6 +1444,10 @@ function endGame(victory) {
   clearTimeout(_waveClearedTimer); _waveClearedTimer = null;
   // 런 종료 시 자동저장 클리어 (승리/패배 모두)
   localStorage.removeItem('rw_autosave');
+  // 열려 있는 모든 오버레이(노드 선택, 상점, 이벤트, 휴식 등) 닫기
+  ['screen-node','screen-shop','screen-event','screen-rest','screen-relic'].forEach(
+    id => $(`${id}`)?.classList.add('hidden')
+  );
 
   // 런 통계 수집
   const runStats = {
