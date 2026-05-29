@@ -3090,17 +3090,15 @@ kbd {
 }
 [data-tooltip]:hover::after { opacity: 1; }
 
-/* Shop footer buttons — uniform height */
-.shop-footer button {
-  height: 36px;
-  box-sizing: border-box;
+/* Shop footer — reroll & leave buttons keep their size; utility buttons smaller */
+.shop-xp-btn, .shop-addcard-btn {
+  font-size: 0.72rem;
+  padding: 0.25rem 0.65rem;
+  height: auto;
   white-space: nowrap;
 }
 .shop-addcard-btn {
-  font-family: 'Cinzel', serif;
-  font-size: 0.75rem;
-  letter-spacing: 0.04em;
-  padding: 0 0.8rem;
+  font-family: inherit;
   background: rgba(100,100,180,0.18);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -3110,3 +3108,10 @@ kbd {
 }
 .shop-addcard-btn:hover:not(:disabled) { border-color: var(--gold-dim); color: var(--text); }
 .shop-addcard-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+/* Tower hover highlight from upgrade panel */
+@keyframes towerPulse {
+  from { filter: drop-shadow(0 0 5px #FFD700); }
+  to   { filter: drop-shadow(0 0 14px #FFD700) drop-shadow(0 0 6px #fff8); }
+}
+.tower-highlight { animation: towerPulse 0.55s ease-in-out infinite alternate; }

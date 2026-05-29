@@ -411,6 +411,15 @@ export class ShopUI {
           }
         });
       }
+      // 호버 시 맵의 해당 타워 깜빡임
+      const _tgId = `tower-${t.col}-${t.row}`;
+      row.addEventListener('mouseenter', () => {
+        document.getElementById(_tgId)?.classList.add('tower-highlight');
+      });
+      row.addEventListener('mouseleave', () => {
+        document.getElementById(_tgId)?.classList.remove('tower-highlight');
+      });
+
       row.appendChild(label);
       row.appendChild(btn);
       panel.appendChild(row);
