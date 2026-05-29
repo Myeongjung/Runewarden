@@ -1525,9 +1525,9 @@ function endGame(victory) {
       const ch = state.challenges;
       if (ch.includes('archer_only'))     steam?.unlockAchievement('ACH_ARCHER_ONLY');
       if (ch.includes('poverty'))         steam?.unlockAchievement('ACH_POVERTY_WIN');
-      if (ch.includes('perfect_defense')) steam?.unlockAchievement('ACH_PERFECT_DEFENSE');
-      if (ch.includes('silence'))         steam?.unlockAchievement('ACH_NO_SPELLS_WIN');
-      if (ch.includes('immutable'))       steam?.unlockAchievement('ACH_IMMUTABLE_WIN');
+      if (ch.includes('perfect_nexus'))  steam?.unlockAchievement('ACH_PERFECT_DEFENSE');
+      if (ch.includes('no_spells'))      steam?.unlockAchievement('ACH_NO_SPELLS_WIN');
+      if (ch.includes('fixed_deck'))     steam?.unlockAchievement('ACH_IMMUTABLE_WIN');
       if (ch.length >= 3)                 steam?.unlockAchievement('ACH_TRIPLE_CURSE');
     }
 
