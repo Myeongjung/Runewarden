@@ -159,7 +159,8 @@ export class ShopUI {
       card = pickPool[Math.floor(Math.random() * pickPool.length)];
       if (!card) break;
       used.add(card.id);
-      pool.splice(pool.indexOf(card), 1);
+      const _idx = pool.indexOf(card);
+      if (_idx !== -1) pool.splice(_idx, 1);
       this._offered.push({ ...card, uid: Math.random() });
     }
     // Wave 16+ Elite 슬롯: rare 카드 1장, 비용 +7g (최소 12g)

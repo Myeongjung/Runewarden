@@ -36,10 +36,10 @@ describe('PlayerLevelSystem', () => {
   });
 
   describe('T5: weightedPickRarity — 통계 검증', () => {
-    it('Lv1: 1000회 중 rare ≈ 2% (0~5%)', () => {
+    it('Lv1: 1000회 중 rare ≈ 2% (1~50)', () => {
       let rare = 0;
       for (let i = 0; i < 1000; i++) if (weightedPickRarity(1) === 'rare') rare++;
-      expect(rare).toBeGreaterThanOrEqual(0);
+      expect(rare).toBeGreaterThanOrEqual(1); // 2% × 1000 = 20 기대값, 하한 1로 실질 검증
       expect(rare).toBeLessThanOrEqual(50); // 5% 상한
     });
 
