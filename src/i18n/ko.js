@@ -80,8 +80,9 @@ const _BASE_KO = {
   pause_title:    '⚙️ 일시정지',
   btn_resume:     '▶ 재개',
   btn_how_pause:  '📖 게임 방법',
-  btn_quit_menu:  '✕ 메인 메뉴로',
-  vol_label:      '🔊 볼륨',
+  btn_quit_menu:          '✕ 메인 메뉴로',
+  input_method_notice:    '키보드 & 마우스 전용 — 컨트롤러 미지원',
+  vol_label:              '🔊 볼륨',
 
   // ── 챌린지 ────────────────────────────────────────────
   challenge_section_title: '⚔️ 챌린지 (선택사항)',
@@ -564,6 +565,14 @@ const _BASE_KO = {
   tut_hint_select:   '튜토리얼: 핸드에서 궁수 타워 카드를 선택하세요.',
   tut_hint_place:    '튜토리얼: 경로 근처의 초록색 셀을 클릭하세요.',
   tut_hint_wave:     '튜토리얼: 준비가 되면 웨이브 시작을 클릭하세요!',
+
+  hint_shop_title:   '🏪 상점 안내',
+  hint_shop_text:    '골드를 사용해 덱에 카드를 추가하세요.\n[C] 일반 · [U] 고급 · [R] 희귀 — 등급이 높을수록 강력합니다.\n리롤(R키 또는 🎲 버튼)로 새 카드를 확인할 수 있습니다 (2g).',
+  hint_augment_title:'⬆️ 강화 카드',
+  hint_augment_text: '강화 카드는 배치된 타워를 업그레이드합니다!\n강화 카드를 선택한 뒤 타워를 클릭하면 적용됩니다.\n각 타워는 여러 장의 강화를 받을 수 있습니다.',
+  hint_camo_title:   '⚠️ 위장 적 등장!',
+  hint_camo_text:    '팬텀은 위장(Camo) 적 — 일반 타워가 감지하지 못합니다!\n• Marksman 타워를 배치하면 위장 적을 탐지합니다\n• Keen Eye 유물도 모든 타워에 위장 감지를 부여합니다\n• 파이어볼 등 광역 주문은 위장 무시하고 적중합니다',
+  hint_close:        '확인',
 
   // ── 런 요약 (맵·난이도 표시) ────────────────────────
   summary_map:       '맵',

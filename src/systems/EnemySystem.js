@@ -438,7 +438,7 @@ export class EnemySystem {
       if (e.solarDots?.length > 0 && !e.solarImmune) {
         this._updateSolarDots(e, delta);
         if (e.hp <= 0 && !this._dying.has(e.id)) {
-          if (e.isBoss) { this._boss = null; this.onBossUpdate?.({ hp: 0, maxHp: e.maxHp }); audio.play('boss_die'); }
+          if (e.isBoss) { this._boss = null; this.onBossUpdate?.({ hp: 0, maxHp: e.maxHp }); audio.play('boss_die'); this._triggerScreenShake(); }
           else if (e.isElite || e.type === 'tank') { audio.play(e.isElite ? 'elite_die' : 'tank_die'); }
           else { audio.play('enemy_die'); }
           this._handleSplitOnDeath(e);
@@ -451,7 +451,7 @@ export class EnemySystem {
       if (e.burns.length > 0) {
         this._updateBurns(e, delta);
         if (e.hp <= 0 && !this._dying.has(e.id)) {
-          if (e.isBoss) { this._boss = null; this.onBossUpdate?.({ hp: 0, maxHp: e.maxHp }); audio.play('boss_die'); }
+          if (e.isBoss) { this._boss = null; this.onBossUpdate?.({ hp: 0, maxHp: e.maxHp }); audio.play('boss_die'); this._triggerScreenShake(); }
           else if (e.isElite || e.type === 'tank') { audio.play(e.isElite ? 'elite_die' : 'tank_die'); }
           else { audio.play('enemy_die'); }
           this._handleSplitOnDeath(e);
@@ -1112,29 +1112,25 @@ export class EnemySystem {
   }
 
   // ── 떠오르는 데미지 숫자 (SVG) ────────────────────────
-  _spawnDamageNumber(x, y, amount, isCrit = false) {
-    const id = `dmg-${this._idCounter}-${Date.now()}`;
-    const size = isCrit ? '13px' : '10px';
-    const color = isCrit ? '#ffcc00' : '#ff6666';
-    const text = svgEl('text', {
-      id,
-      x: (x + (Math.random() - 0.5) * 12).toFixed(1),
-      y: (y - 14).toFixed(1),
-      'text-anchor': 'middle',
-      'dominant-baseline': 'middle',
-      fill: color,
-      'font-size': size,
-      'font-family': 'Share Tech Mono, monospace',
-      'font-weight': 'bold',
-      'pointer-events': 'none',
-      stroke: 'rgba(0,0,0,0.6)',
-      'stroke-width': '2',
-      'paint-order': 'stroke',
-      style: 'animation: dmgFloat 0.65s ease-out forwards',
-    });
-    text.textContent = `-${amount}`;
-    this.layer.appendChild(text);
-    setTimeout(() => document.getElementById(id)?.remove(), 650);
+  _spawnDamageNumber(x, y, amount, type = 'normal') {
+    if (!this.layer?.ownerSVGElement) return;
+    const svg = this.layer.ownerSVGElement;
+    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    text.setAttribute('x', String(x));
+    text.setAttribute('y', String(y - 8));
+    text.setAttribute('text-anchor', 'middle');
+    text.setAttribute('font-size', '11');
+    text.setAttribute('font-weight', 'bold');
+    text.setAttribute('pointer-events', 'none');
+    const color = type === 'boss' ? '#FF6600' : type === 'crit' ? '#FFD700' : '#FFFFFF';
+    text.setAttribute('fill', color);
+    text.setAttribute('stroke', 'rgba(0,0,0,0.6)');
+    text.setAttribute('stroke-width', '2');
+    text.setAttribute('paint-order', 'stroke');
+    text.textContent = String(Math.round(amount));
+    text.classList.add('dmg-float');
+    svg.appendChild(text);
+    setTimeout(() => text.remove(), 900);
   }
 
   // ── 피해 처리 ─────────────────────────────────────────
@@ -1245,8 +1241,8 @@ export class EnemySystem {
       this.onBossUpdate?.({ hp: Math.max(0, e.hp), maxHp: e.maxHp, name: e.name, phase3: true });
     }
 
-    const isCrit = finalDmg >= 20;
-    this._spawnDamageNumber(e.x, e.y, finalDmg, isCrit);
+    const dmgDisplayType = e.isBoss ? 'boss' : finalDmg >= 20 ? 'crit' : 'normal';
+    this._spawnDamageNumber(e.x, e.y, finalDmg, dmgDisplayType);
 
     // 보스 HP 갱신 알림 + 보스 피격 사운드
     if (e.isBoss) {
@@ -1421,7 +1417,7 @@ export class EnemySystem {
 
     if (totalDmg > 0) {
       e.hp -= totalDmg;
-      this._spawnDamageNumber(e.x, e.y, totalDmg, false);
+      this._spawnDamageNumber(e.x, e.y, totalDmg, e.isBoss ? 'boss' : 'normal');
       if (e.solarDots.length > 0 && e.bodyEl) {
         e.bodyEl.setAttribute('fill', '#F5A623');
       } else if (e.bodyEl && e.slowTimer <= 0 && e.burns.length === 0) {
@@ -1467,7 +1463,7 @@ export class EnemySystem {
 
     if (totalDmg > 0) {
       e.hp -= totalDmg;
-      this._spawnDamageNumber(e.x, e.y, totalDmg, false);
+      this._spawnDamageNumber(e.x, e.y, totalDmg, e.isBoss ? 'boss' : 'normal');
       // 번 색 유지/해제
       if (e.burns.length > 0 && e.bodyEl) {
         e.bodyEl.setAttribute('fill', '#FF8C00');
@@ -1507,6 +1503,16 @@ export class EnemySystem {
     g.appendChild(svgEl('circle', { cx, cy, r: String(r * 0.45), fill: '#ffffff', opacity: '0.60' }));
     this.layer.appendChild(g);
     setTimeout(() => g.remove(), Math.round(dur * 1000) + 10);
+  }
+
+  // ── 화면 흔들림 (넥서스 피격 / 보스 사망) ─────────────
+  _triggerScreenShake() {
+    const mapArea = document.getElementById('map-area');
+    if (!mapArea) return;
+    mapArea.classList.remove('screen-shake');
+    void mapArea.offsetWidth; // reflow to restart animation
+    mapArea.classList.add('screen-shake');
+    mapArea.addEventListener('animationend', () => mapArea.classList.remove('screen-shake'), { once: true });
   }
 
   getEnemiesInRange(px, py, radiusPx) {

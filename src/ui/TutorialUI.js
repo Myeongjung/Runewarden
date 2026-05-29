@@ -9,7 +9,8 @@
  */
 import { i18n } from '../i18n/i18n.js';
 
-const TUTORIAL_DONE_KEY = 'rw_tutorial_v1_done';
+const TUTORIAL_DONE_KEY  = 'rw_tutorial_v1_done';
+const HINTS_SEEN_KEY     = 'rw_hints_seen_v1';
 
 // ── 튜토리얼 스텝 정의 ────────────────────────────────
 // targetSelector: 스포트라이트 대상 CSS 셀렉터 (null = 전체화면 다크)
@@ -143,6 +144,67 @@ export class TutorialUI {
   }
 
   isActive() { return this._active; }
+
+  // ── 일회성 힌트 팝업 (튜토리얼 완료 후에도 표시) ─────
+  triggerHint(hintId, title, text) {
+    try {
+      const seen = JSON.parse(localStorage.getItem(HINTS_SEEN_KEY) ?? '[]');
+      if (seen.includes(hintId)) return;
+      seen.push(hintId);
+      localStorage.setItem(HINTS_SEEN_KEY, JSON.stringify(seen));
+    } catch { return; }
+
+    const bubble = document.createElement('div');
+    bubble.className = 'hint-popup';
+    bubble.innerHTML = `
+      <div class="hint-popup-title">${title}</div>
+      <div class="hint-popup-text">${text.replace(/\n/g, '<br>')}</div>
+      <button class="hint-popup-close">${i18n.t('hint_close')}</button>
+    `;
+    document.body.appendChild(bubble);
+    bubble.style.animation = 'tutBubblePop 0.3s cubic-bezier(0.34,1.56,0.64,1)';
+
+    const close = () => {
+      bubble.style.animation = 'tutFadeOut 0.25s ease-out forwards';
+      setTimeout(() => bubble.remove(), 250);
+    };
+    bubble.querySelector('.hint-popup-close').addEventListener('click', close);
+    setTimeout(close, 9000);
+
+    // CSS 주입 (최초 1회)
+    if (!document.getElementById('hint-popup-styles')) {
+      const s = document.createElement('style');
+      s.id = 'hint-popup-styles';
+      s.textContent = `
+        .hint-popup {
+          position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 9100;
+          background: linear-gradient(160deg, #1a1a3a, #12122a);
+          border: 1px solid rgba(212,175,55,0.6);
+          border-radius: 10px; padding: 1rem 1.1rem;
+          width: 280px; max-width: calc(100vw - 2rem);
+          box-shadow: 0 8px 30px rgba(0,0,0,0.6);
+          pointer-events: all;
+        }
+        .hint-popup-title {
+          font-family: 'Cinzel', serif; font-size: 0.85rem;
+          color: #D4AF37; font-weight: 700; margin-bottom: 0.45rem;
+        }
+        .hint-popup-text {
+          font-size: 0.78rem; color: #b0b0c8; line-height: 1.5;
+          margin-bottom: 0.7rem;
+        }
+        .hint-popup-close {
+          font-family: 'Cinzel', serif; font-size: 0.7rem;
+          padding: 0.3rem 1rem; background: rgba(212,175,55,0.15);
+          border: 1px solid rgba(212,175,55,0.4); border-radius: 5px;
+          color: #D4AF37; cursor: pointer; width: 100%;
+          transition: background 0.15s;
+        }
+        .hint-popup-close:hover { background: rgba(212,175,55,0.28); }
+      `;
+      document.head.appendChild(s);
+    }
+  }
 
   // ── DOM 구성 ──────────────────────────────────────
   _buildDOM() {

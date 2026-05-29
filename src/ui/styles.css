@@ -3064,83 +3064,55 @@ kbd {
 .shop-upgrade-btn { font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 4px; background: #2a5; color: #fff; border: none; cursor: pointer; }
 .shop-upgrade-btn:disabled { background: #555; color: #888; cursor: default; }
 
-/* Data-tooltip 커스텀 툴팁 */
-[data-tooltip] { position: relative; cursor: help; }
-[data-tooltip]::after {
-  content: attr(data-tooltip);
-  position: absolute;
-  left: 100%;
-  top: 50%;
-  transform: translateY(-50%);
-  margin-left: 8px;
-  background: rgba(15, 15, 30, 0.97);
-  color: #e0e0e0;
-  font-size: 12px;
-  line-height: 1.5;
-  padding: 8px 12px;
-  border-radius: 6px;
-  border: 1px solid rgba(255,255,255,0.15);
-  white-space: pre;
-  width: max-content;
-  max-width: 260px;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.15s ease;
-  z-index: 9999;
+/* ── Colorblind Accessibility: Rarity Badges ─────────────── */
+.rarity-badge {
+  display: inline-block;
+  font-size: 0.55rem;
+  font-weight: 800;
+  padding: 0.05rem 0.3rem;
+  border-radius: 3px;
+  letter-spacing: 0.05em;
+  vertical-align: middle;
+  margin-left: 0.2rem;
 }
-[data-tooltip]:hover::after { opacity: 1; }
+.rarity-badge--common   { background: rgba(180,180,180,0.25); color: #aaa; border: 1px solid #888; }
+.rarity-badge--uncommon { background: rgba(50,130,230,0.2);  color: #5ba3f5; border: 1px solid #3a80d0; }
+.rarity-badge--rare     { background: rgba(160,80,220,0.2);  color: #c080ff; border: 1px solid #9040cc; }
 
-/* Shop footer — reroll & leave buttons keep their size; utility buttons smaller */
-.shop-xp-btn, .shop-addcard-btn {
-  font-size: 0.72rem !important;
-  padding: 0.55rem 0.5rem !important;
-  height: auto;
-  min-width: 0 !important;
-  white-space: nowrap;
-}
-.shop-addcard-btn {
-  font-family: inherit;
-  background: rgba(100,100,180,0.18);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+/* ── Accessibility: Input Method Notice (Pause Menu) ──────── */
+.input-method-notice {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.65rem;
   color: var(--text-dim);
-  cursor: pointer;
-  transition: border-color 0.15s, color 0.15s;
+  opacity: 0.7;
+  padding: 0.4rem 0.5rem;
+  border-top: 1px solid var(--border);
+  margin-top: 0.5rem;
 }
-.shop-addcard-btn:hover:not(:disabled) { border-color: var(--gold-dim); color: var(--text); }
-.shop-addcard-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.input-icon { font-size: 0.8rem; }
 
-/* Tower hover highlight from upgrade panel */
-@keyframes towerPulse {
-  from { filter: drop-shadow(0 0 5px #FFD700); }
-  to   { filter: drop-shadow(0 0 14px #FFD700) drop-shadow(0 0 6px #fff8); }
+/* ── Floating Damage Numbers ─────────────────────────────── */
+.dmg-float {
+  animation: dmgFloatUp 0.9s ease-out forwards;
+  pointer-events: none;
+  user-select: none;
 }
-.tower-highlight { animation: towerPulse 0.55s ease-in-out infinite alternate; }
-
-/* HUD level row tooltip: right panel → show tooltip to the LEFT */
-#hud-level-row[data-tooltip]::after {
-  left: auto;
-  right: calc(100% + 8px);
-  margin-left: 0;
-  top: 50%;
-  transform: translateY(-50%);
+@keyframes dmgFloatUp {
+  0%   { opacity: 1;   transform: translateY(0); }
+  70%  { opacity: 0.9; transform: translateY(-22px); }
+  100% { opacity: 0;   transform: translateY(-30px); }
 }
 
-/* Sell panel upgrade button */
-.sell-panel-upgrade-btn {
-  display: block;
-  width: 100%;
-  margin: 4px 0 2px;
-  padding: 0.3rem 0.5rem;
-  font-size: 0.72rem;
-  font-family: 'Cinzel', serif;
-  background: rgba(80,60,200,0.25);
-  border: 1px solid rgba(160,140,255,0.4);
-  border-radius: 4px;
-  color: #c8b8ff;
-  cursor: pointer;
-  transition: background 0.15s;
+/* ── Screen Shake ────────────────────────────────────────── */
+@keyframes screenShake {
+  0%, 100% { transform: translate(0, 0); }
+  15%  { transform: translate(-3px,  1px); }
+  30%  { transform: translate( 3px, -1px); }
+  45%  { transform: translate(-2px,  2px); }
+  60%  { transform: translate( 2px, -2px); }
+  75%  { transform: translate(-1px,  1px); }
+  90%  { transform: translate( 1px, -1px); }
 }
-.sell-panel-upgrade-btn:hover:not(:disabled) { background: rgba(100,80,220,0.4); }
-.sell-panel-upgrade-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-.sell-panel-max { font-size: 0.7rem; color: #FFD700; text-align: center; margin: 4px 0; }
+.screen-shake { animation: screenShake 0.25s ease-out; }
