@@ -186,28 +186,33 @@ export function onBossUpdate({ hp, maxHp, hidden, name, phase2, weakness }) {
 
   const weaknessBadge = weakness ? ` ${WEAKNESS_ICONS[weakness] ?? ''}${i18n.t('weakness_' + weakness)}` : '';
 
-  if (name === 'Void Titan') {
-    wrap.style.borderColor = '#9B59B6';
-    if (nameLabel) nameLabel.textContent = `VOID TITAN${weaknessBadge}`;
-    if (iconEl)    iconEl.textContent    = '🌑';
-    fill.style.background = 'linear-gradient(90deg,#4A235A,#9B59B6)';
-  } else if (name === 'Abyssal Dragon') {
-    const isPhase2 = hp <= maxHp * 0.5;
-    wrap.style.borderColor = isPhase2 ? '#FF00FF' : '#330066';
-    if (nameLabel) nameLabel.textContent = isPhase2
-      ? `ABYSSAL DRAGON — PHASE 2 ❄️ FROST RESIST${weaknessBadge}`
-      : `ABYSSAL DRAGON${weaknessBadge}`;
-    if (iconEl)    iconEl.textContent    = isPhase2 ? '🐉' : '🌀';
-    fill.style.background = isPhase2
-      ? 'linear-gradient(90deg,#330066,#FF00FF)'
-      : 'linear-gradient(90deg,#0D0030,#5500AA)';
+  const BOSS_HUD = {
+    'Ironclad':        { key: 'boss_hud_ironclad',        icon: '💀', border: '#B8860B', grad: null },
+    'Void Titan':      { key: 'boss_hud_void_titan',      icon: '🌑', border: '#9B59B6', grad: 'linear-gradient(90deg,#4A235A,#9B59B6)' },
+    'Abyssal Dragon':  { key: 'boss_hud_abyssal_dragon',  icon: '🌀', border: '#330066', grad: 'linear-gradient(90deg,#0D0030,#5500AA)' },
+    'Shadow Titan':    { key: 'boss_hud_shadow_titan',    icon: '👁️', border: '#2D0050', grad: 'linear-gradient(90deg,#1A0033,#6600AA)' },
+    'Shadow Colossus': { key: 'boss_hud_shadow_colossus', icon: '☠️', border: '#1A0030', grad: 'linear-gradient(90deg,#0D0020,#440088)' },
+    'Solar Titan':     { key: 'boss_hud_solar_titan',     icon: '🌟', border: '#E8791A', grad: 'linear-gradient(90deg,#7A2A00,#E8791A)' },
+    'Sun God':         { key: 'boss_hud_sun_god',         icon: '☀️', border: '#F5C518', grad: 'linear-gradient(90deg,#7A5A00,#F5C518)' },
+  };
+  const bossInfo = BOSS_HUD[name] ?? BOSS_HUD['Ironclad'];
+  const isPhase2 = name === 'Abyssal Dragon' && hp <= maxHp * 0.5;
+  const phase2Suffix = isPhase2 ? i18n.t('boss_hud_phase2') + ' ❄️ FROST RESIST' : '';
+  const displayName = i18n.t(bossInfo.key) + phase2Suffix + weaknessBadge;
+
+  wrap.style.borderColor = isPhase2 ? '#FF00FF' : bossInfo.border;
+  if (nameLabel) nameLabel.textContent = displayName;
+  if (iconEl)    iconEl.textContent    = isPhase2 ? '🐉' : bossInfo.icon;
+
+  if (isPhase2) {
+    fill.style.background = 'linear-gradient(90deg,#330066,#FF00FF)';
+  } else if (bossInfo.grad) {
+    fill.style.background = bossInfo.grad;
   } else {
-    wrap.style.borderColor = '#B8860B';
-    if (nameLabel) nameLabel.textContent = `IRONCLAD${weaknessBadge}`;
-    if (iconEl)    iconEl.textContent    = '💀';
-    if (hp / maxHp > 0.5)      fill.style.background = 'linear-gradient(90deg,#8B0000,#FFD700)';
-    else if (hp / maxHp > 0.2) fill.style.background = 'linear-gradient(90deg,#8B0000,#FF6600)';
-    else                        fill.style.background = 'linear-gradient(90deg,#8B0000,#FF0000)';
+    const r = hp / maxHp;
+    fill.style.background = r > 0.5 ? 'linear-gradient(90deg,#8B0000,#FFD700)'
+                          : r > 0.2 ? 'linear-gradient(90deg,#8B0000,#FF6600)'
+                          :            'linear-gradient(90deg,#8B0000,#FF0000)';
   }
 
   const pct = Math.max(0, (hp / maxHp) * 100).toFixed(1);
@@ -261,9 +266,11 @@ export function showClearBanner(waveNum, isBossStart = false, isActEnd = false) 
   const maxWaves = shared.maxWaves;
 
   if (isBossStart) {
-    const bossName = waveNum === 5 ? i18n.t('banner_boss_ironclad')
-                   : waveNum === 10 ? i18n.t('banner_boss_titan')
-                   : i18n.t('banner_boss_dragon');
+    const BOSS_BANNER_KEY = {
+      5: 'banner_boss_ironclad', 10: 'banner_boss_titan', 15: 'banner_boss_dragon',
+      23: 'banner_boss_shadow_colossus', 28: 'banner_boss_solar_titan', 31: 'banner_boss_sun_god',
+    };
+    const bossName = i18n.t(BOSS_BANNER_KEY[waveNum] ?? 'banner_boss_dragon');
     banner.classList.add('boss-banner');
     banner.innerHTML = `
       ⚔️ ${i18n.t('banner_boss_act', actNum)} ⚔️
