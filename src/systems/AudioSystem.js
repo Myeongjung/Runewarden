@@ -370,6 +370,49 @@ export class AudioSystem {
         this._tone({ freq: f, type: 'sine', vol: 0.1, dur: 0.1, decay: 0.08, t0: t + i * 0.04 });
       });
     },
+
+    // ── 신규 SFX ─────────────────────────────────────────
+    /** 적 피격 (비치사) */
+    enemy_hit() {
+      this._noise({ vol: 0.25, dur: 0.04, attack: 0.001, decay: 0.035, filterFreq: 1800, filterQ: 2 });
+    },
+    /** 유물 획득 — C장조 아르페지오 */
+    relic_acquire() {
+      const ctx = this._ctx;
+      const masterGain = this._sfxGain ?? this._master;
+      const sfxVol = this._sfxVol;
+      const freqs = [523.25, 659.25, 783.99, 1046.50];
+      const t = ctx.currentTime;
+      freqs.forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const g = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        const start = t + i * 0.1;
+        g.gain.setValueAtTime(0, start);
+        g.gain.linearRampToValueAtTime(sfxVol * 0.28, start + 0.03);
+        g.gain.exponentialRampToValueAtTime(0.001, start + 0.22);
+        osc.connect(g); g.connect(masterGain);
+        osc.start(start); osc.stop(start + 0.25);
+      });
+    },
+    /** 카드 드로우 — 부드러운 상승 whoosh */
+    card_draw() {
+      const ctx = this._ctx;
+      const masterGain = this._sfxGain ?? this._master;
+      const sfxVol = this._sfxVol;
+      const t = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(300, t);
+      osc.frequency.linearRampToValueAtTime(650, t + 0.12);
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(sfxVol * 0.12, t + 0.04);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.14);
+      osc.connect(g); g.connect(masterGain);
+      osc.start(t); osc.stop(t + 0.15);
+    },
   };
 }
 

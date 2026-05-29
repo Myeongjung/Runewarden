@@ -368,7 +368,9 @@ function startRun() {
       augmentsApplied:       0,
       spellsThisWave:        0,
       maxSpellsInWave:       0,
+      totalSpellsCast:       0,
       towerTypesUsed:        new Set(),
+      fireDrakePlaced:       0,
     },
     _runStartTime: Date.now(),
   };
@@ -483,6 +485,7 @@ function startRun() {
 
   updateHUD();
   cardSystem.drawHand();
+  audio.play('card_draw');
   renderHand();
   setWaveButton(i18n.t('btn_start_wave'), false);
   log(`${warden.icon} ${i18n.t('log_run_start', warden.name)}`);
@@ -537,7 +540,7 @@ function _applyRelicPicked(relic) {
 
   const name = i18n.t('relic_' + relic.id);
   log(i18n.t('log_relic_picked', name), 'gold');
-  audio.play('shop_buy');
+  audio.play('relic_acquire');
 
   // 즉시 적용 효과
   const e = relic.effect;
@@ -977,6 +980,8 @@ function onWaveCleared() {
     steam?.unlockAchievement('PERFECT_WAVE');           // 넥서스 무피격 클리어
     if (state.wave === 1) steam?.unlockAchievement('FIRST_WAVE'); // Wave 1 무피격
   }
+  if (state.wave === 10) steam?.unlockAchievement('WAVE_10_CLEAR');
+  if (state.wave === 15) steam?.unlockAchievement('WAVE_15_CLEAR');
 
   showClearBanner(state.wave, false, isActEnd);
 
@@ -1249,6 +1254,7 @@ function _processCurseCards() {
 function onNodeClose() {
   state.phase = 'pre';
   cardSystem.drawHand();
+  audio.play('card_draw');
   _processCurseCards();
   renderHand();
   setWaveButton(i18n.t('btn_start_wave_n', state.wave + 1), false);
@@ -1508,6 +1514,35 @@ function endGame(victory) {
     if (runStats.nexusHpLeft >= 3)       steam?.unlockAchievement('PERFECT_RUN');
     if (runTimeMs < 20 * 60 * 1000)      steam?.unlockAchievement('SPEED_RUN');
     steam?.unlockAchievement('FIRST_WIN');
+
+    // ── Category A: 워든별 승리 ───────────────────────────
+    const wardenAchMap = { iron: 'IRON_WIN', storm: 'STORM_WIN', arcane: 'ARCANE_WIN', shadow: 'SHADOW_WIN' };
+    const wa = wardenAchMap[state.warden?.id];
+    if (wa) steam?.unlockAchievement(wa);
+
+    // ── Category B: 챌린지 클리어 ────────────────────────
+    if (state.challenges?.length) {
+      const ch = state.challenges;
+      if (ch.includes('archer_only'))     steam?.unlockAchievement('ACH_ARCHER_ONLY');
+      if (ch.includes('poverty'))         steam?.unlockAchievement('ACH_POVERTY_WIN');
+      if (ch.includes('perfect_defense')) steam?.unlockAchievement('ACH_PERFECT_DEFENSE');
+      if (ch.includes('silence'))         steam?.unlockAchievement('ACH_NO_SPELLS_WIN');
+      if (ch.includes('immutable'))       steam?.unlockAchievement('ACH_IMMUTABLE_WIN');
+      if (ch.length >= 3)                 steam?.unlockAchievement('ACH_TRIPLE_CURSE');
+    }
+
+    // ── Category C: 덱 시너지 ────────────────────────────
+    const used = state.stats?.towerTypesUsed;
+    if (used?.has('frost') && used?.has('glacial'))  steam?.unlockAchievement('ACH_FROST_MASTER');
+    if ((state.stats?.fireDrakePlaced ?? 0) >= 3)     steam?.unlockAchievement('ACH_FIRE_SWARM');
+    if (used?.has('druid'))                           steam?.unlockAchievement('ACH_DRUID_CORE');
+    if (used?.has('tesla') && (state.stats?.totalSpellsCast ?? 0) >= 10)
+      steam?.unlockAchievement('ACH_TESLA_CHAIN');
+    if ((state.stats?.totalSpellsCast ?? 0) >= 15)   steam?.unlockAchievement('ACH_SPELL_SLINGER');
+
+    // ── Category D: 전투 마일스톤 ─────────────────────────
+    if (state.nexusHp === 1)                          steam?.unlockAchievement('NEXUS_CRISIS');
+    if (state.difficulty?.id === 'veteran')           steam?.unlockAchievement('VETERAN_WIN');
   }
 
   const metaResult = {
@@ -1613,6 +1648,7 @@ function onCardClick(card) {
     _triggerSolarCharge({ ...card, cost });  // DLC 2: Solar Charge 충전 (원본 cost 전달)
     if (state?.stats) {
       state.stats.spellsThisWave++;
+      state.stats.totalSpellsCast++;
       state.stats.maxSpellsInWave = Math.max(
         state.stats.maxSpellsInWave, state.stats.spellsThisWave
       );
@@ -1688,6 +1724,7 @@ function onCellClick(col, row, cellEl) {
       if (t) t.investedGold = card.activeCost;
       audio.play('tower_place');
       state.stats.towerTypesUsed.add(tDef.id);
+      if (tDef.id === 'fire_drake') state.stats.fireDrakePlaced = (state.stats.fireDrakePlaced ?? 0) + 1;
       steam?.checkAllTowers(state.stats.towerTypesUsed);
       log(i18n.t('log_card_placed', tDef.name, col, row), 'good');
       tutorial?.triggerEvent('tower_placed');

@@ -1276,6 +1276,8 @@ export class EnemySystem {
       this.onEnemyKilled(e.reward, e.isSplitChild ?? false);
       return true;
     }
+    // 적이 살아있고 보스가 아닌 경우 피격음 (보스는 boss_hit으로 처리)
+    if (!e.isBoss) audio.play('enemy_hit');
     return false;
   }
 

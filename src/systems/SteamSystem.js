@@ -7,7 +7,7 @@
  * Steam 미실행 시 localStorage로 자동 폴백.
  */
 
-// ── 업적 정의 (20개) ──────────────────────────────────
+// ── 업적 정의 (40개) ──────────────────────────────────
 export const ACHIEVEMENTS = {
   // ── 첫 경험 ───────────────────────────────────────
   FIRST_RUN:       { id: 'FIRST_RUN',       name: 'The First Siege',      desc: 'Complete your first run.',                         icon: '🛡️' },
@@ -38,6 +38,34 @@ export const ACHIEVEMENTS = {
   PERFECT_RUN:     { id: 'PERFECT_RUN',     name: 'Flawless Warden',      desc: 'Win with all 3 Nexus HP remaining.',               icon: '💎' },
   SPEED_RUN:       { id: 'SPEED_RUN',       name: 'Swift Justice',        desc: 'Win a run in under 20 minutes.',                   icon: '⚡' },
   NEXUS_HEAL:      { id: 'NEXUS_HEAL',      name: 'Blessed Warden',       desc: 'Restore Nexus HP during a run.',                   icon: '💚' },
+
+  // ── 워든별 승리 ───────────────────────────────────
+  IRON_WIN:        { id: 'IRON_WIN',        name: 'Iron Resolve',         desc: 'Win a run as the Iron Warden.',                    icon: '🔩' },
+  STORM_WIN:       { id: 'STORM_WIN',       name: 'Storm Caller',         desc: 'Win a run as the Storm Warden.',                   icon: '⛈️' },
+  ARCANE_WIN:      { id: 'ARCANE_WIN',      name: 'Arcane Triumph',       desc: 'Win a run as the Arcane Warden.',                  icon: '🔯' },
+  SHADOW_WIN:      { id: 'SHADOW_WIN',      name: 'Shadow Sovereign',     desc: 'Win a run as the Shadow Warden.',                  icon: '🌑' },
+
+  // ── 챌린지 클리어 ─────────────────────────────────
+  ACH_ARCHER_ONLY:     { id: 'ACH_ARCHER_ONLY',     name: 'Arrow Rain',           desc: 'Win a run with the Archer Only challenge active.',         icon: '🏹' },
+  ACH_POVERTY_WIN:     { id: 'ACH_POVERTY_WIN',     name: 'Rags to Riches',       desc: 'Win a run with the Poverty challenge active.',             icon: '💸' },
+  ACH_PERFECT_DEFENSE: { id: 'ACH_PERFECT_DEFENSE', name: 'Perfect Defense',      desc: 'Win a run with the Perfect Defense challenge active.',     icon: '🛡️' },
+  ACH_NO_SPELLS_WIN:   { id: 'ACH_NO_SPELLS_WIN',   name: 'Silent Warden',        desc: 'Win a run with the Silence challenge active.',             icon: '🔇' },
+  ACH_IMMUTABLE_WIN:   { id: 'ACH_IMMUTABLE_WIN',   name: 'Immutable Force',      desc: 'Win a run with the Immutable challenge active.',           icon: '⛔' },
+  ACH_TRIPLE_CURSE:    { id: 'ACH_TRIPLE_CURSE',    name: 'Triple Threat',        desc: 'Win a run with 3 or more challenges active simultaneously.', icon: '⚠️' },
+
+  // ── 덱 시너지 ─────────────────────────────────────
+  ACH_FROST_MASTER:    { id: 'ACH_FROST_MASTER',    name: 'Frost Overlord',       desc: 'Win a run with both Frost and Glacial towers placed.',     icon: '❄️' },
+  ACH_FIRE_SWARM:      { id: 'ACH_FIRE_SWARM',      name: 'Inferno Swarm',        desc: 'Win a run with 3 or more Fire Drake towers placed.',       icon: '🔥' },
+  ACH_TESLA_CHAIN:     { id: 'ACH_TESLA_CHAIN',     name: 'Chain Lightning',      desc: 'Win a run with Tesla placed and 10+ spells cast.',         icon: '⚡' },
+  ACH_DRUID_CORE:      { id: 'ACH_DRUID_CORE',      name: 'Nature\'s Guardian',   desc: 'Win a run with a Druid tower placed.',                     icon: '🌿' },
+  ACH_SPELL_SLINGER:   { id: 'ACH_SPELL_SLINGER',   name: 'Spell Slinger',        desc: 'Cast 15 or more spells in a single run.',                  icon: '🔮' },
+
+  // ── 전투 마일스톤 ─────────────────────────────────
+  WAVE_10_CLEAR:   { id: 'WAVE_10_CLEAR',   name: 'Midpoint Defender',    desc: 'Clear Wave 10.',                                   icon: '🌊' },
+  WAVE_15_CLEAR:   { id: 'WAVE_15_CLEAR',   name: 'Final Stand',          desc: 'Clear Wave 15.',                                   icon: '🌊' },
+  KILL_5000:       { id: 'KILL_5000',       name: 'Warden of Annihilation', desc: 'Slay 5,000 enemies total.',                      icon: '💀' },
+  NEXUS_CRISIS:    { id: 'NEXUS_CRISIS',    name: 'Last Breath',          desc: 'Win a run with only 1 Nexus HP remaining.',        icon: '❤️' },
+  VETERAN_WIN:     { id: 'VETERAN_WIN',     name: 'Veteran\'s Triumph',   desc: 'Win a run on Veteran difficulty.',                 icon: '🎖️' },
 };
 
 // ── Steam 통계 정의 ─────────────────────────────────
@@ -223,6 +251,7 @@ export class SteamSystem {
   checkKillMilestone(totalKills) {
     if (totalKills >=   100) this.unlockAchievement('KILL_100');
     if (totalKills >= 1_000) this.unlockAchievement('KILL_1000');
+    if (totalKills >= 5_000) this.unlockAchievement('KILL_5000');
   }
 
   checkRankMilestone(rank) {
