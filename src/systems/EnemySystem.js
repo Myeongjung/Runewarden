@@ -519,7 +519,8 @@ export class EnemySystem {
     // 난이도 HP 스케일링: 보스도 bossHpScale 적용
     const hpScale  = def.isBoss ? (this._bossHpScale ?? 1) : (this._hpScale ?? 1.15);
     const eliteAdd = (def.isElite && !def.isBoss) ? (this._eliteBonus ?? 0) : 0;
-    const scaledHp = Math.round(def.hp * (hpScale * (1 + eliteAdd)));
+    const lateGameMult = def.isBoss ? 1 : 1 + Math.max(0, (this._waveIndex - 8) * 0.12);
+    const scaledHp = Math.round(def.hp * hpScale * (1 + eliteAdd) * lateGameMult);
 
     const enemy = {
       id, type,

@@ -47,7 +47,7 @@ const _BASE_KO = {
   shop_buy:           '✓ 구매',
   shop_after_wave:    (n) => `— 웨이브 ${n} 이후`,
   shop_sold:          '판매됨',
-  shop_not_enough_gold: '재진열할 골드가 부족합니다.',
+  shop_not_enough_gold: '리롤할 골드가 부족합니다.',
   shop_bought:        (name) => `구매: ${name} (덱+1)`,
   shop_rerolled:      (left) => `상점을 재진열했습니다. (${left}회 남음)`,
 
@@ -70,7 +70,7 @@ const _BASE_KO = {
   // ── 휴식 ────────────────────────────────────────────
   rest_title:     '워든의 휴식',
   rest_subtitle:  '덱에서 카드 1장을 제거하여 전략을 다듬으세요.',
-  rest_gold_bonus:'대신 골드 10을 받습니다',
+  rest_gold_bonus:'대신 골드 10을 획득합니다',
   rest_close:     '계속 →',
   rest_removed:   (name) => `${name}을(를) 덱에서 제거했습니다.`,
   rest_gold_taken:'골드 10을 받았습니다.',
@@ -91,6 +91,10 @@ const _BASE_KO = {
   ch_cat_card:             '🃏 카드 제한',
   ch_cat_economy:          '💰 경제 제한',
   ch_cat_run:              '⚔️ 런 조건',
+  challenge_cat_tower:     '🏰 타워 제한',
+  challenge_cat_card:      '🃏 카드 제한',
+  challenge_cat_economy:   '💰 경제 제한',
+  challenge_cat_run:       '⚔️ 런 조건',
 
   ch_archer_only_name: '궁수의 요새',
   ch_archer_only_desc: '궁수 계열 타워만 소환할 수 있습니다.',
@@ -168,8 +172,8 @@ const _BASE_KO = {
   log_run_start:    (warden) => `${warden} — 새 런을 시작합니다!`,
   log_wave_start:   (n, act)  => `웨이브 ${n} 시작! (Act ${act})`,
   log_wave_clear:   (n, gold) => `웨이브 ${n} 클리어! +${gold} 골드`,
-  log_boss_wave:    (name)    => { const BOSS_KO = { 'Ironclad': '아이언클래드', 'Void Titan': '보이드 타이탄', 'Abyssal Dragon': '심연의 드래곤', 'Shadow Colossus': '그림자 콜로서스', 'Sun God': '태양신' }; return `⚠️ 보스 웨이브! ${BOSS_KO[name] ?? name}이 다가옵니다!`; },
-  log_boss_weakness: (name, type) => { const BOSS_KO = { 'Ironclad': '아이언클래드', 'Void Titan': '보이드 타이탄', 'Abyssal Dragon': '심연의 드래곤', 'Shadow Colossus': '그림자 콜로서스', 'Sun God': '태양신' }; return `🔍 ${BOSS_KO[name] ?? name}의 이번 런 약점: ${type}! (+50% 피해)`; },
+  log_boss_wave:    (name)    => { const BOSS_KO = { 'Ironclad': '철갑 수호자', 'Void Titan': '공허의 거인', 'Abyssal Dragon': '심연의 용', 'Shadow Colossus': '그림자 거신', 'Sun God': '태양신' }; return `⚠️ 보스 웨이브! ${BOSS_KO[name] ?? name}이 다가옵니다!`; },
+  log_boss_weakness: (name, type) => { const BOSS_KO = { 'Ironclad': '철갑 수호자', 'Void Titan': '공허의 거인', 'Abyssal Dragon': '심연의 용', 'Shadow Colossus': '그림자 거신', 'Sun God': '태양신' }; return `🔍 ${BOSS_KO[name] ?? name}의 이번 런 약점: ${type}! (+50% 피해)`; },
   weakness_fire:      '🔥 화염',
   weakness_frost:     '❄️ 서리',
   weakness_lightning: '⚡ 번개',
@@ -337,7 +341,7 @@ const _BASE_KO = {
   passive_stalwart_desc:    '특수 효과 없음. 메타 보너스를 온전히 받는다.',
   passive_bloodlust_desc:   '적 처치 시 골드 +1 추가. (탱크 +1, 엘리트 +1, 보스 +5)',
   passive_arcane_flow_desc: '모든 주문 카드 코스트 -1 (최소 0). 웨이브 중 추가 비용도 1 감소.',
-  passive_grave_gold_desc:  '웨이브 시작 시, 손에 남은 카드 1장당 골드 +1을 획득합니다.',
+  passive_grave_gold_desc:  '웨이브 종료 시 버린 카드 1장당 골드 +1을 획득합니다.',
   passive_grave_gold_trigger: (n) => `무덤의 황금: 버린 카드 ${n}장 → +${n} 골드.`,
 
   // ── 노드 선택 (추가) ────────────────────────────────
@@ -428,7 +432,7 @@ const _BASE_KO = {
   log_extra_prep:         (s) => `다음 웨이브 준비 시간 +${s}초.`,
   log_card_removed_rand:  (name) => `덱에서 ${name}을(를) 제거했습니다.`,
   log_nothing:            '아무 일도 일어나지 않았습니다. 신중함이 지혜입니다.',
-  log_augmented:          (stat, mult) => { const STAT_KO = { damage: '피해', range: '사거리', attackSpeed: '공격속도' }; return `타워 강화: ${STAT_KO[stat] ?? stat} ×${mult}`; },
+  log_augmented:          (stat, mult) => { const STAT_KO = { damage: '공격력', range: '사거리', attackSpeed: '공격 속도', slow: '감속' }; return `타워 강화: ${STAT_KO[stat] ?? stat} ×${mult}`; },
 
   // ── 주문 로그 ────────────────────────────────────────
   spell_gold:             (n) => `+${n} 골드!`,
@@ -469,7 +473,7 @@ const _BASE_KO = {
   spell_grave_call:       (n) => `무덤의 호출! 버림 덱에서 카드 ${n}장 회수.`,
   spell_entropy:          (pct, total) => `엔트로피! 현재 HP의 ${pct}% 피해 — 총 ${total} 피해!`,
   spell_dark_matter:      (d) => `암흑 물질! 가장 강력한 적에게 ${d} 피해!`,
-  spell_void_echo:        (_type) => `허공의 메아리! 직전 주문을 다시 시전합니다.`,
+  spell_void_echo:        (_type) => `허공의 메아리! 직전 주문을 반복 시전합니다.`,
   spell_void_echo_empty:  '허공의 메아리: 아직 반복할 주문이 없습니다.',
   spell_sacrifice:        (n, g) => n > 0 ? `어둠의 희생! 카드 ${n}장 버림 → +${g} 골드.` : '어둠의 희생! 핸드가 비어 있습니다.',
   spell_no_discard:       '버림 덱이 비어 있습니다. 회수할 카드가 없습니다.',

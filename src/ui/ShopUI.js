@@ -298,7 +298,7 @@ export class ShopUI {
       const t      = towers[0];
       const count  = towers.length;
       const isMax  = t.starLevel >= 3;
-      const cost   = t.starLevel * 5;
+      const cost   = t.starLevel === 1 ? 5 : 12;
       const name   = i18n.lang === 'ko' ? (t.def.nameKo ?? t.def.name) : t.def.name;
       const starStr = '★'.repeat(t.starLevel);
 
@@ -307,7 +307,7 @@ export class ShopUI {
       const btn = document.createElement('button');
       btn.className = 'shop-upgrade-btn';
       btn.disabled  = isMax || this._gold < cost;
-      const nextMult = isMax ? '' : (t.starLevel === 1 ? ' ×1.5' : ' ×2.25');
+      const nextMult = isMax ? '' : (t.starLevel === 1 ? ' ×1.4' : ' ×1.6');
       btn.textContent = isMax
         ? i18n.t('shop_tower_max_star')
         : `${i18n.t('shop_tower_upgrade_btn', cost)}${nextMult}`;

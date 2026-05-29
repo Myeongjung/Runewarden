@@ -36,7 +36,7 @@ const _BASE_TOWER_DEFS = {
     icon: '❄️',
     color: '#2980B9',
     accentColor: '#ECF0F1',
-    damage: 9,
+    damage: 11,
     range: 3.8,
     attackSpeed: 1400,
     splash: 0,
@@ -84,7 +84,7 @@ const _BASE_TOWER_DEFS = {
     icon: '🌿',
     color: '#1A3A1A',
     accentColor: '#4CAF50',
-    damage: 12,  // 8 → 12 (버프: 지원 역할이지만 최소 DPS 보장)
+    damage: 15,  // 8 → 12 → 15 (버프: 지원 역할이지만 최소 DPS 보장)
     range: 5.0,
     attackSpeed: 1800,
     splash: 0,
@@ -103,7 +103,7 @@ const _BASE_TOWER_DEFS = {
     icon: '🧊',
     color: '#0A2A4A',
     accentColor: '#00BFFF',
-    damage: 12,
+    damage: 15,
     range: 5.5,           // 가장 긴 사거리
     attackSpeed: 1600,
     splash: 0,
@@ -133,7 +133,7 @@ const _BASE_TOWER_DEFS = {
     icon: '🌨️',
     color: '#0A1A3A',
     accentColor: '#87CEEB',
-    damage: 14,
+    damage: 17,
     range: 6.0,           // 최장 사거리
     attackSpeed: 2200,
     splash: 0,

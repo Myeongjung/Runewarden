@@ -222,7 +222,7 @@ export class TowerSystem {
     const t = this.towers.get(`${col},${row}`);
     if (!t || t.starLevel >= 3) return false;
     t.starLevel++;
-    t._starMult = 1.5 ** (t.starLevel - 1); // 2★: 1.5x, 3★: 2.25x
+    t._starMult = t.starLevel === 2 ? 1.4 : 2.24; // 2★: ×1.4, 3★: ×2.24
     return true;
   }
 

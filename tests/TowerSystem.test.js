@@ -228,12 +228,12 @@ describe('upgradeStar()', () => {
     const result1 = ts.upgradeStar(0, 0);
     expect(result1).toBe(true);
     expect(t.starLevel).toBe(2);
-    expect(t._starMult).toBeCloseTo(1.5);
+    expect(t._starMult).toBeCloseTo(1.4);
 
     const result2 = ts.upgradeStar(0, 0);
     expect(result2).toBe(true);
     expect(t.starLevel).toBe(3);
-    expect(t._starMult).toBeCloseTo(2.25);
+    expect(t._starMult).toBeCloseTo(2.24);
   });
 
   it('returns false and makes no changes when already at 3★', () => {
@@ -246,7 +246,7 @@ describe('upgradeStar()', () => {
     const result = ts.upgradeStar(0, 0);
     expect(result).toBe(false);
     expect(t.starLevel).toBe(3);
-    expect(t._starMult).toBeCloseTo(2.25);
+    expect(t._starMult).toBeCloseTo(2.24);
     expect(t.damage).toBeCloseTo(dmgBefore);
     expect(t.baseDamage).toBeCloseTo(baseDmgBefore);
   });
@@ -261,7 +261,7 @@ describe('upgradeStar()', () => {
     ts.upgradeStar(0, 0);
     // upgradeStar only changes _starMult — t.damage itself must be unchanged
     expect(t.damage).toBeCloseTo(dmgAfterRelic);
-    expect(t._starMult).toBeCloseTo(1.5);
+    expect(t._starMult).toBeCloseTo(1.4);
   });
 
   it('preserves augment damage bonus when upgrading star', () => {
@@ -272,7 +272,7 @@ describe('upgradeStar()', () => {
     ts.upgradeStar(0, 0);
     // upgradeStar only changes _starMult — t.damage itself must be unchanged
     expect(t.damage).toBeCloseTo(dmgAfterAugment);
-    expect(t._starMult).toBeCloseTo(1.5);
+    expect(t._starMult).toBeCloseTo(1.4);
   });
 });
 
