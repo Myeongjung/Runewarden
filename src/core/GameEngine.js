@@ -1833,13 +1833,19 @@ function updateSellPanel() {
   const starStr  = '★'.repeat(t.starLevel);
   const canUpg   = t.starLevel < 3;
   const upgCost  = t.starLevel * 5;
+  const reqLv    = t.starLevel === 1 ? 3 : 6; // 2★: Lv3+, 3★: Lv6+
   const canAffd  = state.gold >= upgCost;
+  const canUnlk  = (state.playerLevel ?? 1) >= reqLv;
+  const upgReady = canAffd && canUnlk;
+  const upgLabel = canUpg
+    ? (canUnlk ? `↑ ${upgCost}g (공격력+1.5배)` : `🔒 Lv${reqLv} 필요 (현재 Lv${state.playerLevel ?? 1})`)
+    : '';
   panel.classList.remove('hidden');
   panel.innerHTML = `
     <div class="sell-panel-header">${t.def.icon ?? '🏰'} ${tName} ${starStr}</div>
     <div class="sell-panel-aug">${t.augments.length > 0 ? `+${t.augments.length} ${i18n.t('tower_sell_aug')}` : ''}</div>
-    ${canUpg ? `<button id="btn-upgrade-tower" class="sell-panel-upgrade-btn"${canAffd ? '' : ' disabled'}>
-      ↑ ${upgCost}g (공격력+1.5배)
+    ${canUpg ? `<button id="btn-upgrade-tower" class="sell-panel-upgrade-btn"${upgReady ? '' : ' disabled'}>
+      ${upgLabel}
     </button>` : '<div class="sell-panel-max">★★★ MAX</div>'}
     <div class="sell-panel-value">${i18n.t('tower_sell_value', sellValue)}</div>
     <div class="sell-panel-btns">
@@ -1848,7 +1854,7 @@ function updateSellPanel() {
     </div>
   `;
   panel.querySelector('#btn-upgrade-tower')?.addEventListener('click', () => {
-    if (state.gold < upgCost || !towerSystem.upgradeStar(col, row)) return;
+    if (!canUnlk || state.gold < upgCost || !towerSystem.upgradeStar(col, row)) return;
     spendGold(upgCost);
     renderer.setTowerStar(col, row, t.starLevel);
     log(i18n.t('tower_star_upgraded', tName, t.starLevel), 'good');
