@@ -3124,3 +3124,22 @@ kbd {
   top: 50%;
   transform: translateY(-50%);
 }
+
+/* Sell panel upgrade button */
+.sell-panel-upgrade-btn {
+  display: block;
+  width: 100%;
+  margin: 4px 0 2px;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.72rem;
+  font-family: 'Cinzel', serif;
+  background: rgba(80,60,200,0.25);
+  border: 1px solid rgba(160,140,255,0.4);
+  border-radius: 4px;
+  color: #c8b8ff;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.sell-panel-upgrade-btn:hover:not(:disabled) { background: rgba(100,80,220,0.4); }
+.sell-panel-upgrade-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.sell-panel-max { font-size: 0.7rem; color: #FFD700; text-align: center; margin: 4px 0; }

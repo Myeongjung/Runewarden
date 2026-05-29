@@ -360,69 +360,10 @@ export class ShopUI {
   }
 
   _renderUpgrades() {
+    // 타워 업그레이드는 맵에서 타워 클릭으로 처리 — 상점 패널 비활성화
     const panel = this.container.querySelector('#shop-upgrade');
-    if (!panel) return;
-    panel.innerHTML = '';
-    if (!this._placedTowers?.length) { panel.style.display = 'none'; return; }
-    panel.style.display = '';
-
-    const title = document.createElement('div');
-    title.className = 'shop-upgrade-title';
-    title.textContent = i18n.t('shop_upgrade_tower');
-    panel.appendChild(title);
-
-    // 같은 종류+등급 타워를 묶어서 표시
-    const groupMap = new Map();
-    for (const t of this._placedTowers) {
-      const key = `${t.def.id}-${t.starLevel}`;
-      if (!groupMap.has(key)) groupMap.set(key, []);
-      groupMap.get(key).push(t);
-    }
-
-    for (const towers of groupMap.values()) {
-      const t      = towers[0];
-      const count  = towers.length;
-      const isMax  = t.starLevel >= 3;
-      const cost   = t.starLevel === 1 ? 5 : 12;
-      const name   = i18n.lang === 'ko' ? (t.def.nameKo ?? t.def.name) : t.def.name;
-      const starStr = '★'.repeat(t.starLevel);
-
-      const row = document.createElement('div');
-      row.className = 'shop-upgrade-row';
-      const btn = document.createElement('button');
-      btn.className = 'shop-upgrade-btn';
-      btn.disabled  = isMax || this._gold < cost;
-      const nextMult = isMax ? '' : (t.starLevel === 1 ? ' ×1.4' : ' ×1.6');
-      btn.textContent = isMax
-        ? i18n.t('shop_tower_max_star')
-        : i18n.t('shop_tower_upgrade_btn', cost);
-
-      const label = document.createElement('span');
-      label.className = 'shop-upgrade-name';
-      label.textContent = count > 1
-        ? `${name} ${starStr} ×${count}`
-        : `${name} ${starStr}`;
-
-      if (!isMax) {
-        btn.addEventListener('click', () => {
-          if (this.onUpgradeTower?.(t.col, t.row, cost)) {
-            t.starLevel++;
-            this._renderUpgrades();
-          }
-        });
-      }
-      // 호버 시 맵의 해당 타워 깜빡임
-      const _tgId = `tower-${t.col}-${t.row}`;
-      row.addEventListener('mouseenter', () => {
-        document.getElementById(_tgId)?.classList.add('tower-highlight');
-      });
-      row.addEventListener('mouseleave', () => {
-        document.getElementById(_tgId)?.classList.remove('tower-highlight');
-      });
-
-      row.appendChild(label);
-      row.appendChild(btn);
-      panel.appendChild(row);
-    }
+    if (panel) panel.style.display = 'none';
   }
+
 }
+
