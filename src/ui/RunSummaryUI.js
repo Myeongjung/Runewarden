@@ -1,6 +1,7 @@
 // 런 종료 요약 화면 — XP 바 애니메이션 + 언락 표시
 import { xpForLevel, MAX_RANK } from '../systems/MetaSystem.js';
 import { i18n } from '../i18n/i18n.js';
+import { getWaveHints } from '../data/waveHints.js';
 
 export class RunSummaryUI {
   constructor(container) {
@@ -118,6 +119,9 @@ export class RunSummaryUI {
         <!-- 최근 런 히스토리 -->
         ${this._buildRunHistory(meta.runHistory)}
 
+        <!-- 패배 도움말 -->
+        ${!isVictory ? this._buildHints(stats.wavesCleared) : ''}
+
         <!-- 버튼 -->
         <div class="summary-buttons">
           <div class="summary-btn-group">
@@ -129,6 +133,19 @@ export class RunSummaryUI {
         </div>
       </div>
     `;
+  }
+
+  _buildHints(waveNum) {
+    const hints = getWaveHints(waveNum);
+    if (!hints.length) return '';
+    const isKo = i18n.lang === 'ko';
+    const title = isKo ? `💡 웨이브 ${waveNum} 공략 도움말` : `💡 Wave ${waveNum} Tips`;
+    const items = hints.map(h => `
+      <div class="hint-item">
+        <span class="hint-icon">${h.icon}</span>
+        <span class="hint-text">${isKo ? h.ko : h.en}</span>
+      </div>`).join('');
+    return `<div class="summary-hints"><div class="summary-hints-title">${title}</div>${items}</div>`;
   }
 
   _buildRunHistory(history) {

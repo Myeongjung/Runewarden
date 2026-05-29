@@ -1856,6 +1856,32 @@ kbd {
   color: var(--text-dim);
   padding: 0.75rem 1.5rem 0.25rem;
 }
+.summary-hints {
+  margin: 0.75rem 1.5rem 0.5rem;
+  background: rgba(255, 200, 50, 0.06);
+  border: 1px solid rgba(255, 200, 50, 0.2);
+  border-radius: 8px;
+  padding: 0.6rem 0.8rem;
+}
+.summary-hints-title {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #f5c518;
+  letter-spacing: 0.03em;
+  margin-bottom: 0.4rem;
+  text-transform: uppercase;
+}
+.hint-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  padding: 0.25rem 0;
+  border-top: 1px solid rgba(255,255,255,0.04);
+}
+.hint-item:first-of-type { border-top: none; }
+.hint-icon { font-size: 0.85rem; flex-shrink: 0; line-height: 1.4; }
+.hint-text  { font-size: 0.72rem; color: var(--text-dim); line-height: 1.45; }
+
 .summary-buttons {
   display: flex;
   gap: 0.75rem;
