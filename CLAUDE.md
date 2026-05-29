@@ -94,3 +94,37 @@ window.__dev.endGame(true) // force victory
 window.__dev.metaReset()   // wipe all meta progression
 window.__dev.tutReset()    // reset tutorial flags
 ```
+
+## Multi-Agent Development Workflow
+
+### Automated hooks (configured in `.claude/settings.json`)
+
+| Trigger | Action |
+|---------|--------|
+| Edit/Write any `src/**/*.js` or `tests/**/*.js` | `npm test` auto-runs, results shown immediately |
+| `git push *` | `npm test` runs first; push is **blocked** if any test fails |
+
+### Parallel agent patterns
+
+독립적인 작업은 한 번의 요청으로 병렬 실행할 수 있습니다.
+
+**예시 1 — 버그 수정 + 테스트 동시 작성:**
+```
+"EnemySystem의 X 버그를 수정하는 에이전트와 해당 케이스의 테스트를 작성하는 에이전트를 병렬로 실행해줘"
+```
+
+**예시 2 — 다중 파일 리팩토링 분산:**
+```
+"cards.js와 towers.js 데이터 정합성 검증을 두 에이전트가 나눠서 병렬로 확인해줘"
+```
+
+**병렬 처리 가능한 작업 유형:**
+- 서로 다른 시스템 파일 수정 (EnemySystem ↔ TowerSystem은 독립적)
+- 테스트 작성 + 구현 동시 진행 (TDD)
+- 코드 리뷰 + 버그 수정 병렬 실행
+- 여러 DLC 파일의 i18n 키 추가
+
+**병렬 처리 불가 작업 (순서 의존성):**
+- GameEngine.js는 shared 상태를 통해 모든 시스템과 연결 — 단독 수정
+- `npm test` 결과를 보고 나서 다음 수정 진행
+- git commit → push 순서
